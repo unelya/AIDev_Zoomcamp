@@ -1,0 +1,80 @@
+{% extends "todos/base.html" %}
+
+{% block title %}{{ action }} TODO{% endblock %}
+
+{% block content %}
+    <h2>{{ action }} TODO</h2>
+
+    <form method="post" class="form-container">
+        {% csrf_token %}
+
+        <!-- Title -->
+        <div class="form-field">
+            <label for="{{ form.title.id_for_label }}">Title</label>
+            {{ form.title }}
+            {% if form.title.errors %}
+                <div class="form-error">
+                    {{ form.title.errors.0 }}
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Description -->
+        <div class="form-field">
+            <label for="{{ form.description.id_for_label }}">Description</label>
+            {{ form.description }}
+        </div>
+
+        <!-- Due date -->
+        <div class="form-field">
+            <label for="{{ form.due_date.id_for_label }}">Due date</label>
+            {{ form.due_date }}
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="margin-top: 12px;">
+            {{ action }}
+        </button>
+        <a href="{% url 'todo_list' %}" class="btn btn-secondary" style="margin-top: 12px;">
+            Cancel
+        </a>
+    </form>
+
+    <style>
+        .form-container {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            margin-top: 12px;
+        }
+
+        .form-field {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .form-field label {
+            font-size: 14px;
+            color: #374151;
+        }
+
+        .form-field input,
+        .form-field textarea {
+            padding: 8px 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            background: #f9fafb;
+        }
+
+        .form-field textarea {
+            min-height: 80px;
+        }
+
+        .form-error {
+            margin-top: 4px;
+            font-size: 12px;
+            color: #b91c1c;
+        }
+    </style>
+{% endblock %}
