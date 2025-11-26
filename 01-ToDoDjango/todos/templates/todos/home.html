@@ -1,0 +1,69 @@
+{% extends "todos/base.html" %}
+
+{% block title %}Home | TODO App{% endblock %}
+
+{% block content %}
+    <p>Welcome to your TODO app.</p>
+
+    <p>
+        <a href="{% url 'todo_create' %}" class="btn btn-primary">
+            Add new TODO
+        </a>
+    </p>
+
+    {% if todos %}
+        <ul class="todo-list">
+        {% for todo in todos %}
+            <li class="todo-item">
+                <div class="todo-main">
+                    {% if todo.is_completed %}
+                        <span class="todo-title completed">
+                            <s>{{ todo.title }}</s>
+                        </span>
+                    {% else %}
+                        <span class="todo-title">
+                            {{ todo.title }}
+                        </span>
+                    {% endif %}
+
+                    <span class="todo-meta">
+                        {% if todo.due_date %}
+                            due {{ todo.due_date }}
+                        {% else %}
+                            no due date
+                        {% endif %}
+                        {% if todo.is_completed %}
+                            · completed
+                        {% else %}
+                            · open
+                        {% endif %}
+                    </span>
+                </div>
+
+                <div class="todo-actions">
+                    <a href="{% url 'todo_toggle_complete' todo.pk %}"
+                       class="btn btn-secondary btn-small btn-toggle">
+                        {% if todo.is_completed %}
+                            Mark as not done
+                        {% else %}
+                            Mark as done
+                        {% endif %}
+                    </a>
+
+                    <a href="{% url 'todo_edit' todo.pk %}"
+                       class="btn btn-secondary btn-small">
+                        Edit
+                    </a>
+
+                    <a href="{% url 'todo_delete' todo.pk %}"
+                       class="btn btn-danger btn-small">
+                        Delete
+                    </a>
+                </div>
+            </li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p class="todo-empty">No TODOs yet.</p>
+    {% endif %}
+{% endblock %}
