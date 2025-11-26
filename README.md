@@ -1,8 +1,5 @@
 # AIDev_Zoomcamp
 
-Homework for AIDev_Zoomcamp
-
-
 Homeworks:
 
 01-ToDoDjango - A simple To-Do application built with Django framework and a 'Yulia-gull' background.
