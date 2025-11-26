@@ -1,11 +1,11 @@
-# Unelya_AIZoomCamp
+# AIDev_Zoomcamp
 
-Homework for AI Zoom Camp
+Homework for AIDev_Zoomcamp
 
 
 Homeworks:
 
-1) ToDoDjango - A simple To-Do application built with Django framework and a 'Yulia-gull' background.
+01-ToDoDjango - A simple To-Do application built with Django framework and a 'Yulia-gull' background.
 It supports:
 - Creating TODO items  
 - Editing TODO items  
@@ -15,4 +15,3 @@ It supports:
 - A basic UI layout and CSS styling  
 - Full automated tests
 
-2) 
