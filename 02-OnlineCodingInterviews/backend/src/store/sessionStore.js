@@ -1,4 +1,4 @@
-const { v4: uuid } = require('uuid');
+const { randomUUID } = require('crypto');
 
 const LANGUAGE_SCAFFOLDS = {
   javascript: `function solution(input) {
@@ -27,7 +27,7 @@ class SessionStore {
   }
 
   createSession(language = 'javascript') {
-    const id = uuid().split('-')[0];
+    const id = randomUUID().split('-')[0];
     const code = LANGUAGE_SCAFFOLDS[language] || LANGUAGE_SCAFFOLDS.javascript;
     const session = {
       id,
@@ -60,6 +60,10 @@ class SessionStore {
 
   listSessions() {
     return Array.from(this.sessions.values());
+  }
+
+  reset() {
+    this.sessions.clear();
   }
 }
 

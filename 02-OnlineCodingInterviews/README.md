@@ -17,34 +17,50 @@ End-to-end platform for running collaborative coding interviews with live sharin
 
 ## Getting Started
 
-### 1. Backend
+### Backend (`02-OnlineCodingInterviews/backend`)
 
 ```bash
 cd backend
-npm install
-npm run dev
+npm install              # first run only
+PORT=4000 CLIENT_URL=http://localhost:5173 npm run dev
 ```
 
 Environment variables:
 
-- `PORT` – defaults to `4000`.
-- `CLIENT_URL` – public origin used when generating share links (defaults to `http://localhost:5173`).
+- `PORT` – HTTP port (default `4000`).
+- `CLIENT_URL` – origin used when generating shareable links.
 
-### 2. Frontend
+### Frontend (`02-OnlineCodingInterviews/frontend`)
 
 ```bash
 cd frontend
-cp .env.example .env.local   # optional, adjust API URLs if needed
-npm install
-npm run dev
+cp .env.example .env.local   # optional
+npm install                  # first run only
+npm run dev                  # serves at http://localhost:5173
 ```
 
-Key env vars:
+The `.env` file lets you customize:
 
 - `VITE_API_BASE_URL` – REST base URL (default `http://localhost:4000`).
-- `VITE_SOCKET_URL` – Socket.IO server URL (default `http://localhost:4000`).
+- `VITE_SOCKET_URL` – Socket.IO endpoint (default `http://localhost:4000`).
 
-Visit `http://localhost:5173` to create or join a session.
+Visit `http://localhost:5173`, create a session, and open the link in another tab/window to simulate multiple participants.
+
+### Production build
+
+Frontend: `npm run build` (outputs to `frontend/dist`).  
+Backend: `npm run start` (after setting `PORT`/`CLIENT_URL`).
+
+## Testing
+
+Integration tests live in `backend/tests` and spin up the Express + Socket.IO stack, issue REST calls with Supertest, and exchange real-time events with `socket.io-client`.
+
+```bash
+cd backend
+npm test
+```
+
+The suite asserts that session creation works end-to-end and that collaborative editor updates propagate between two simulated participants.
 
 ## How It Works
 
