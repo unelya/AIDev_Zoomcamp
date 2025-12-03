@@ -5,7 +5,6 @@ import { io } from 'socket.io-client';
 import { SOCKET_URL } from '../config';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { useMonacoSetup } from '../editor/useMonacoSetup';
-import { usePythonDiagnostics } from '../editor/usePythonDiagnostics';
 import { fetchSession } from '../services/sessionService';
 import { runCode } from '../utils/runCode';
 
@@ -37,7 +36,6 @@ const SessionPage = () => {
   const editorRef = useRef(null);
   const debounceRef = useRef(null);
   const cursorListenerRef = useRef(null);
-  usePythonDiagnostics(editorRef, language, code);
 
   const navigate = useNavigate();
 

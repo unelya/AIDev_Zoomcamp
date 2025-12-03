@@ -15,5 +15,8 @@
   "license": "ISC",
   "devDependencies": {
     "concurrently": "^9.2.1"
+  },
+  "dependencies": {
+    "monaco-editor-webpack-plugin": "^7.1.1"
   }
 }
