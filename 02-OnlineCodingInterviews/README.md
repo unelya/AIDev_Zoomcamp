@@ -63,6 +63,17 @@ npm run dev          # starts backend and frontend concurrently
 
 Logs from the two processes will be interleaved in the same terminal.
 
+### Docker
+
+Build and run both services inside a single container:
+
+```bash
+docker build -t oci .
+docker run --rm -p 4000:4000 -p 5173:5173 oci
+```
+
+This runs the backend on `4000` and the Vite dev server on `5173` via `npm run dev`.
+
 ### Production build
 
 Frontend: `npm run build` (outputs to `frontend/dist`).  
