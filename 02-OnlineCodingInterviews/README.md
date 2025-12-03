@@ -65,14 +65,22 @@ Logs from the two processes will be interleaved in the same terminal.
 
 ### Docker
 
-Build and run both services inside a single container:
+Build a production image that serves the compiled frontend from Express:
 
 ```bash
 docker build -t oci .
-docker run --rm -p 4000:4000 -p 5173:5173 oci
+docker run --rm -p 4000:4000 -e CLIENT_URL=http://localhost:4000 oci
 ```
 
-This runs the backend on `4000` and the Vite dev server on `5173` via `npm run dev`.
+Open `http://localhost:4000` to use the app (API + sockets share the same origin). `CLIENT_URL` ensures share links point to the correct host; set it to your public URL in hosted environments.
+
+### Deploying on Render
+
+1. Push this repo (with the Dockerfile) to GitHub/GitLab.  
+2. In Render, create a new **Web Service** and choose the Docker environment.  
+3. Point it at your repo/branch; no extra build/start commands are needed (the Dockerfile handles everything).  
+4. Add an environment variable `CLIENT_URL=https://<your-service>.onrender.com`. Render automatically provides `PORT`, so the server listens on that value.  
+5. Deploy. Render will build the frontend, serve it from Express, and expose a single HTTPS endpoint.
 
 ### Production build
 

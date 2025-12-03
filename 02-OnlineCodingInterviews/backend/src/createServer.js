@@ -1,5 +1,7 @@
 const express = require('express');
 const http = require('http');
+const path = require('path');
+const fs = require('fs');
 const cors = require('cors');
 const { Server } = require('socket.io');
 const sessionStore = require('./store/sessionStore');
@@ -31,6 +33,20 @@ const createServer = ({ clientUrl = DEFAULT_CLIENT_URL, corsOrigin = '*', logger
     }
     return res.json(session);
   });
+
+  const staticDir = path.join(__dirname, '..', 'public');
+  const staticIndex = path.join(staticDir, 'index.html');
+  const shouldServeFrontend = fs.existsSync(staticIndex);
+
+  if (shouldServeFrontend) {
+    app.use(express.static(staticDir));
+    app.use((req, res, next) => {
+      if (req.path.startsWith('/api') || req.path.startsWith('/socket.io') || req.method !== 'GET') {
+        return next();
+      }
+      return res.sendFile(staticIndex);
+    });
+  }
 
   const server = http.createServer(app);
   const io = new Server(server, {
