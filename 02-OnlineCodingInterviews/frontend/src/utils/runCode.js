@@ -1,4 +1,4 @@
-import { ensureSkulpt } from './skulptLoader';
+import { ensurePyodide } from './pyodideLoader';
 
 const EXECUTION_TIMEOUT_MS = 4000;
 
@@ -57,28 +57,50 @@ const transpileTypeScript = async (code) => {
 };
 
 const runPython = async (code) => {
-  const Sk = await ensureSkulpt();
-  let output = '';
-  const builtinRead = (filename) => {
-    const path = `src/lib/${filename}`;
-    if (Sk.builtinFiles === undefined || Sk.builtinFiles.files[path] === undefined) {
-      throw new Error(`File not found: ${filename}`);
-    }
-    return Sk.builtinFiles.files[path];
-  };
-
-  Sk.configure({
-    output: (text) => {
-      output += text;
-    },
-    read: builtinRead,
-  });
-
   try {
-    await Sk.misceval.asyncToPromise(() => Sk.importMainWithBody('<stdin>', false, code, true));
-    return { output: output || 'Execution completed with no output' };
+    const pyodide = await ensurePyodide();
+    await pyodide.loadPackagesFromImports(code);
+    pyodide.globals.set('__oci_code__', code);
+
+    let result;
+    try {
+      result = await pyodide.runPythonAsync(`
+import sys, io, traceback
+stdout_buffer = io.StringIO()
+stderr_buffer = io.StringIO()
+_stdout, _stderr = sys.stdout, sys.stderr
+sys.stdout = stdout_buffer
+sys.stderr = stderr_buffer
+error_text = ""
+try:
+    exec(__oci_code__, {"__name__": "__main__"})
+except Exception:
+    error_text = traceback.format_exc()
+finally:
+    sys.stdout = _stdout
+    sys.stderr = _stderr
+{"stdout": stdout_buffer.getvalue(), "stderr": stderr_buffer.getvalue(), "error": error_text}
+`);
+    } finally {
+      pyodide.globals.delete('__oci_code__');
+    }
+
+    const normalized = result.toJs({ create_proxies: false });
+    result.destroy?.();
+
+    const stdoutText = normalized.stdout || '';
+    const stderrText = normalized.stderr || '';
+    const errorText = (normalized.error || '').trim();
+
+    return {
+      output: stdoutText || (!errorText && !stderrText ? 'Execution completed with no output' : stdoutText),
+      error: errorText || stderrText,
+    };
   } catch (error) {
-    return { output, error: error.toString() };
+    return {
+      output: '',
+      error: error?.message || 'Python runtime is unavailable right now.',
+    };
   }
 };
 

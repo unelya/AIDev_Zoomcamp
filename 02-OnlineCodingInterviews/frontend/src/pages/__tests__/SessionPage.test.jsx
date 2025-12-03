@@ -48,36 +48,6 @@ vi.mock('socket.io-client', () => ({
   default: (...args) => ioMock(...args),
 }));
 
-const mockEnsureSkulpt = vi.fn(() =>
-  Promise.resolve({
-    builtinFiles: {
-      files: new Proxy(
-        {},
-        {
-          get: () => '',
-        },
-      ),
-    },
-    compile: vi.fn(),
-    importMainWithBody: vi.fn(() => {}),
-    misceval: {
-      asyncToPromise: (fn) => {
-        try {
-          return Promise.resolve(fn());
-        } catch (error) {
-          return Promise.reject(error);
-        }
-      },
-    },
-    configure: vi.fn(),
-    execLimit: 0,
-  }),
-);
-
-vi.mock('../../utils/skulptLoader', () => ({
-  ensureSkulpt: (...args) => mockEnsureSkulpt(...args),
-}));
-
 const mockLanguages = [];
 const monacoStub = {
   languages: {

@@ -14,6 +14,12 @@ const LANGUAGE_OPTIONS = [
   { value: 'python', label: 'Python', monaco: 'python' },
 ];
 
+const RUNTIME_HINTS = {
+  javascript: 'Runs in a browser Web Worker sandbox (no server calls).',
+  typescript: 'Transpiles locally to JS, then runs in the browser Web Worker.',
+  python: 'Runs in-browser through Pyodide (WASM) with no server execution.',
+};
+
 const SessionPage = () => {
   const { sessionId } = useParams();
   useMonacoSetup();
@@ -308,6 +314,7 @@ const SessionPage = () => {
           </section>
           <section>
             <h3>Execution console</h3>
+            <p className="muted">Runtime: {RUNTIME_HINTS[language]}</p>
             {recentRunAuthor && <p className="muted">{recentRunAuthor}</p>}
             <pre className="console-output">{output || 'No output yet'}</pre>
             {executionError && <p className="error">{executionError}</p>}

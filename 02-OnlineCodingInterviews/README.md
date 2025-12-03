@@ -7,12 +7,12 @@ End-to-end platform for running collaborative coding interviews with live sharin
 - Create shareable sessions from the dashboard and invite candidates with a single link.
 - Real-time collaborative editing powered by Socket.IO with per-user presence and cursor tracking.
 - Monaco-based editor with syntax highlighting for JavaScript, TypeScript, and Python.
-- Safe in-browser execution using a sandboxed web worker (JS/TS) and the Skulpt interpreter (Python).
+- Safe in-browser execution using sandboxed Web Workers (JS/TS) and Pyodide (Python running entirely in WASM).
 - Participant list, live run results, and copy-to-clipboard helpers for invites.
 
 ## Tech Stack
 
-- **Frontend:** React (Vite), @monaco-editor/react, Socket.IO client, Skulpt, TypeScript transpilation for execution.
+- **Frontend:** React (Vite), @monaco-editor/react, Socket.IO client, Pyodide, TypeScript transpilation for execution.
 - **Backend:** Node.js, Express, Socket.IO. Sessions are stored in-memory for simplicity.
 
 ## Getting Started
@@ -45,6 +45,12 @@ The `.env` file lets you customize:
 - `VITE_SOCKET_URL` – Socket.IO endpoint (default `http://localhost:4000`).
 
 Visit `http://localhost:5173`, create a session, and open the link in another tab/window to simulate multiple participants.
+
+#### Verifying local runtimes
+
+- The Execution console now displays which runtime is used (e.g., “Runs in-browser through Pyodide (WASM)” for Python).  
+- Stop the backend process after loading the page and run Python again—the code still executes locally, proving it never touches the server.  
+- In DevTools → Network, you should only see the one-time Pyodide download; subsequent runs generate no REST calls.
 
 ### Run everything together
 
@@ -80,7 +86,7 @@ npm run test:frontend
 
 1. **Session creation:** Backend issues a short session id and returns a shareable URL. Sessions live in memory until the server restarts.
 2. **Collaboration:** Clients connect over Socket.IO, receive the current document snapshot, and broadcast editor/language/cursor changes.
-3. **Execution:** Code runs entirely in the browser. JavaScript and TypeScript run inside an isolated web worker. Python runs through Skulpt with the bundled stdlib. Results are pushed to other participants via sockets for shared visibility.
+3. **Execution:** Code runs entirely in the browser. JavaScript and TypeScript run inside an isolated web worker. Python runs through Pyodide (WebAssembly). Results are pushed to other participants via sockets for shared visibility.
 
 ## Notes & Next Steps
 
