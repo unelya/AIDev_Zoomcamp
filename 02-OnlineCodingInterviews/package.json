@@ -1,0 +1,19 @@
+{
+  "name": "02-onlinecodinginterviews",
+  "version": "1.0.0",
+  "description": "End-to-end platform for running collaborative coding interviews with live sharing, syntax highlighting, and in-browser execution.",
+  "scripts": {
+    "dev:server": "npm --prefix backend run dev",
+    "dev:client": "npm --prefix frontend run dev",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "test": "npm --prefix backend test && npm --prefix frontend test",
+    "test:backend": "npm --prefix backend test",
+    "test:frontend": "npm --prefix frontend test"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { SOCKET_URL } from '../config';
 import { useLocalStorage } from '../hooks/useLocalStorage';
+import { useMonacoSetup } from '../editor/useMonacoSetup';
 import { fetchSession } from '../services/sessionService';
 import { runCode } from '../utils/runCode';
 
@@ -15,6 +16,7 @@ const LANGUAGE_OPTIONS = [
 
 const SessionPage = () => {
   const { sessionId } = useParams();
+  useMonacoSetup();
   const [code, setCode] = useState('');
   const [language, setLanguage] = useState('javascript');
   const [participants, setParticipants] = useState({});

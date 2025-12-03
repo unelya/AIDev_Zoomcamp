@@ -46,6 +46,17 @@ The `.env` file lets you customize:
 
 Visit `http://localhost:5173`, create a session, and open the link in another tab/window to simulate multiple participants.
 
+### Run everything together
+
+From `02-OnlineCodingInterviews/` you can boot both services at once:
+
+```bash
+npm install          # first run only (installs the root orchestrator deps)
+npm run dev          # starts backend and frontend concurrently
+```
+
+Logs from the two processes will be interleaved in the same terminal.
+
 ### Production build
 
 Frontend: `npm run build` (outputs to `frontend/dist`).  
@@ -56,15 +67,13 @@ Backend: `npm run start` (after setting `PORT`/`CLIENT_URL`).
 Backend integration tests spin up the Express + Socket.IO stack, issue REST calls with Supertest, and exchange real-time events with `socket.io-client`.
 
 ```bash
-cd backend
-npm test
+npm run test:backend
 ```
 
 Frontend tests (Vitest + Testing Library) exercise the React screens, mocking Monaco and sockets to ensure session creation UI works and that the session view emits/receives collaborative events correctly.
 
 ```bash
-cd frontend
-npm test
+npm run test:frontend
 ```
 
 ## How It Works
