@@ -53,14 +53,19 @@ Backend: `npm run start` (after setting `PORT`/`CLIENT_URL`).
 
 ## Testing
 
-Integration tests live in `backend/tests` and spin up the Express + Socket.IO stack, issue REST calls with Supertest, and exchange real-time events with `socket.io-client`.
+Backend integration tests spin up the Express + Socket.IO stack, issue REST calls with Supertest, and exchange real-time events with `socket.io-client`.
 
 ```bash
 cd backend
 npm test
 ```
 
-The suite asserts that session creation works end-to-end and that collaborative editor updates propagate between two simulated participants.
+Frontend tests (Vitest + Testing Library) exercise the React screens, mocking Monaco and sockets to ensure session creation UI works and that the session view emits/receives collaborative events correctly.
+
+```bash
+cd frontend
+npm test
+```
 
 ## How It Works
 
