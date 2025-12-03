@@ -1,16 +1,6 @@
+import { ensureSkulpt } from './skulptLoader';
+
 const EXECUTION_TIMEOUT_MS = 4000;
-
-let skulptLoader;
-
-const ensureSkulpt = async () => {
-  if (!skulptLoader) {
-    skulptLoader = Promise.all([
-      import('skulpt/dist/skulpt.min.js'),
-      import('skulpt/dist/skulpt-stdlib.js'),
-    ]).then(() => window.Sk);
-  }
-  return skulptLoader;
-};
 
 const runJavaScriptInWorker = (code) =>
   new Promise((resolve) => {

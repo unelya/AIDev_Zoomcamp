@@ -48,6 +48,56 @@ vi.mock('socket.io-client', () => ({
   default: (...args) => ioMock(...args),
 }));
 
+const mockEnsureSkulpt = vi.fn(() =>
+  Promise.resolve({
+    builtinFiles: {
+      files: new Proxy(
+        {},
+        {
+          get: () => '',
+        },
+      ),
+    },
+    compile: vi.fn(),
+    importMainWithBody: vi.fn(() => {}),
+    misceval: {
+      asyncToPromise: (fn) => {
+        try {
+          return Promise.resolve(fn());
+        } catch (error) {
+          return Promise.reject(error);
+        }
+      },
+    },
+    configure: vi.fn(),
+    execLimit: 0,
+  }),
+);
+
+vi.mock('../../utils/skulptLoader', () => ({
+  ensureSkulpt: (...args) => mockEnsureSkulpt(...args),
+}));
+
+const mockLanguages = [];
+const monacoStub = {
+  languages: {
+    getLanguages: () => mockLanguages,
+    register: ({ id }) => {
+      if (!mockLanguages.some((lang) => lang.id === id)) {
+        mockLanguages.push({ id });
+      }
+    },
+    setLanguageConfiguration: vi.fn(),
+    setMonarchTokensProvider: vi.fn(),
+  },
+  editor: {
+    setModelMarkers: vi.fn(),
+  },
+  MarkerSeverity: {
+    Error: 8,
+  },
+};
+
 vi.mock('@monaco-editor/react', () => {
   const React = require('react');
   const { useEffect } = React;
@@ -56,6 +106,9 @@ vi.mock('@monaco-editor/react', () => {
       useEffect(() => {
         onMount?.({
           onDidChangeCursorPosition: () => ({ dispose: vi.fn() }),
+          getModel: () => ({
+            uri: { toString: () => 'mock' },
+          }),
         });
       }, [onMount]);
       return React.createElement('textarea', {
@@ -63,6 +116,9 @@ vi.mock('@monaco-editor/react', () => {
         value,
         onChange: (event) => onChange?.(event.target.value),
       });
+    },
+    loader: {
+      init: vi.fn(() => Promise.resolve(monacoStub)),
     },
   };
 });
