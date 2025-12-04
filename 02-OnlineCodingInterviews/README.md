@@ -112,3 +112,5 @@ npm run test:frontend
 - The in-memory store keeps things simple for demos. Swap in Redis/Postgres for persistence and horizontal scalability.
 - Authentication/authorization is intentionally light. Layer in auth if you need interviewer-only actions (e.g., ending a session).
 - Code execution currently supports JS/TS/Python. Additional languages can be added by plugging in another WASM/interpreter runtime.
+
+## Deployed at https://onlinecodinginterviews.onrender.com.
