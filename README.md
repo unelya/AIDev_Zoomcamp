@@ -19,5 +19,4 @@ It is able to do the following:
 • Show real-time updates to all connected users
 • Support syntax highlighting for multiple languages
 • Execute code safely in the browser
-
 Deployed via Render at https://onlinecodinginterviews.onrender.com.
