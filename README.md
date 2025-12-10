@@ -2,7 +2,6 @@
 
 Homeworks:
 
-
 01-ToDoDjango - A simple To-Do application built with Django framework and a 'Yulia-gull' background.
 It supports:
 • Creating TODO items  
