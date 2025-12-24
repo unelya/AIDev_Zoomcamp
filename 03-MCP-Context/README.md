@@ -4,6 +4,7 @@ This project exposes an MCP server (via `fastmcp`) with a tool that downloads an
 
 ### Tools
 - `fetch_page_markdown(url: str) -> str`: Validates `http(s)` URLs, prefixes with `https://r.jina.ai/`, fetches via `requests`, and returns the Markdown text.
+- `search_docs(query: str, k: int = 5) -> list[dict]`: Indexes markdown/mdx files inside local `*.zip` archives (first path component stripped) and returns the top `k` matches using `minsearch`.
 
 ### Setup
 ```bash
