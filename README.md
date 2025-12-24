@@ -21,3 +21,11 @@ It is able to do the following:
 • Support syntax highlighting for multiple languages
 • Execute code safely in the browser
 Deployed via Render at https://onlinecodinginterviews.onrender.com.
+
+03-MCP-Context – FastMCP server with Jina reader + zip-backed doc search.
+It supports:
+• Fetching any web page as Markdown via Jina reader (fetch_page_markdown)
+• Searching .md/.mdx docs inside local zip archives with minsearch (search_docs)
+• Automatic path cleanup (drops the top-level folder in zip entries)
+• Reusing a cached index for fast repeated searches
+• Stdio client snippet for quick terminal use
