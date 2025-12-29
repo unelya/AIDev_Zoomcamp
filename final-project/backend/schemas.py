@@ -59,3 +59,14 @@ class ConflictOut(BaseModel):
     new_payload: str
     status: str
     resolution_note: str | None = None
+
+
+class UserOut(BaseModel):
+    id: int
+    username: str
+    full_name: str
+    role: str
+
+
+class UserUpdate(BaseModel):
+    role: str
