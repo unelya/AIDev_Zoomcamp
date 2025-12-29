@@ -14,11 +14,16 @@ export interface WorkCard {
   id: string;
   title: string;
   subtitle: string;
+  statusLabel?: string;
+  statusTone?: StatusTone;
   well: string;
   horizon: string;
   storage?: string;
   plannedDate?: string;
   sampleDate?: string;
+  dueDate?: string;
+  assignee?: string;
+  progressNote?: string;
   tags: string[];
   statusHistory: StatusHistoryEntry[];
   details: {

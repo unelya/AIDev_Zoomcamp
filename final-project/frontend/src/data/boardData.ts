@@ -18,9 +18,14 @@ export const boardDataByRole: Record<Role, Column[]> = {
           id: "S-1842",
           title: "Sample S-1842",
           subtitle: "Well 101 · shift delivery",
+          statusLabel: "New",
+          statusTone: "new",
           well: "101",
           horizon: "AV1",
           sampleDate: "2024-12-02",
+          dueDate: "2024-12-03",
+          assignee: "Warehouse",
+          progressNote: "Intake form pending",
           storage: "Rack B · Bin 2",
           tags: ["needs labeling", "priority"],
           statusHistory: [
@@ -46,9 +51,14 @@ export const boardDataByRole: Record<Role, Column[]> = {
           id: "S-1850",
           title: "Sample S-1850",
           subtitle: "Well 114 · courier intake",
+          statusLabel: "New",
+          statusTone: "new",
           well: "114",
           horizon: "BV3",
           sampleDate: "2024-12-05",
+          dueDate: "2024-12-05",
+          assignee: "Warehouse",
+          progressNote: "Seal verified",
           storage: "Cold room · Shelf 1",
           tags: ["paperwork ok"],
           statusHistory: [
@@ -81,10 +91,14 @@ export const boardDataByRole: Record<Role, Column[]> = {
           id: "S-1803",
           title: "Sample S-1803",
           subtitle: "Well 88 · long-term storage",
+          statusLabel: "In storage",
+          statusTone: "progress",
           well: "88",
           horizon: "JS2",
           sampleDate: "2024-11-18",
           storage: "Rack A · Bin 4",
+          assignee: "Warehouse",
+          progressNote: "Ready for lab pickup",
           tags: ["stable"],
           statusHistory: [
             {
@@ -116,10 +130,14 @@ export const boardDataByRole: Record<Role, Column[]> = {
           id: "S-1799",
           title: "Sample S-1799",
           subtitle: "Well 72 · urgent analysis",
+          statusLabel: "Ready",
+          statusTone: "review",
           well: "72",
           horizon: "CH1",
           sampleDate: "2024-11-10",
           storage: "Dispatch counter",
+          assignee: "Lab pickup",
+          progressNote: "Lab ETA 10:00",
           tags: ["urgent", "lab request"],
           statusHistory: [
             {
@@ -159,9 +177,14 @@ export const boardDataByRole: Record<Role, Column[]> = {
           id: "PA-2201",
           title: "Viscosity · Sample S-1803",
           subtitle: "Awaiting operator assignment",
+          statusLabel: "Planned",
+          statusTone: "new",
           well: "88",
           horizon: "JS2",
           plannedDate: "2024-12-08",
+          dueDate: "2024-12-08",
+          assignee: "Unassigned",
+          progressNote: "Operator needed",
           tags: ["viscosity", "operator needed"],
           statusHistory: [
             {
@@ -192,9 +215,14 @@ export const boardDataByRole: Record<Role, Column[]> = {
           id: "PA-2192",
           title: "SARA · Sample S-1799",
           subtitle: "Running on SARA-03",
+          statusLabel: "In progress",
+          statusTone: "progress",
           well: "72",
           horizon: "CH1",
           plannedDate: "2024-12-07",
+          dueDate: "2024-12-07",
+          assignee: "Nina Petrova",
+          progressNote: "Fractionation running",
           tags: ["SARA", "QC hold"],
           statusHistory: [
             {
@@ -230,9 +258,14 @@ export const boardDataByRole: Record<Role, Column[]> = {
           id: "PA-2188",
           title: "Mass Spec · Sample S-1755",
           subtitle: "QC review for parsed data",
+          statusLabel: "QC / Review",
+          statusTone: "review",
           well: "64",
           horizon: "AV2",
           plannedDate: "2024-12-04",
+          dueDate: "2024-12-04",
+          assignee: "QA lead",
+          progressNote: "Calibration check",
           tags: ["mass spec", "qc"],
           statusHistory: [
             {
@@ -268,9 +301,14 @@ export const boardDataByRole: Record<Role, Column[]> = {
           id: "PA-2170",
           title: "NMR · Sample S-1701",
           subtitle: "Result issued",
+          statusLabel: "Completed",
+          statusTone: "done",
           well: "41",
           horizon: "JS1",
           plannedDate: "2024-11-28",
+          dueDate: "2024-11-28",
+          assignee: "Ilya",
+          progressNote: "Report uploaded",
           tags: ["NMR", "report ready"],
           statusHistory: [
             {
@@ -302,8 +340,13 @@ export const boardDataByRole: Record<Role, Column[]> = {
           id: "ACT-310",
           title: "Acid treatment plan",
           subtitle: "Well 114 · design review",
+          statusLabel: "Scheduled",
+          statusTone: "new",
           well: "114",
           horizon: "BV3",
+          dueDate: "2024-12-12",
+          assignee: "Supervisor",
+          progressNote: "Field slot pending",
           tags: ["design"],
           statusHistory: [
             {
@@ -332,8 +375,13 @@ export const boardDataByRole: Record<Role, Column[]> = {
           id: "ACT-299",
           title: "Water shutoff",
           subtitle: "Well 72 · day 2 monitoring",
+          statusLabel: "Monitoring",
+          statusTone: "progress",
           well: "72",
           horizon: "CH1",
+          dueDate: "TBD",
+          assignee: "Supervisor",
+          progressNote: "Pressure stabilization",
           tags: ["monitoring"],
           statusHistory: [
             {
@@ -370,8 +418,12 @@ export const boardDataByRole: Record<Role, Column[]> = {
           id: "ACT-288",
           title: "Flow stimulation conflict",
           subtitle: "Well 41 vs 45 overlap",
+          statusLabel: "Conflict",
+          statusTone: "review",
           well: "41",
           horizon: "JS1",
+          assignee: "Planner",
+          progressNote: "Needs manual resolution",
           tags: ["conflict", "needs review"],
           statusHistory: [
             {
@@ -401,8 +453,12 @@ export const boardDataByRole: Record<Role, Column[]> = {
           id: "ACT-270",
           title: "Chemical EOR pilot",
           subtitle: "Well 101 · results logged",
+          statusLabel: "Verified",
+          statusTone: "done",
           well: "101",
           horizon: "AV1",
+          assignee: "Admin",
+          progressNote: "Audit logged",
           tags: ["closed"],
           statusHistory: [
             {

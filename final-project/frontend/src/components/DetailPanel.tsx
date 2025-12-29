@@ -23,7 +23,7 @@ export function DetailPanel({ card, onClose }: DetailPanelProps) {
       />
       <aside
         className={cn(
-          "absolute right-0 top-0 h-full w-full max-w-md transform bg-white shadow-2xl transition duration-300",
+          "absolute right-0 top-0 h-full w-full max-w-md transform bg-sidebar shadow-2xl transition duration-300",
           card ? "translate-x-0" : "translate-x-full",
         )}
       >
@@ -49,9 +49,12 @@ export function DetailPanel({ card, onClose }: DetailPanelProps) {
               {card.sampleDate && <InfoPill label="Sample date" value={card.sampleDate} />}
               {card.plannedDate && <InfoPill label="Planned date" value={card.plannedDate} />}
               {card.storage && <InfoPill label="Storage" value={card.storage} />}
+              {card.assignee && <InfoPill label="Assignee" value={card.assignee} />}
+              {card.dueDate && <InfoPill label="Due date" value={card.dueDate} />}
+              {card.statusLabel && <InfoPill label="Status" value={card.statusLabel} />}
             </div>
 
-            <div className="rounded-xl border border-border/70 bg-muted/40 p-4">
+            <div className="rounded-xl border border-border/70 bg-muted/10 p-4">
               <p className="text-xs font-semibold uppercase text-muted-foreground">Metadata</p>
               <ul className="mt-3 space-y-2 text-sm text-foreground">
                 {card.details.map((detail) => (
@@ -63,7 +66,7 @@ export function DetailPanel({ card, onClose }: DetailPanelProps) {
               </ul>
             </div>
 
-            <div className="rounded-xl border border-border/70 bg-card/80 p-4">
+            <div className="rounded-xl border border-border/70 bg-card/60 p-4">
               <p className="text-xs font-semibold uppercase text-muted-foreground">Status history</p>
               <div className="mt-3 space-y-3">
                 {card.statusHistory.map((entry) => (
