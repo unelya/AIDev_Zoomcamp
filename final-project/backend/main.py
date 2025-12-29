@@ -1,8 +1,17 @@
-from fastapi import FastAPI, HTTPException
+import os
+
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from .database import Base, engine, get_db
+from .models import SampleModel, SampleStatus
 
 app = FastAPI(title="LabSync backend", version="0.1.0")
+
+Base.metadata.create_all(bind=engine)
 
 app.add_middleware(
     CORSMiddleware,
@@ -76,44 +85,64 @@ class Sample(BaseModel):
   storage_location: str | None = None
 
 
-SAMPLE_STORE: dict[str, Sample] = {
-  "SMP-2024-0142": Sample(sample_id="SMP-2024-0142", well_id="101", horizon="AV1", sampling_date="2024-12-28", status="new", storage_location="Rack A · Bin 2"),
-  "SMP-2024-0143": Sample(sample_id="SMP-2024-0143", well_id="114", horizon="BV3", sampling_date="2024-12-27", status="new", storage_location="Cold room · Shelf 1"),
-  "SMP-2024-0138": Sample(sample_id="SMP-2024-0138", well_id="72", horizon="CH1", sampling_date="2024-12-25", status="progress", storage_location="Dispatch counter"),
-  "SMP-2024-0135": Sample(sample_id="SMP-2024-0135", well_id="88", horizon="JS2", sampling_date="2024-12-24", status="review", storage_location="Rack B · Bin 4"),
-  "SMP-2024-0130": Sample(sample_id="SMP-2024-0130", well_id="64", horizon="AV2", sampling_date="2024-12-20", status="done", storage_location="Rack C · Bin 1"),
-}
-
-
 @app.get("/samples")
-async def list_samples(status: str | None = None):
-  items = list(SAMPLE_STORE.values())
+async def list_samples(status: str | None = None, db: Session = Depends(get_db)):
+  stmt = select(SampleModel)
   if status:
-    items = [s for s in items if s.status == status]
-  return items
+    stmt = stmt.where(SampleModel.status == SampleStatus(status))
+  rows = db.execute(stmt).scalars().all()
+  return [to_sample_out(r) for r in rows]
 
 
 @app.get("/samples/{sample_id}")
-async def get_sample(sample_id: str):
-  sample = SAMPLE_STORE.get(sample_id)
-  if not sample:
+async def get_sample(sample_id: str, db: Session = Depends(get_db)):
+  row = db.get(SampleModel, sample_id)
+  if not row:
     raise HTTPException(status_code=404, detail="Sample not found")
-  return sample
+  return to_sample_out(row)
 
 
 @app.post("/samples", status_code=201)
-async def create_sample(sample: Sample):
-  if sample.sample_id in SAMPLE_STORE:
+async def create_sample(sample: Sample, db: Session = Depends(get_db)):
+  existing = db.get(SampleModel, sample.sample_id)
+  if existing:
     raise HTTPException(status_code=400, detail="Sample exists")
-  SAMPLE_STORE[sample.sample_id] = sample
-  return sample
+  row = SampleModel(
+    sample_id=sample.sample_id,
+    well_id=sample.well_id,
+    horizon=sample.horizon,
+    sampling_date=sample.sampling_date,
+    status=SampleStatus(sample.status),
+    storage_location=sample.storage_location,
+  )
+  db.add(row)
+  db.commit()
+  db.refresh(row)
+  return to_sample_out(row)
 
 
 @app.patch("/samples/{sample_id}")
-async def update_sample(sample_id: str, payload: dict):
-  existing = SAMPLE_STORE.get(sample_id)
-  if not existing:
+async def update_sample(sample_id: str, payload: dict, db: Session = Depends(get_db)):
+  row = db.get(SampleModel, sample_id)
+  if not row:
     raise HTTPException(status_code=404, detail="Sample not found")
-  updated = existing.model_copy(update=payload)
-  SAMPLE_STORE[sample_id] = updated
-  return updated
+  for key, value in payload.items():
+    if key == "status":
+      setattr(row, key, SampleStatus(value))
+    elif hasattr(row, key):
+      setattr(row, key, value)
+  db.add(row)
+  db.commit()
+  db.refresh(row)
+  return to_sample_out(row)
+
+
+def to_sample_out(row: SampleModel):
+  return Sample(
+    sample_id=row.sample_id,
+    well_id=row.well_id,
+    horizon=row.horizon,
+    sampling_date=row.sampling_date,
+    status=row.status.value,
+    storage_location=row.storage_location,
+  )
