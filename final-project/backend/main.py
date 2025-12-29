@@ -9,16 +9,19 @@ from sqlalchemy.orm import Session
 # Support running as a module or script
 try:
   from .database import Base, engine, get_db
-  from .models import ActionBatchModel, ActionBatchStatus, ConflictModel, ConflictStatus, SampleModel, SampleStatus, PlannedAnalysisModel, AnalysisStatus
-  from .schemas import ActionBatchCreate, ActionBatchOut, ConflictCreate, ConflictOut, ConflictUpdate, PlannedAnalysisCreate, PlannedAnalysisOut, PlannedAnalysisUpdate
+  from .models import ActionBatchModel, ActionBatchStatus, ConflictModel, ConflictStatus, SampleModel, SampleStatus, PlannedAnalysisModel, AnalysisStatus, UserModel
+  from .schemas import ActionBatchCreate, ActionBatchOut, ConflictCreate, ConflictOut, ConflictUpdate, PlannedAnalysisCreate, PlannedAnalysisOut, PlannedAnalysisUpdate, UserOut, UserUpdate
+  from .seed import seed_users
 except ImportError:  # pragma: no cover - fallback for script execution
   from database import Base, engine, get_db  # type: ignore
-  from models import ActionBatchModel, ActionBatchStatus, ConflictModel, ConflictStatus, SampleModel, SampleStatus, PlannedAnalysisModel, AnalysisStatus  # type: ignore
-  from schemas import ActionBatchCreate, ActionBatchOut, ConflictCreate, ConflictOut, ConflictUpdate, PlannedAnalysisCreate, PlannedAnalysisOut, PlannedAnalysisUpdate  # type: ignore
+  from models import ActionBatchModel, ActionBatchStatus, ConflictModel, ConflictStatus, SampleModel, SampleStatus, PlannedAnalysisModel, AnalysisStatus, UserModel  # type: ignore
+  from schemas import ActionBatchCreate, ActionBatchOut, ConflictCreate, ConflictOut, ConflictUpdate, PlannedAnalysisCreate, PlannedAnalysisOut, PlannedAnalysisUpdate, UserOut, UserUpdate  # type: ignore
+  from seed import seed_users  # type: ignore
 
 app = FastAPI(title="LabSync backend", version="0.1.0")
 
 Base.metadata.create_all(bind=engine)
+seed_users()
 
 app.add_middleware(
     CORSMiddleware,
@@ -267,3 +270,21 @@ def to_conflict_out(row: ConflictModel):
     "status": row.status.value,
     "resolution_note": row.resolution_note,
   }
+
+
+@app.get("/admin/users", response_model=list[UserOut])
+async def list_users(db: Session = Depends(get_db)):
+  rows = db.execute(select(UserModel)).scalars().all()
+  return [UserOut(id=r.id, username=r.username, full_name=r.full_name, role=r.role) for r in rows]
+
+
+@app.patch("/admin/users/{user_id}", response_model=UserOut)
+async def update_user_role(user_id: int, payload: UserUpdate, db: Session = Depends(get_db)):
+  row = db.get(UserModel, user_id)
+  if not row:
+    raise HTTPException(status_code=404, detail="User not found")
+  row.role = payload.role
+  db.add(row)
+  db.commit()
+  db.refresh(row)
+  return UserOut(id=row.id, username=row.username, full_name=row.full_name, role=row.role)
