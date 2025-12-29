@@ -1,0 +1,45 @@
+import { Bell, Search } from 'lucide-react';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Input } from '@/components/ui/input';
+
+export function TopBar() {
+  return (
+    <header className="h-14 border-b border-border bg-card flex items-center justify-between px-6">
+      <div className="flex items-center gap-8">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded bg-primary flex items-center justify-center">
+            <span className="text-primary-foreground font-mono font-bold text-sm">LS</span>
+          </div>
+          <span className="font-semibold text-foreground tracking-tight">LabSync</span>
+        </div>
+        
+        <div className="relative w-80">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input 
+            placeholder="Search samples, analyses, or IDs..." 
+            className="pl-9 bg-muted border-border/50 h-9 text-sm placeholder:text-muted-foreground/60"
+          />
+        </div>
+      </div>
+      
+      <div className="flex items-center gap-4">
+        <button className="relative p-2 rounded-md hover:bg-muted transition-colors">
+          <Bell className="h-5 w-5 text-muted-foreground" />
+          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-accent rounded-full" />
+        </button>
+        
+        <div className="flex items-center gap-3">
+          <div className="text-right">
+            <p className="text-sm font-medium text-foreground">Dr. Sarah Chen</p>
+            <p className="text-xs text-muted-foreground">Lab Director</p>
+          </div>
+          <Avatar className="h-9 w-9 border border-border">
+            <AvatarFallback className="bg-secondary text-secondary-foreground text-sm font-medium">
+              SC
+            </AvatarFallback>
+          </Avatar>
+        </div>
+      </div>
+    </header>
+  );
+}
