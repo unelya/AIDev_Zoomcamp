@@ -38,7 +38,7 @@ export function KanbanBoard({ role }: { role: Role }) {
       try {
         const [remoteSamples, remoteAnalyses] = await Promise.all([fetchSamples(), fetchPlannedAnalyses()]);
         setCards(remoteSamples);
-        setPlannedAnalyses(remoteAnalyses);
+        setPlannedAnalyses(remoteAnalyses.map(mapApiAnalysis));
       } catch {
         setCards(getMockCards());
       } finally {
@@ -110,7 +110,7 @@ export function KanbanBoard({ role }: { role: Role }) {
     try {
       const [remoteSamples, remoteAnalyses] = await Promise.all([fetchSamples(), fetchPlannedAnalyses()]);
       setCards(remoteSamples);
-      setPlannedAnalyses(remoteAnalyses);
+      setPlannedAnalyses(remoteAnalyses.map(mapApiAnalysis));
     } finally {
       setLoading(false);
     }
@@ -201,8 +201,35 @@ export function KanbanBoard({ role }: { role: Role }) {
         card={selectedCard}
         isOpen={isPanelOpen}
         onClose={handleClosePanel}
-        onPlanAnalysis={role === 'lab_operator' && selectedCard ? handlePlanAnalysis(selectedCard.sampleId) : undefined}
+        onPlanAnalysis={selectedCard && selectedCard.analysisType === 'Sample' ? handlePlanAnalysis(selectedCard.sampleId) : undefined}
       />
     </div>
   );
+}
+
+function toKanbanStatus(status: string): KanbanCard['status'] {
+  switch (status) {
+    case 'in_progress':
+      return 'progress';
+    case 'review':
+    case 'failed':
+      return 'review';
+    case 'completed':
+      return 'done';
+    default:
+      return 'new';
+  }
+}
+
+function toAnalysisStatus(status: KanbanCard['status']): PlannedAnalysisCard['status'] {
+  switch (status) {
+    case 'progress':
+      return 'in_progress';
+    case 'review':
+      return 'review';
+    case 'done':
+      return 'completed';
+    default:
+      return 'planned';
+  }
 }
