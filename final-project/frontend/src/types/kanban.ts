@@ -44,3 +44,5 @@ export interface KanbanColumn {
   title: string;
   cards: KanbanCard[];
 }
+
+export type Role = 'warehouse_worker' | 'lab_operator' | 'action_supervision' | 'admin';

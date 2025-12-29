@@ -3,13 +3,20 @@ import { Filter, SlidersHorizontal } from 'lucide-react';
 import { KanbanColumn } from './KanbanColumn';
 import { DetailPanel } from './DetailPanel';
 import { getColumnData, getMockCards } from '@/data/mockData';
-import { KanbanCard, NewCardPayload } from '@/types/kanban';
+import { KanbanCard, NewCardPayload, Role } from '@/types/kanban';
 import { Button } from '@/components/ui/button';
 import { NewCardDialog } from './NewCardDialog';
 
 const STORAGE_KEY = 'labsync-kanban-cards';
 
-export function KanbanBoard() {
+const roleCopy: Record<Role, string> = {
+  warehouse_worker: 'Warehouse view: samples and storage',
+  lab_operator: 'Lab view: planned analyses',
+  action_supervision: 'Action supervision view',
+  admin: 'Admin view',
+};
+
+export function KanbanBoard({ role }: { role: Role }) {
   const [cards, setCards] = useState<KanbanCard[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
@@ -86,7 +93,9 @@ export function KanbanBoard() {
       {/* Board Header */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-border">
         <div>
-          <h1 className="text-xl font-semibold text-foreground">Sample Tracking Board</h1>
+          <h1 className="text-xl font-semibold text-foreground">
+            {roleCopy[role]} • Sample Tracking Board
+          </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             {totalSamples} samples across {columns.length} stages
           </p>

@@ -1,8 +1,22 @@
 import { Bell, Search } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
+import { Role } from '@/types/kanban';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-export function TopBar() {
+const roleOptions: { id: Role; label: string }[] = [
+  { id: 'warehouse_worker', label: 'Warehouse' },
+  { id: 'lab_operator', label: 'Lab Operator' },
+  { id: 'action_supervision', label: 'Action Supervision' },
+  { id: 'admin', label: 'Admin' },
+];
+
+interface TopBarProps {
+  role: Role;
+  onRoleChange: (role: Role) => void;
+}
+
+export function TopBar({ role, onRoleChange }: TopBarProps) {
   return (
     <header className="h-14 border-b border-border bg-card flex items-center justify-between px-6">
       <div className="flex items-center gap-8">
@@ -23,6 +37,18 @@ export function TopBar() {
       </div>
       
       <div className="flex items-center gap-4">
+        <Select value={role} onValueChange={(val) => onRoleChange(val as Role)}>
+          <SelectTrigger className="w-48 h-9 text-sm bg-muted border-border/50">
+            <SelectValue placeholder="Role" />
+          </SelectTrigger>
+          <SelectContent>
+            {roleOptions.map((opt) => (
+              <SelectItem key={opt.id} value={opt.id}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <button className="relative p-2 rounded-md hover:bg-muted transition-colors">
           <Bell className="h-5 w-5 text-muted-foreground" />
           <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-accent rounded-full" />
