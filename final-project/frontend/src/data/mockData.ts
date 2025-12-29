@@ -1,168 +1,143 @@
-import { KanbanCard, KanbanColumn } from '@/types/kanban';
+import { KanbanCard, KanbanColumn, PlannedAnalysis, Sample, Status } from '@/types/kanban';
 
-export const mockCards: KanbanCard[] = [
+export const samples: Sample[] = [
   {
-    id: '1',
-    title: 'Blood Sample Analysis',
     sampleId: 'SMP-2024-0142',
-    status: 'new',
-    category: 'Hematology',
-    type: 'Routine',
-    createdAt: '2024-12-28',
-    dueDate: '2024-12-30',
-    priority: 'high',
-    analyses: [
-      { id: 'a1', label: 'CBC Panel', checked: false },
-      { id: 'a2', label: 'Lipid Profile', checked: false },
-      { id: 'a3', label: 'Metabolic Panel', checked: false },
-    ],
-    tags: ['urgent', 'clinical'],
-    assignee: 'Dr. Chen',
+    wellId: '101',
+    horizon: 'AV1',
+    samplingDate: '2024-12-28',
+    status: 'received',
+    storageLocation: 'Rack A · Bin 2',
   },
   {
-    id: '2',
-    title: 'Water Quality Test',
     sampleId: 'SMP-2024-0143',
-    status: 'new',
-    category: 'Environmental',
-    type: 'Compliance',
-    createdAt: '2024-12-27',
-    priority: 'medium',
-    analyses: [
-      { id: 'a4', label: 'pH Analysis', checked: false },
-      { id: 'a5', label: 'Heavy Metals', checked: false },
-      { id: 'a6', label: 'Microbiological', checked: false },
-      { id: 'a7', label: 'Chemical Oxygen', checked: false },
-    ],
-    tags: ['regulatory'],
+    wellId: '114',
+    horizon: 'BV3',
+    samplingDate: '2024-12-27',
+    status: 'stored',
+    storageLocation: 'Cold room · Shelf 1',
   },
   {
-    id: '3',
-    title: 'Polymer Characterization',
     sampleId: 'SMP-2024-0138',
-    status: 'progress',
-    category: 'Materials',
-    type: 'R&D',
-    createdAt: '2024-12-25',
-    dueDate: '2024-12-31',
-    priority: 'medium',
-    analyses: [
-      { id: 'a8', label: 'FTIR Spectroscopy', checked: true },
-      { id: 'a9', label: 'DSC Analysis', checked: true },
-      { id: 'a10', label: 'TGA Analysis', checked: false },
-      { id: 'a11', label: 'Molecular Weight', checked: false },
-    ],
-    tags: ['development'],
-    assignee: 'Dr. Martinez',
+    wellId: '72',
+    horizon: 'CH1',
+    samplingDate: '2024-12-25',
+    status: 'received',
+    storageLocation: 'Dispatch counter',
   },
   {
-    id: '4',
-    title: 'Soil Contamination Study',
     sampleId: 'SMP-2024-0135',
-    status: 'progress',
-    category: 'Environmental',
-    type: 'Investigation',
-    createdAt: '2024-12-24',
-    priority: 'high',
-    analyses: [
-      { id: 'a12', label: 'Heavy Metals', checked: true },
-      { id: 'a13', label: 'VOC Analysis', checked: false },
-      { id: 'a14', label: 'SVOC Analysis', checked: false },
-    ],
-    tags: ['field-study', 'priority'],
-    assignee: 'Dr. Patel',
+    wellId: '88',
+    horizon: 'JS2',
+    samplingDate: '2024-12-24',
+    status: 'stored',
+    storageLocation: 'Rack B · Bin 4',
   },
   {
-    id: '5',
-    title: 'Pharmaceutical Stability',
     sampleId: 'SMP-2024-0130',
-    status: 'review',
-    category: 'Pharma',
-    type: 'Stability',
-    createdAt: '2024-12-20',
-    dueDate: '2024-12-29',
-    priority: 'critical',
-    analyses: [
-      { id: 'a15', label: 'HPLC Assay', checked: true },
-      { id: 'a16', label: 'Dissolution', checked: true },
-      { id: 'a17', label: 'Impurity Profile', checked: true },
-      { id: 'a18', label: 'Microbial Limits', checked: false },
-    ],
-    tags: ['gmp', 'batch-release'],
-    assignee: 'Dr. Kim',
+    wellId: '64',
+    horizon: 'AV2',
+    samplingDate: '2024-12-20',
+    status: 'stored',
+    storageLocation: 'Rack C · Bin 1',
   },
   {
-    id: '6',
-    title: 'Alloy Composition',
-    sampleId: 'SMP-2024-0128',
-    status: 'review',
-    category: 'Metallurgy',
-    type: 'QC',
-    createdAt: '2024-12-19',
-    priority: 'medium',
-    analyses: [
-      { id: 'a19', label: 'XRF Analysis', checked: true },
-      { id: 'a20', label: 'Hardness Test', checked: true },
-      { id: 'a21', label: 'Microstructure', checked: true },
-    ],
-    tags: ['quality'],
-    assignee: 'Dr. Johnson',
-  },
-  {
-    id: '7',
-    title: 'Food Contaminant Screen',
-    sampleId: 'SMP-2024-0115',
-    status: 'done',
-    category: 'Food Safety',
-    type: 'Compliance',
-    createdAt: '2024-12-15',
-    priority: 'high',
-    analyses: [
-      { id: 'a22', label: 'Pesticide Residue', checked: true },
-      { id: 'a23', label: 'Mycotoxins', checked: true },
-      { id: 'a24', label: 'Heavy Metals', checked: true },
-      { id: 'a25', label: 'Microbiological', checked: true },
-    ],
-    tags: ['certified', 'export'],
-    assignee: 'Dr. Lee',
-  },
-  {
-    id: '8',
-    title: 'Textile Fiber Analysis',
     sampleId: 'SMP-2024-0112',
-    status: 'done',
-    category: 'Materials',
-    type: 'QC',
-    createdAt: '2024-12-14',
-    priority: 'low',
-    analyses: [
-      { id: 'a26', label: 'Fiber Identification', checked: true },
-      { id: 'a27', label: 'Tensile Strength', checked: true },
-    ],
-    tags: ['routine'],
-    assignee: 'Dr. Williams',
+    wellId: '41',
+    horizon: 'JS1',
+    samplingDate: '2024-12-14',
+    status: 'dispatched',
+    storageLocation: 'Lab bench',
   },
 ];
 
-export const getColumnData = (): KanbanColumn[] => [
+export const plannedAnalyses: PlannedAnalysis[] = [
   {
-    id: 'new',
-    title: 'New',
-    cards: mockCards.filter(c => c.status === 'new'),
+    id: 'PA-2201',
+    sampleId: 'SMP-2024-0142',
+    analysisType: 'Viscosity',
+    status: 'planned',
+    assignedTo: 'Warehouse',
   },
   {
-    id: 'progress',
-    title: 'In Progress',
-    cards: mockCards.filter(c => c.status === 'progress'),
+    id: 'PA-2199',
+    sampleId: 'SMP-2024-0143',
+    analysisType: 'SARA',
+    status: 'planned',
+    assignedTo: 'Unassigned',
   },
   {
-    id: 'review',
-    title: 'Review',
-    cards: mockCards.filter(c => c.status === 'review'),
+    id: 'PA-2192',
+    sampleId: 'SMP-2024-0138',
+    analysisType: 'SARA',
+    status: 'in_progress',
+    assignedTo: 'Operator Nina',
   },
   {
-    id: 'done',
-    title: 'Done',
-    cards: mockCards.filter(c => c.status === 'done'),
+    id: 'PA-2188',
+    sampleId: 'SMP-2024-0135',
+    analysisType: 'Mass Spectrometry',
+    status: 'review',
+    assignedTo: 'QA Lead',
+  },
+  {
+    id: 'PA-2170',
+    sampleId: 'SMP-2024-0130',
+    analysisType: 'NMR',
+    status: 'completed',
+    assignedTo: 'Operator Ilya',
+  },
+  {
+    id: 'PA-2165',
+    sampleId: 'SMP-2024-0112',
+    analysisType: 'FTIR',
+    status: 'failed',
+    assignedTo: 'Operator Max',
   },
 ];
+
+const statusMap: Record<PlannedAnalysis['status'], { column: Status; label: string }> = {
+  planned: { column: 'new', label: 'Planned' },
+  in_progress: { column: 'progress', label: 'In Progress' },
+  review: { column: 'review', label: 'Review' },
+  completed: { column: 'done', label: 'Completed' },
+  failed: { column: 'review', label: 'Failed' },
+};
+
+export const getColumnData = (): KanbanColumn[] => {
+  const cards: KanbanCard[] = plannedAnalyses.map((analysis) => {
+    const sample = samples.find((s) => s.sampleId === analysis.sampleId);
+    const mappedStatus = statusMap[analysis.status];
+
+    return {
+      id: analysis.id,
+      status: mappedStatus.column,
+      statusLabel: mappedStatus.label,
+      analysisStatus: analysis.status,
+      analysisType: analysis.analysisType,
+      assignedTo: analysis.assignedTo,
+      sampleId: analysis.sampleId,
+      wellId: sample?.wellId ?? '—',
+      horizon: sample?.horizon ?? '—',
+      samplingDate: sample?.samplingDate ?? '—',
+      storageLocation: sample?.storageLocation ?? '—',
+      sampleStatus: sample?.status ?? 'received',
+    };
+  });
+
+  const columns: KanbanColumn[] = [
+    { id: 'new', title: 'Planned', cards: [] },
+    { id: 'progress', title: 'In Progress', cards: [] },
+    { id: 'review', title: 'Review / Failed', cards: [] },
+    { id: 'done', title: 'Completed', cards: [] },
+  ];
+
+  cards.forEach((card) => {
+    const column = columns.find((col) => col.id === card.status);
+    if (column) {
+      column.cards.push(card);
+    }
+  });
+
+  return columns;
+};

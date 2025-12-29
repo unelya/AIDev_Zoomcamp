@@ -3,6 +3,7 @@ import { Status } from '@/types/kanban';
 
 interface StatusBadgeProps {
   status: Status;
+  label?: string;
   className?: string;
 }
 
@@ -13,12 +14,12 @@ const statusConfig: Record<Status, { label: string; className: string }> = {
   done: { label: 'Done', className: 'status-done' },
 };
 
-export function StatusBadge({ status, className }: StatusBadgeProps) {
+export function StatusBadge({ status, label, className }: StatusBadgeProps) {
   const config = statusConfig[status];
   
   return (
     <span className={cn('status-badge', config.className, className)}>
-      {config.label}
+      {label ?? config.label}
     </span>
   );
 }

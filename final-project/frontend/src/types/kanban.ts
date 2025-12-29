@@ -1,25 +1,35 @@
 export type Status = 'new' | 'progress' | 'review' | 'done';
 
-export interface AnalysisCheck {
+export interface Sample {
+  sampleId: string;
+  wellId: string;
+  horizon: string;
+  samplingDate: string;
+  status: 'received' | 'stored' | 'dispatched';
+  storageLocation: string;
+}
+
+export interface PlannedAnalysis {
   id: string;
-  label: string;
-  checked: boolean;
+  sampleId: string;
+  analysisType: string;
+  status: 'planned' | 'in_progress' | 'review' | 'completed' | 'failed';
+  assignedTo?: string;
 }
 
 export interface KanbanCard {
   id: string;
-  title: string;
-  sampleId: string;
   status: Status;
-  category: string;
-  type: string;
-  createdAt: string;
-  dueDate?: string;
-  priority: 'low' | 'medium' | 'high' | 'critical';
-  analyses: AnalysisCheck[];
-  tags: string[];
-  notes?: string;
-  assignee?: string;
+  statusLabel: string;
+  sampleId: string;
+  wellId: string;
+  horizon: string;
+  samplingDate: string;
+  storageLocation: string;
+  analysisType: string;
+  assignedTo?: string;
+  analysisStatus: PlannedAnalysis['status'];
+  sampleStatus: Sample['status'];
 }
 
 export interface KanbanColumn {
