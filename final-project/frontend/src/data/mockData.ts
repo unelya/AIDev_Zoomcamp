@@ -104,6 +104,13 @@ const statusMap: Record<PlannedAnalysis['status'], { column: Status; label: stri
   failed: { column: 'review', label: 'Failed' },
 };
 
+const columnConfig: { id: Status; title: string }[] = [
+  { id: 'new', title: 'Planned' },
+  { id: 'progress', title: 'In Progress' },
+  { id: 'review', title: 'Review / Failed' },
+  { id: 'done', title: 'Completed' },
+];
+
 export const getColumnData = (): KanbanColumn[] => {
   const cards: KanbanCard[] = plannedAnalyses.map((analysis) => {
     const sample = samples.find((s) => s.sampleId === analysis.sampleId);
@@ -125,19 +132,9 @@ export const getColumnData = (): KanbanColumn[] => {
     };
   });
 
-  const columns: KanbanColumn[] = [
-    { id: 'new', title: 'Planned', cards: [] },
-    { id: 'progress', title: 'In Progress', cards: [] },
-    { id: 'review', title: 'Review / Failed', cards: [] },
-    { id: 'done', title: 'Completed', cards: [] },
-  ];
-
-  cards.forEach((card) => {
-    const column = columns.find((col) => col.id === card.status);
-    if (column) {
-      column.cards.push(card);
-    }
-  });
-
-  return columns;
+  return columnConfig.map((col) => ({
+    id: col.id,
+    title: col.title,
+    cards: cards.filter((card) => card.status === col.id),
+  }));
 };
