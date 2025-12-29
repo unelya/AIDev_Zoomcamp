@@ -1,20 +1,20 @@
-import { LayoutGrid, FlaskConical, BarChart3, Settings, ChevronDown } from 'lucide-react';
+import { LayoutGrid, FlaskConical, BarChart3, Settings, ChevronDown, ClipboardList } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { NavLink } from '@/components/NavLink';
 
 interface NavItemProps {
+  to: string;
   icon: React.ReactNode;
   label: string;
-  active?: boolean;
   count?: number;
 }
 
-function NavItem({ icon, label, active, count }: NavItemProps) {
+function NavItem({ icon, label, to, count }: NavItemProps) {
   return (
-    <button
-      className={cn(
-        'nav-item w-full',
-        active && 'nav-item-active'
-      )}
+    <NavLink
+      to={to}
+      className="nav-item w-full"
+      activeClassName="nav-item-active"
     >
       {icon}
       <span className="flex-1 text-left">{label}</span>
@@ -23,7 +23,7 @@ function NavItem({ icon, label, active, count }: NavItemProps) {
           {count}
         </span>
       )}
-    </button>
+    </NavLink>
   );
 }
 
@@ -32,20 +32,28 @@ export function Sidebar() {
     <aside className="w-56 bg-sidebar border-r border-sidebar-border flex flex-col">
       <nav className="flex-1 p-3 space-y-1">
         <NavItem 
+          to="/board"
           icon={<LayoutGrid className="h-4 w-4" />} 
-          label="Board" 
-          active 
+          label="Board"
         />
         <NavItem 
+          to="/samples"
           icon={<FlaskConical className="h-4 w-4" />} 
           label="Samples" 
           count={142}
         />
         <NavItem 
-          icon={<BarChart3 className="h-4 w-4" />} 
-          label="Analytics" 
+          to="/actions"
+          icon={<ClipboardList className="h-4 w-4" />} 
+          label="Actions" 
         />
         <NavItem 
+          to="/admin"
+          icon={<BarChart3 className="h-4 w-4" />} 
+          label="Admin" 
+        />
+        <NavItem 
+          to="/settings"
           icon={<Settings className="h-4 w-4" />} 
           label="Settings" 
         />
