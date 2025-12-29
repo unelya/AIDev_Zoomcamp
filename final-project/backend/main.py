@@ -234,6 +234,11 @@ async def create_conflict(payload: ConflictCreate, db: Session = Depends(get_db)
   db.refresh(row)
   return to_conflict_out(row)
 
+@app.get("/conflicts", response_model=list[ConflictOut])
+async def list_conflicts(db: Session = Depends(get_db)):
+  rows = db.execute(select(ConflictModel)).scalars().all()
+  return [to_conflict_out(r) for r in rows]
+
 
 @app.patch("/conflicts/{conflict_id}", response_model=ConflictOut)
 async def update_conflict(conflict_id: int, payload: ConflictUpdate, db: Session = Depends(get_db)):
