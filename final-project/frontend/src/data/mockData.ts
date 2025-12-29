@@ -1,4 +1,4 @@
-import { KanbanCard, KanbanColumn, PlannedAnalysis, Sample, Status } from '@/types/kanban';
+import { KanbanCard, KanbanColumn, PlannedAnalysis, Role, Sample, Status } from '@/types/kanban';
 
 export const samples: Sample[] = [
   {
@@ -104,12 +104,31 @@ const statusMap: Record<PlannedAnalysis['status'], { column: Status; label: stri
   failed: { column: 'review', label: 'Failed' },
 };
 
-export const columnConfig: { id: Status; title: string }[] = [
-  { id: 'new', title: 'Planned' },
-  { id: 'progress', title: 'In Progress' },
-  { id: 'review', title: 'Review / Failed' },
-  { id: 'done', title: 'Completed' },
-];
+export const columnConfigByRole: Record<Role, { id: Status; title: string }[]> = {
+  warehouse_worker: [
+    { id: 'new', title: 'New' },
+    { id: 'progress', title: 'Awaiting arrival' },
+    { id: 'review', title: 'Stored' },
+    { id: 'done', title: 'Issues' },
+  ],
+  lab_operator: [
+    { id: 'new', title: 'Planned' },
+    { id: 'progress', title: 'In progress' },
+    { id: 'review', title: 'Needs attention' },
+    { id: 'done', title: 'Completed' },
+  ],
+  action_supervision: [
+    { id: 'new', title: 'Uploaded batch' },
+    { id: 'progress', title: 'Conflicts' },
+    { id: 'done', title: 'Resolved' },
+  ],
+  admin: [
+    { id: 'new', title: 'Planned' },
+    { id: 'progress', title: 'In progress' },
+    { id: 'review', title: 'Review' },
+    { id: 'done', title: 'Completed' },
+  ],
+};
 
 export const getMockCards = (): KanbanCard[] =>
   plannedAnalyses.map((analysis) => {
@@ -132,9 +151,20 @@ export const getMockCards = (): KanbanCard[] =>
     };
   });
 
-export const getColumnData = (cards: KanbanCard[] = getMockCards()): KanbanColumn[] =>
-  columnConfig.map((col) => ({
+const statusRemapByRole: Partial<Record<Role, Partial<Record<Status, Status>>>> = {
+  action_supervision: { review: 'progress' },
+};
+
+export const getColumnData = (cards: KanbanCard[] = getMockCards(), role: Role = 'lab_operator'): KanbanColumn[] => {
+  const config = columnConfigByRole[role] ?? columnConfigByRole.lab_operator;
+  const allowedStatuses = new Set(config.map((c) => c.id));
+
+  return config.map((col) => ({
     id: col.id,
     title: col.title,
-    cards: cards.filter((card) => card.status === col.id),
+    cards: cards.filter((card) => {
+      const mappedStatus = statusRemapByRole[role]?.[card.status] ?? card.status;
+      return allowedStatuses.has(mappedStatus) && mappedStatus === col.id;
+    }),
   }));
+};

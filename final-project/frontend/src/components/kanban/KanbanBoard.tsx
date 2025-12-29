@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Filter, SlidersHorizontal } from 'lucide-react';
 import { KanbanColumn } from './KanbanColumn';
 import { DetailPanel } from './DetailPanel';
-import { getColumnData, getMockCards } from '@/data/mockData';
+import { getColumnData, getMockCards, columnConfigByRole } from '@/data/mockData';
 import { KanbanCard, NewCardPayload, Role } from '@/types/kanban';
 import { Button } from '@/components/ui/button';
 import { NewCardDialog } from './NewCardDialog';
@@ -39,7 +39,7 @@ export function KanbanBoard({ role }: { role: Role }) {
     }
   }, [cards, selectedCard]);
 
-  const columns = useMemo(() => getColumnData(cards), [cards]);
+  const columns = useMemo(() => getColumnData(cards, role), [cards, role]);
   const handleCardClick = (card: KanbanCard) => {
     setSelectedCard(card);
     setIsPanelOpen(true);
@@ -69,10 +69,11 @@ export function KanbanBoard({ role }: { role: Role }) {
   };
 
   const handleCreateCard = (payload: NewCardPayload) => {
+    const newLabel = columnConfigByRole[role]?.find((c) => c.id === 'new')?.title ?? 'Planned';
     const newCard: KanbanCard = {
       id: `NEW-${Date.now()}`,
       status: 'new',
-      statusLabel: 'Planned',
+      statusLabel: newLabel,
       analysisStatus: 'planned',
       analysisType: 'Ad-hoc',
       assignedTo: 'Unassigned',
