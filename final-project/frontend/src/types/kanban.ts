@@ -30,6 +30,9 @@ export interface KanbanCard {
   assignedTo?: string;
   analysisStatus: PlannedAnalysis['status'];
   sampleStatus: Sample['status'];
+  conflictOld?: string;
+  conflictNew?: string;
+  conflictResolutionNote?: string | null;
 }
 
 export interface NewCardPayload {

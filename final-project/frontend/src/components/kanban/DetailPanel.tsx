@@ -99,6 +99,12 @@ export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onResolveCo
                 <label className="text-xs text-muted-foreground uppercase tracking-wide">Well</label>
                 <p className="text-sm text-foreground">Well {card.wellId} · Horizon {card.horizon}</p>
               </div>
+              {card.conflictResolutionNote && (
+                <div className="space-y-1 col-span-2">
+                  <label className="text-xs text-muted-foreground uppercase tracking-wide">Resolution note</label>
+                  <p className="text-sm text-foreground whitespace-pre-wrap break-words">{card.conflictResolutionNote}</p>
+                </div>
+              )}
             </div>
           </div>
           

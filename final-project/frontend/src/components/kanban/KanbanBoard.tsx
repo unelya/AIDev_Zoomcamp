@@ -108,6 +108,7 @@ export function KanbanBoard({ role }: { role: Role }) {
         sampleStatus: 'received',
         conflictOld: c.old_payload,
         conflictNew: c.new_payload,
+        conflictResolutionNote: c.resolution_note,
       }));
       return getColumnData([...batchCards, ...conflictCards], role);
     }
