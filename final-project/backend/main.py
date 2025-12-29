@@ -1,13 +1,18 @@
 import os
 
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .database import Base, engine, get_db
-from .models import SampleModel, SampleStatus
+# Support running as a module or script
+try:
+  from .database import Base, engine, get_db
+  from .models import SampleModel, SampleStatus
+except ImportError:  # pragma: no cover - fallback for script execution
+  from database import Base, engine, get_db  # type: ignore
+  from models import SampleModel, SampleStatus  # type: ignore
 
 app = FastAPI(title="LabSync backend", version="0.1.0")
 

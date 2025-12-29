@@ -1,8 +1,11 @@
-from sqlalchemy import String, Date, Enum
+from sqlalchemy import Enum, String
 from sqlalchemy.orm import Mapped, mapped_column
 import enum
 
-from .database import Base
+try:
+    from .database import Base
+except ImportError:  # pragma: no cover
+    from database import Base  # type: ignore
 
 
 class SampleStatus(enum.Enum):
