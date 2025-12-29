@@ -1,0 +1,466 @@
+import { type Column, type Role, type StatusTone } from "../types";
+
+export const columnTone: Record<StatusTone, string> = {
+  new: "bg-status-new/10 text-status-new border-status-new/40",
+  progress: "bg-status-progress/10 text-status-progress border-status-progress/40",
+  review: "bg-status-review/10 text-status-review border-status-review/40",
+  done: "bg-status-done/10 text-status-done border-status-done/40",
+};
+
+export const boardDataByRole: Record<Role, Column[]> = {
+  warehouse: [
+    {
+      id: "intake",
+      title: "Awaiting Intake",
+      statusKey: "new",
+      cards: [
+        {
+          id: "S-1842",
+          title: "Sample S-1842",
+          subtitle: "Well 101 · shift delivery",
+          well: "101",
+          horizon: "AV1",
+          sampleDate: "2024-12-02",
+          storage: "Rack B · Bin 2",
+          tags: ["needs labeling", "priority"],
+          statusHistory: [
+            {
+              id: "S-1842-h1",
+              status: "Created",
+              timestamp: "2024-12-02T08:30:00Z",
+              user: "Field sampler",
+              note: "Arrived with transport log",
+            },
+          ],
+          details: [
+            { label: "Sample ID", value: "S-1842" },
+            { label: "Well", value: "101 (armits 3311)" },
+            { label: "Horizon", value: "AV1" },
+            { label: "Collected", value: "2024-12-02" },
+            { label: "Delivery to warehouse", value: "2024-12-03" },
+            { label: "Storage slot", value: "Rack B · Bin 2" },
+            { label: "Storage coordinates", value: "Row B / Shelf 2" },
+          ],
+        },
+        {
+          id: "S-1850",
+          title: "Sample S-1850",
+          subtitle: "Well 114 · courier intake",
+          well: "114",
+          horizon: "BV3",
+          sampleDate: "2024-12-05",
+          storage: "Cold room · Shelf 1",
+          tags: ["paperwork ok"],
+          statusHistory: [
+            {
+              id: "S-1850-h1",
+              status: "Logged",
+              timestamp: "2024-12-05T11:10:00Z",
+              user: "Warehouse",
+              note: "Verified seal intact",
+            },
+          ],
+          details: [
+            { label: "Sample ID", value: "S-1850" },
+            { label: "Well", value: "114 (armits 3389)" },
+            { label: "Horizon", value: "BV3" },
+            { label: "Collected", value: "2024-12-05" },
+            { label: "Delivery to warehouse", value: "2024-12-05" },
+            { label: "Storage slot", value: "Cold room · Shelf 1" },
+            { label: "Storage coordinates", value: "Bay A / Shelf 1" },
+          ],
+        },
+      ],
+    },
+    {
+      id: "storage",
+      title: "Stored",
+      statusKey: "progress",
+      cards: [
+        {
+          id: "S-1803",
+          title: "Sample S-1803",
+          subtitle: "Well 88 · long-term storage",
+          well: "88",
+          horizon: "JS2",
+          sampleDate: "2024-11-18",
+          storage: "Rack A · Bin 4",
+          tags: ["stable"],
+          statusHistory: [
+            {
+              id: "S-1803-h1",
+              status: "Stored",
+              timestamp: "2024-11-18T14:20:00Z",
+              user: "Warehouse",
+              note: "Logged for lab pick-up",
+            },
+          ],
+          details: [
+            { label: "Sample ID", value: "S-1803" },
+            { label: "Well", value: "88 (armits 3302)" },
+            { label: "Horizon", value: "JS2" },
+            { label: "Collected", value: "2024-11-18" },
+            { label: "Delivery to warehouse", value: "2024-11-18" },
+            { label: "Storage slot", value: "Rack A · Bin 4" },
+            { label: "Storage coordinates", value: "Row A / Shelf 4" },
+          ],
+        },
+      ],
+    },
+    {
+      id: "dispatch",
+      title: "Ready for Lab Pickup",
+      statusKey: "review",
+      cards: [
+        {
+          id: "S-1799",
+          title: "Sample S-1799",
+          subtitle: "Well 72 · urgent analysis",
+          well: "72",
+          horizon: "CH1",
+          sampleDate: "2024-11-10",
+          storage: "Dispatch counter",
+          tags: ["urgent", "lab request"],
+          statusHistory: [
+            {
+              id: "S-1799-h1",
+              status: "Pickup scheduled",
+              timestamp: "2024-11-11T09:00:00Z",
+              user: "Warehouse",
+              note: "Lab ETA 10:00",
+            },
+            {
+              id: "S-1799-h2",
+              status: "Ready for pickup",
+              timestamp: "2024-11-11T09:30:00Z",
+              user: "Warehouse",
+            },
+          ],
+          details: [
+            { label: "Sample ID", value: "S-1799" },
+            { label: "Well", value: "72 (armits 3298)" },
+            { label: "Horizon", value: "CH1" },
+            { label: "Collected", value: "2024-11-10" },
+            { label: "Delivery to warehouse", value: "2024-11-10" },
+            { label: "Storage slot", value: "Dispatch counter" },
+            { label: "Storage coordinates", value: "Staging area" },
+          ],
+        },
+      ],
+    },
+  ],
+  lab: [
+    {
+      id: "planned",
+      title: "Planned",
+      statusKey: "new",
+      cards: [
+        {
+          id: "PA-2201",
+          title: "Viscosity · Sample S-1803",
+          subtitle: "Awaiting operator assignment",
+          well: "88",
+          horizon: "JS2",
+          plannedDate: "2024-12-08",
+          tags: ["viscosity", "operator needed"],
+          statusHistory: [
+            {
+              id: "PA-2201-h1",
+              status: "Planned",
+              timestamp: "2024-12-06T10:00:00Z",
+              user: "Lab planner",
+              note: "Need qualified operator",
+            },
+          ],
+          details: [
+            { label: "Sample ID", value: "S-1803" },
+            { label: "Analysis", value: "Viscosity" },
+            { label: "Planned date", value: "2024-12-08" },
+            { label: "Well", value: "88 (armits 3302)" },
+            { label: "Horizon", value: "JS2" },
+            { label: "Status", value: "Awaiting assignment" },
+          ],
+        },
+      ],
+    },
+    {
+      id: "in-progress",
+      title: "In Progress",
+      statusKey: "progress",
+      cards: [
+        {
+          id: "PA-2192",
+          title: "SARA · Sample S-1799",
+          subtitle: "Running on SARA-03",
+          well: "72",
+          horizon: "CH1",
+          plannedDate: "2024-12-07",
+          tags: ["SARA", "QC hold"],
+          statusHistory: [
+            {
+              id: "PA-2192-h1",
+              status: "Planned",
+              timestamp: "2024-12-05T09:15:00Z",
+              user: "Lab planner",
+            },
+            {
+              id: "PA-2192-h2",
+              status: "In progress",
+              timestamp: "2024-12-07T12:45:00Z",
+              user: "Operator Nina",
+              note: "Initial fractionation running",
+            },
+          ],
+          details: [
+            { label: "Sample ID", value: "S-1799" },
+            { label: "Analysis", value: "SARA" },
+            { label: "Instrument", value: "SARA-03" },
+            { label: "Operator", value: "Nina Petrova" },
+            { label: "Planned date", value: "2024-12-07" },
+          ],
+        },
+      ],
+    },
+    {
+      id: "qc-review",
+      title: "QC / Review",
+      statusKey: "review",
+      cards: [
+        {
+          id: "PA-2188",
+          title: "Mass Spec · Sample S-1755",
+          subtitle: "QC review for parsed data",
+          well: "64",
+          horizon: "AV2",
+          plannedDate: "2024-12-04",
+          tags: ["mass spec", "qc"],
+          statusHistory: [
+            {
+              id: "PA-2188-h1",
+              status: "Completed",
+              timestamp: "2024-12-04T16:20:00Z",
+              user: "Operator Max",
+            },
+            {
+              id: "PA-2188-h2",
+              status: "QC review",
+              timestamp: "2024-12-04T17:00:00Z",
+              user: "QA lead",
+              note: "Check calibration file",
+            },
+          ],
+          details: [
+            { label: "Sample ID", value: "S-1755" },
+            { label: "Analysis", value: "Mass spectrometry" },
+            { label: "Planned date", value: "2024-12-04" },
+            { label: "Status", value: "QC review" },
+            { label: "QA owner", value: "QA lead" },
+          ],
+        },
+      ],
+    },
+    {
+      id: "completed",
+      title: "Completed",
+      statusKey: "done",
+      cards: [
+        {
+          id: "PA-2170",
+          title: "NMR · Sample S-1701",
+          subtitle: "Result issued",
+          well: "41",
+          horizon: "JS1",
+          plannedDate: "2024-11-28",
+          tags: ["NMR", "report ready"],
+          statusHistory: [
+            {
+              id: "PA-2170-h1",
+              status: "Completed",
+              timestamp: "2024-11-28T15:10:00Z",
+              user: "Operator Ilya",
+              note: "Uploaded spectrum to archive",
+            },
+          ],
+          details: [
+            { label: "Sample ID", value: "S-1701" },
+            { label: "Analysis", value: "NMR" },
+            { label: "Completed", value: "2024-11-28" },
+            { label: "Operator", value: "Ilya" },
+            { label: "Raw data", value: "s3://lab/nmr/1701" },
+          ],
+        },
+      ],
+    },
+  ],
+  action: [
+    {
+      id: "scheduled",
+      title: "Scheduled",
+      statusKey: "new",
+      cards: [
+        {
+          id: "ACT-310",
+          title: "Acid treatment plan",
+          subtitle: "Well 114 · design review",
+          well: "114",
+          horizon: "BV3",
+          tags: ["design"],
+          statusHistory: [
+            {
+              id: "ACT-310-h1",
+              status: "Planned",
+              timestamp: "2024-12-05T13:00:00Z",
+              user: "Supervisor",
+              note: "Awaiting field slot",
+            },
+          ],
+          details: [
+            { label: "Action ID", value: "ACT-310" },
+            { label: "Well", value: "114 (armits 3389)" },
+            { label: "Type", value: "Acid treatment" },
+            { label: "Window", value: "2024-12-12 to 2024-12-15" },
+          ],
+        },
+      ],
+    },
+    {
+      id: "monitoring",
+      title: "In Execution / Monitoring",
+      statusKey: "progress",
+      cards: [
+        {
+          id: "ACT-299",
+          title: "Water shutoff",
+          subtitle: "Well 72 · day 2 monitoring",
+          well: "72",
+          horizon: "CH1",
+          tags: ["monitoring"],
+          statusHistory: [
+            {
+              id: "ACT-299-h1",
+              status: "Started",
+              timestamp: "2024-12-03T07:00:00Z",
+              user: "Supervisor",
+              note: "Pumping underway",
+            },
+            {
+              id: "ACT-299-h2",
+              status: "Monitoring",
+              timestamp: "2024-12-04T10:00:00Z",
+              user: "Supervisor",
+              note: "Tracking pressure stabilization",
+            },
+          ],
+          details: [
+            { label: "Action ID", value: "ACT-299" },
+            { label: "Well", value: "72 (armits 3298)" },
+            { label: "Type", value: "Water shutoff" },
+            { label: "Start date", value: "2024-12-03" },
+            { label: "End date", value: "TBD" },
+          ],
+        },
+      ],
+    },
+    {
+      id: "conflict",
+      title: "Conflicts / Manual Resolution",
+      statusKey: "review",
+      cards: [
+        {
+          id: "ACT-288",
+          title: "Flow stimulation conflict",
+          subtitle: "Well 41 vs 45 overlap",
+          well: "41",
+          horizon: "JS1",
+          tags: ["conflict", "needs review"],
+          statusHistory: [
+            {
+              id: "ACT-288-h1",
+              status: "Conflict flagged",
+              timestamp: "2024-11-30T09:30:00Z",
+              user: "Planner",
+              note: "Equipment booking overlap",
+            },
+          ],
+          details: [
+            { label: "Action ID", value: "ACT-288" },
+            { label: "Well", value: "41 (armits 3241)" },
+            { label: "Related wells", value: "45 (armits 3243)" },
+            { label: "Issue", value: "Coiled tubing schedule conflict" },
+            { label: "Next step", value: "Manual resolution meeting" },
+          ],
+        },
+      ],
+    },
+    {
+      id: "closed",
+      title: "Closed / Verified",
+      statusKey: "done",
+      cards: [
+        {
+          id: "ACT-270",
+          title: "Chemical EOR pilot",
+          subtitle: "Well 101 · results logged",
+          well: "101",
+          horizon: "AV1",
+          tags: ["closed"],
+          statusHistory: [
+            {
+              id: "ACT-270-h1",
+              status: "Completed",
+              timestamp: "2024-11-20T18:00:00Z",
+              user: "Supervisor",
+              note: "Success metric 0.82",
+            },
+            {
+              id: "ACT-270-h2",
+              status: "Verified",
+              timestamp: "2024-11-22T12:00:00Z",
+              user: "Admin",
+              note: "Audit logged",
+            },
+          ],
+          details: [
+            { label: "Action ID", value: "ACT-270" },
+            { label: "Well", value: "101 (armits 3311)" },
+            { label: "Type", value: "Chemical EOR pilot" },
+            { label: "Start", value: "2024-11-10" },
+            { label: "End", value: "2024-11-20" },
+            { label: "Outcome", value: "Success metric 0.82" },
+          ],
+        },
+      ],
+    },
+  ],
+  admin: [
+    {
+      id: "admin",
+      title: "Admin view",
+      statusKey: "progress",
+      cards: [
+        {
+          id: "ADM-100",
+          title: "User & role overview",
+          subtitle: "Admin-only tools",
+          well: "—",
+          horizon: "—",
+          tags: ["roles", "audit"],
+          statusHistory: [
+            {
+              id: "ADM-100-h1",
+              status: "Enabled",
+              timestamp: "2024-12-06T09:00:00Z",
+              user: "Admin",
+              note: "Manage users, roles, audit log",
+            },
+          ],
+          details: [
+            { label: "Roles", value: "Warehouse, Lab, Action supervision, Admin" },
+            { label: "Audit log", value: "View recent operations" },
+            { label: "Note", value: "UI placeholder for admin functions" },
+          ],
+        },
+      ],
+    },
+  ],
+};
