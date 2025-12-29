@@ -1,24 +1,24 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class Sample(BaseModel):
-    sample_id: str
-    well_id: str
-    horizon: str
-    sampling_date: str
+    sample_id: str = Field(min_length=2, max_length=64)
+    well_id: str = Field(min_length=1, max_length=32)
+    horizon: str = Field(min_length=1, max_length=32)
+    sampling_date: str = Field(min_length=4, max_length=32)
     status: str = "new"
-    storage_location: str | None = None
+    storage_location: str | None = Field(default=None, max_length=128)
 
 
 class PlannedAnalysisCreate(BaseModel):
-    sample_id: str
-    analysis_type: str
-    assigned_to: str | None = None
+    sample_id: str = Field(min_length=2, max_length=64)
+    analysis_type: str = Field(min_length=2, max_length=64)
+    assigned_to: str | None = Field(default=None, max_length=64)
 
 
 class PlannedAnalysisUpdate(BaseModel):
-    status: str | None = None
-    assigned_to: str | None = None
+    status: str | None = Field(default=None, pattern="^(planned|in_progress|review|completed|failed)$")
+    assigned_to: str | None = Field(default=None, max_length=64)
 
 
 class PlannedAnalysisOut(BaseModel):
@@ -30,9 +30,9 @@ class PlannedAnalysisOut(BaseModel):
 
 
 class ActionBatchCreate(BaseModel):
-    title: str
-    date: str
-    status: str = "new"
+    title: str = Field(min_length=2, max_length=128)
+    date: str = Field(min_length=4, max_length=32)
+    status: str = Field(default="new", pattern="^(new|review|done)$")
 
 
 class ActionBatchOut(BaseModel):
@@ -43,14 +43,14 @@ class ActionBatchOut(BaseModel):
 
 
 class ConflictCreate(BaseModel):
-    old_payload: str
-    new_payload: str
-    status: str = "open"
+    old_payload: str = Field(min_length=1)
+    new_payload: str = Field(min_length=1)
+    status: str = Field(default="open", pattern="^(open|resolved)$")
 
 
 class ConflictUpdate(BaseModel):
-    status: str | None = None
-    resolution_note: str | None = None
+    status: str | None = Field(default=None, pattern="^(open|resolved)$")
+    resolution_note: str | None = Field(default=None, max_length=256)
 
 
 class ConflictOut(BaseModel):
@@ -69,4 +69,4 @@ class UserOut(BaseModel):
 
 
 class UserUpdate(BaseModel):
-    role: str
+    role: str = Field(pattern="^(warehouse_worker|lab_operator|action_supervision|admin)$")

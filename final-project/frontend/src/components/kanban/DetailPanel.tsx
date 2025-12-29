@@ -20,6 +20,7 @@ export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onResolveCo
   const [analysisType, setAnalysisType] = useState('');
   const [assignedTo, setAssignedTo] = useState('');
   const [resolution, setResolution] = useState('');
+  const [planError, setPlanError] = useState('');
   
   return (
     <>
@@ -117,13 +118,18 @@ export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onResolveCo
                   <Input placeholder="Analysis type (e.g. SARA)" value={analysisType} onChange={(e) => setAnalysisType(e.target.value)} />
                   <Input placeholder="Assigned to (optional)" value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)} />
                 </div>
+                {planError && <p className="text-sm text-destructive">{planError}</p>}
                 <Button
                   size="sm"
                   onClick={() => {
-                    if (!analysisType) return;
+                    if (!analysisType) {
+                      setPlanError('Analysis type is required');
+                      return;
+                    }
                     onPlanAnalysis({ analysisType, assignedTo: assignedTo || undefined });
                     setAnalysisType('');
                     setAssignedTo('');
+                    setPlanError('');
                   }}
                 >
                   Plan analysis

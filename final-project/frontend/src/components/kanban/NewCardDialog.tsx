@@ -18,17 +18,23 @@ export function NewCardDialog({ onCreate }: NewCardDialogProps) {
     samplingDate: '',
     storageLocation: '',
   });
+  const [error, setError] = useState('');
 
   const onChange = (field: keyof NewCardPayload) => (event: React.ChangeEvent<HTMLInputElement>) => {
     setForm((prev) => ({ ...prev, [field]: event.target.value }));
+    setError('');
   };
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    if (!form.sampleId || !form.wellId || !form.horizon || !form.samplingDate) return;
+    if (!form.sampleId || !form.wellId || !form.horizon || !form.samplingDate) {
+      setError('All required fields must be filled');
+      return;
+    }
     onCreate(form);
     setOpen(false);
     setForm({ sampleId: '', wellId: '', horizon: '', samplingDate: '', storageLocation: '' });
+    setError('');
   };
 
   return (
@@ -64,6 +70,7 @@ export function NewCardDialog({ onCreate }: NewCardDialogProps) {
             <Label htmlFor="storageLocation">Storage Location</Label>
             <Input id="storageLocation" value={form.storageLocation} onChange={onChange('storageLocation')} />
           </div>
+          {error && <p className="text-sm text-destructive">{error}</p>}
           <DialogFooter className="flex gap-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
             <Button type="submit">Create</Button>

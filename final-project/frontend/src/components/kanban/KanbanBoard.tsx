@@ -7,6 +7,7 @@ import { KanbanCard, NewCardPayload, PlannedAnalysisCard, Role } from '@/types/k
 import { Button } from '@/components/ui/button';
 import { NewCardDialog } from './NewCardDialog';
 import { createActionBatch, createConflict, createPlannedAnalysis, createSample, fetchActionBatches, fetchConflicts, fetchPlannedAnalyses, fetchSamples, mapApiAnalysis, resolveConflict, updatePlannedAnalysis, updateSampleStatus } from '@/lib/api';
+import { useToast } from '@/components/ui/use-toast';
 
 const STORAGE_KEY = 'labsync-kanban-cards';
 
@@ -25,6 +26,7 @@ export function KanbanBoard({ role }: { role: Role }) {
   const [loading, setLoading] = useState(false);
   const [selectedCard, setSelectedCard] = useState<KanbanCard | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     // keep detail panel in sync with card state
@@ -48,7 +50,12 @@ export function KanbanBoard({ role }: { role: Role }) {
         setPlannedAnalyses(remoteAnalyses.map(mapApiAnalysis));
         setActionBatches(batches);
         setConflicts(conflictList);
-      } catch {
+      } catch (err) {
+        toast({
+          title: "Failed to load data",
+          description: err instanceof Error ? err.message : "Backend unreachable",
+          variant: "destructive",
+        });
         setCards(getMockCards());
       } finally {
         setLoading(false);
@@ -153,7 +160,13 @@ export function KanbanBoard({ role }: { role: Role }) {
           : card,
       ),
     );
-    updateSampleStatus(cardId, columnId).catch(() => {});
+    updateSampleStatus(cardId, columnId).catch((err) =>
+      toast({
+        title: "Failed to update sample",
+        description: err instanceof Error ? err.message : "Backend unreachable",
+        variant: "destructive",
+      }),
+    );
   };
 
   const handleSave = async () => {
@@ -162,6 +175,12 @@ export function KanbanBoard({ role }: { role: Role }) {
       const [remoteSamples, remoteAnalyses] = await Promise.all([fetchSamples(), fetchPlannedAnalyses()]);
       setCards(remoteSamples);
       setPlannedAnalyses(remoteAnalyses.map(mapApiAnalysis));
+    } catch (err) {
+      toast({
+        title: "Failed to refresh",
+        description: err instanceof Error ? err.message : "Backend unreachable",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -173,7 +192,12 @@ export function KanbanBoard({ role }: { role: Role }) {
       .then((card) => {
         setCards((prev) => [...prev, { ...card, statusLabel: newLabel }]);
       })
-      .catch(() => {
+      .catch((err) => {
+        toast({
+          title: "Failed to create sample",
+          description: err instanceof Error ? err.message : "Backend unreachable",
+          variant: "destructive",
+        });
         const fallback: KanbanCard = {
           id: `NEW-${Date.now()}`,
           status: 'new',
@@ -196,8 +220,12 @@ export function KanbanBoard({ role }: { role: Role }) {
     try {
       const created = await createPlannedAnalysis({ sampleId, analysisType: data.analysisType, assignedTo: data.assignedTo });
       setPlannedAnalyses((prev) => [...prev, mapApiAnalysis(created)]);
-    } catch {
-      // ignore for now
+    } catch (err) {
+      toast({
+        title: "Failed to plan analysis",
+        description: err instanceof Error ? err.message : "Backend unreachable",
+        variant: "destructive",
+      });
     }
   };
 
