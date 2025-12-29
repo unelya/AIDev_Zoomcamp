@@ -40,6 +40,7 @@ async def health():
 class LoginRequest(BaseModel):
   username: str
   password: str
+  full_name: str | None = None
 
 
 class LoginResponse(BaseModel):
@@ -48,42 +49,39 @@ class LoginResponse(BaseModel):
   full_name: str
 
 
-ROLE_MAP = {
-  "warehouse": "warehouse_worker",
-  "lab": "lab_operator",
-  "action": "action_supervision",
-  "admin": "admin",
-}
-
-
 @app.post("/auth/login", response_model=LoginResponse)
-async def login(payload: LoginRequest):
+async def login(payload: LoginRequest, db: Session = Depends(get_db)):
   username = payload.username.strip() or "user"
-  # pick role based on prefix keyword in username
-  role = "lab_operator"
-  for key, value in ROLE_MAP.items():
-    if key in username.lower():
-      role = value
-      break
-  token = f"fake-{role}-{username}"
-  full_name = username.replace(".", " ").title()
-  return LoginResponse(token=token, role=role, full_name=full_name)
+  user = db.execute(select(UserModel).where(UserModel.username == username)).scalars().first()
+  if not user:
+    full_name = payload.full_name or username.replace(".", " ").title()
+    user = UserModel(username=username, full_name=full_name, role="lab_operator")
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+  token = f"fake-{user.id}"
+  return LoginResponse(token=token, role=user.role, full_name=user.full_name)
 
 
 @app.get("/auth/me", response_model=LoginResponse)
-async def me(authorization: str | None = None):
+async def me(authorization: str | None = None, db: Session = Depends(get_db)):
   if not authorization or not authorization.lower().startswith("bearer "):
     raise HTTPException(status_code=401, detail="Unauthorized")
   token = authorization.split(" ", 1)[1]
-  parts = token.split("-")
-  if len(parts) < 3:
+  user_id = None
+  if token.startswith("fake-"):
+    _, maybe_id = token.split("-", 1)
+    user_id = maybe_id
+  else:
+    user_id = token
+  try:
+    user_id_int = int(user_id)
+  except Exception:
     raise HTTPException(status_code=401, detail="Invalid token")
-  role = parts[1]
-  username = "-".join(parts[2:]) or "user"
-  if role not in ROLE_MAP.values():
-    role = "lab_operator"
-  full_name = username.replace(".", " ").title()
-  return LoginResponse(token=token, role=role, full_name=full_name)
+  user = db.get(UserModel, user_id_int)
+  if not user:
+    raise HTTPException(status_code=401, detail="Invalid token")
+  return LoginResponse(token=token, role=user.role, full_name=user.full_name)
 
 
 class Sample(BaseModel):

@@ -1,7 +1,11 @@
 from sqlalchemy import select
 
-from .database import SessionLocal
-from .models import UserModel
+try:
+    from .database import SessionLocal
+    from .models import UserModel
+except ImportError:  # pragma: no cover
+    from database import SessionLocal  # type: ignore
+    from models import UserModel  # type: ignore
 
 
 DEFAULT_USERS = [
