@@ -42,3 +42,33 @@ class PlannedAnalysisModel(Base):
     analysis_type: Mapped[str] = mapped_column(String, nullable=False)
     status: Mapped[AnalysisStatus] = mapped_column(Enum(AnalysisStatus), default=AnalysisStatus.planned, nullable=False)
     assigned_to: Mapped[str | None] = mapped_column(String, nullable=True)
+
+
+class ActionBatchStatus(enum.Enum):
+    new = "new"
+    review = "review"
+    done = "done"
+
+
+class ActionBatchModel(Base):
+    __tablename__ = "action_batches"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    date: Mapped[str] = mapped_column(String, nullable=False)
+    status: Mapped[ActionBatchStatus] = mapped_column(Enum(ActionBatchStatus), default=ActionBatchStatus.new, nullable=False)
+
+
+class ConflictStatus(enum.Enum):
+    open = "open"
+    resolved = "resolved"
+
+
+class ConflictModel(Base):
+    __tablename__ = "conflicts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    old_payload: Mapped[str] = mapped_column(String, nullable=False)
+    new_payload: Mapped[str] = mapped_column(String, nullable=False)
+    status: Mapped[ConflictStatus] = mapped_column(Enum(ConflictStatus), default=ConflictStatus.open, nullable=False)
+    resolution_note: Mapped[str | None] = mapped_column(String, nullable=True)

@@ -9,12 +9,12 @@ from sqlalchemy.orm import Session
 # Support running as a module or script
 try:
   from .database import Base, engine, get_db
-  from .models import SampleModel, SampleStatus, PlannedAnalysisModel, AnalysisStatus
-  from .schemas import PlannedAnalysisCreate, PlannedAnalysisOut, PlannedAnalysisUpdate
+  from .models import ActionBatchModel, ActionBatchStatus, ConflictModel, ConflictStatus, SampleModel, SampleStatus, PlannedAnalysisModel, AnalysisStatus
+  from .schemas import ActionBatchCreate, ActionBatchOut, ConflictCreate, ConflictOut, ConflictUpdate, PlannedAnalysisCreate, PlannedAnalysisOut, PlannedAnalysisUpdate
 except ImportError:  # pragma: no cover - fallback for script execution
   from database import Base, engine, get_db  # type: ignore
-  from models import SampleModel, SampleStatus, PlannedAnalysisModel, AnalysisStatus  # type: ignore
-  from schemas import PlannedAnalysisCreate, PlannedAnalysisOut, PlannedAnalysisUpdate  # type: ignore
+  from models import ActionBatchModel, ActionBatchStatus, ConflictModel, ConflictStatus, SampleModel, SampleStatus, PlannedAnalysisModel, AnalysisStatus  # type: ignore
+  from schemas import ActionBatchCreate, ActionBatchOut, ConflictCreate, ConflictOut, ConflictUpdate, PlannedAnalysisCreate, PlannedAnalysisOut, PlannedAnalysisUpdate  # type: ignore
 
 app = FastAPI(title="LabSync backend", version="0.1.0")
 
@@ -200,4 +200,65 @@ def to_planned_out(row: PlannedAnalysisModel):
     "analysis_type": row.analysis_type,
     "status": row.status.value,
     "assigned_to": row.assigned_to,
+  }
+
+
+@app.post("/action-batches", response_model=ActionBatchOut, status_code=201)
+async def create_action_batch(payload: ActionBatchCreate, db: Session = Depends(get_db)):
+  row = ActionBatchModel(
+    title=payload.title,
+    date=payload.date,
+    status=ActionBatchStatus(payload.status),
+  )
+  db.add(row)
+  db.commit()
+  db.refresh(row)
+  return to_action_batch_out(row)
+
+
+@app.get("/action-batches", response_model=list[ActionBatchOut])
+async def list_action_batches(db: Session = Depends(get_db)):
+  rows = db.execute(select(ActionBatchModel)).scalars().all()
+  return [to_action_batch_out(r) for r in rows]
+
+
+@app.post("/conflicts", response_model=ConflictOut, status_code=201)
+async def create_conflict(payload: ConflictCreate, db: Session = Depends(get_db)):
+  row = ConflictModel(
+    old_payload=payload.old_payload,
+    new_payload=payload.new_payload,
+    status=ConflictStatus(payload.status),
+  )
+  db.add(row)
+  db.commit()
+  db.refresh(row)
+  return to_conflict_out(row)
+
+
+@app.patch("/conflicts/{conflict_id}", response_model=ConflictOut)
+async def update_conflict(conflict_id: int, payload: ConflictUpdate, db: Session = Depends(get_db)):
+  row = db.get(ConflictModel, conflict_id)
+  if not row:
+    raise HTTPException(status_code=404, detail="Conflict not found")
+  if payload.status:
+    row.status = ConflictStatus(payload.status)
+  if payload.resolution_note is not None:
+    row.resolution_note = payload.resolution_note
+  db.add(row)
+  db.commit()
+  db.refresh(row)
+  return to_conflict_out(row)
+
+
+def to_action_batch_out(row: ActionBatchModel):
+  return {"id": row.id, "title": row.title, "date": row.date, "status": row.status.value}
+
+
+def to_conflict_out(row: ConflictModel):
+  return {
+    "id": row.id,
+    "old_payload": row.old_payload,
+    "new_payload": row.new_payload,
+    "status": row.status.value,
+    "resolution_note": row.resolution_note,
   }

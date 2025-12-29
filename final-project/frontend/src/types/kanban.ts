@@ -48,6 +48,21 @@ export interface PlannedAnalysisCard {
   assignedTo?: string;
 }
 
+export interface ActionBatchCard {
+  id: number;
+  title: string;
+  date: string;
+  status: Status;
+}
+
+export interface ConflictCard {
+  id: number;
+  oldPayload: string;
+  newPayload: string;
+  status: 'open' | 'resolved';
+  resolutionNote?: string | null;
+}
+
 export interface KanbanColumn {
   id: Status;
   title: string;

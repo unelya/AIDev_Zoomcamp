@@ -12,12 +12,14 @@ interface DetailPanelProps {
   isOpen: boolean;
   onClose: () => void;
   onPlanAnalysis?: (data: { analysisType: string; assignedTo?: string }) => void;
+  onResolveConflict?: (note?: string) => void;
 }
 
-export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis }: DetailPanelProps) {
+export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onResolveConflict }: DetailPanelProps) {
   if (!card) return null;
   const [analysisType, setAnalysisType] = useState('');
   const [assignedTo, setAssignedTo] = useState('');
+  const [resolution, setResolution] = useState('');
   
   return (
     <>
@@ -120,6 +122,25 @@ export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis }: DetailPan
                 >
                   Plan analysis
                 </Button>
+              </div>
+            )}
+            {onResolveConflict && (
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-foreground">Resolve conflict</p>
+                <Input placeholder="Resolution note (optional)" value={resolution} onChange={(e) => setResolution(e.target.value)} />
+                <Button size="sm" onClick={() => onResolveConflict(resolution || undefined)}>
+                  Mark resolved
+                </Button>
+                <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                  <div>
+                    <p className="text-[11px] font-semibold text-foreground">OLD</p>
+                    <pre className="whitespace-pre-wrap break-words bg-muted/40 rounded p-2 text-[11px]">{card.conflictOld ?? '—'}</pre>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-semibold text-foreground">NEW</p>
+                    <pre className="whitespace-pre-wrap break-words bg-muted/40 rounded p-2 text-[11px]">{card.conflictNew ?? '—'}</pre>
+                  </div>
+                </div>
               </div>
             )}
             <div className="flex gap-2">

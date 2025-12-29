@@ -27,3 +27,35 @@ class PlannedAnalysisOut(BaseModel):
     analysis_type: str
     status: str
     assigned_to: str | None = None
+
+
+class ActionBatchCreate(BaseModel):
+    title: str
+    date: str
+    status: str = "new"
+
+
+class ActionBatchOut(BaseModel):
+    id: int
+    title: str
+    date: str
+    status: str
+
+
+class ConflictCreate(BaseModel):
+    old_payload: str
+    new_payload: str
+    status: str = "open"
+
+
+class ConflictUpdate(BaseModel):
+    status: str | None = None
+    resolution_note: str | None = None
+
+
+class ConflictOut(BaseModel):
+    id: int
+    old_payload: str
+    new_payload: str
+    status: str
+    resolution_note: str | None = None

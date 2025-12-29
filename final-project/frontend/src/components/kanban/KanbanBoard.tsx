@@ -6,7 +6,7 @@ import { getColumnData, getMockCards, columnConfigByRole } from '@/data/mockData
 import { KanbanCard, NewCardPayload, PlannedAnalysisCard, Role } from '@/types/kanban';
 import { Button } from '@/components/ui/button';
 import { NewCardDialog } from './NewCardDialog';
-import { createPlannedAnalysis, createSample, fetchPlannedAnalyses, fetchSamples, mapApiAnalysis, updatePlannedAnalysis, updateSampleStatus } from '@/lib/api';
+import { createActionBatch, createConflict, createPlannedAnalysis, createSample, fetchActionBatches, fetchConflicts, fetchPlannedAnalyses, fetchSamples, mapApiAnalysis, resolveConflict, updatePlannedAnalysis, updateSampleStatus } from '@/lib/api';
 
 const STORAGE_KEY = 'labsync-kanban-cards';
 
@@ -20,6 +20,8 @@ const roleCopy: Record<Role, string> = {
 export function KanbanBoard({ role }: { role: Role }) {
   const [cards, setCards] = useState<KanbanCard[]>([]);
   const [plannedAnalyses, setPlannedAnalyses] = useState<PlannedAnalysisCard[]>([]);
+  const [actionBatches, setActionBatches] = useState<{ id: number; title: string; date: string; status: string }[]>([]);
+  const [conflicts, setConflicts] = useState<{ id: number; old_payload: string; new_payload: string; status: string; resolution_note?: string | null }[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedCard, setSelectedCard] = useState<KanbanCard | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
@@ -36,9 +38,16 @@ export function KanbanBoard({ role }: { role: Role }) {
     const load = async () => {
       setLoading(true);
       try {
-        const [remoteSamples, remoteAnalyses] = await Promise.all([fetchSamples(), fetchPlannedAnalyses()]);
+        const [remoteSamples, remoteAnalyses, batches, conflictList] = await Promise.all([
+          fetchSamples(),
+          fetchPlannedAnalyses(),
+          fetchActionBatches(),
+          fetchConflicts(),
+        ]);
         setCards(remoteSamples);
         setPlannedAnalyses(remoteAnalyses.map(mapApiAnalysis));
+        setActionBatches(batches);
+        setConflicts(conflictList);
       } catch {
         setCards(getMockCards());
       } finally {
@@ -69,8 +78,41 @@ export function KanbanBoard({ role }: { role: Role }) {
       });
       return getColumnData(analysisCards, role);
     }
+    if (role === 'action_supervision') {
+      const batchCards: KanbanCard[] = actionBatches.map((b) => ({
+        id: `batch-${b.id}`,
+        status: toKanbanStatus(b.status),
+        statusLabel: columnConfigByRole[role]?.find((c) => c.id === toKanbanStatus(b.status))?.title ?? 'Uploaded batch',
+        sampleId: b.title,
+        wellId: b.date,
+        horizon: '',
+        samplingDate: b.date,
+        storageLocation: '—',
+        analysisType: 'Batch',
+        assignedTo: 'Action supervisor',
+        analysisStatus: 'planned',
+        sampleStatus: 'received',
+      }));
+      const conflictCards: KanbanCard[] = conflicts.map((c) => ({
+        id: `conflict-${c.id}`,
+        status: c.status === 'resolved' ? 'done' : 'progress',
+        statusLabel: c.status === 'resolved' ? 'Resolved' : 'Conflicts',
+        sampleId: `Conflict ${c.id}`,
+        wellId: '',
+        horizon: '',
+        samplingDate: '',
+        storageLocation: '—',
+        analysisType: 'Conflict',
+        assignedTo: 'Action supervisor',
+        analysisStatus: 'review',
+        sampleStatus: 'received',
+        conflictOld: c.old_payload,
+        conflictNew: c.new_payload,
+      }));
+      return getColumnData([...batchCards, ...conflictCards], role);
+    }
     return getColumnData(cards, role);
-  }, [cards, plannedAnalyses, role]);
+  }, [cards, plannedAnalyses, actionBatches, conflicts, role]);
   const handleCardClick = (card: KanbanCard) => {
     setSelectedCard(card);
     setIsPanelOpen(true);
@@ -88,6 +130,14 @@ export function KanbanBoard({ role }: { role: Role }) {
         prev.map((pa) => (pa.id === analysis.id ? { ...pa, status: toAnalysisStatus(columnId) } : pa)),
       );
       updatePlannedAnalysis(analysis.id, toAnalysisStatus(columnId)).catch(() => {});
+      return;
+    }
+    const conflict = conflicts.find((c) => `conflict-${c.id}` === cardId);
+    if (conflict) {
+      setConflicts((prev) =>
+        prev.map((c) => (c.id === conflict.id ? { ...c, status: 'resolved', resolution_note: c.resolution_note } : c)),
+      );
+      resolveConflict(conflict.id).catch(() => {});
       return;
     }
 
@@ -150,6 +200,15 @@ export function KanbanBoard({ role }: { role: Role }) {
     }
   };
 
+  const handleResolveConflict = (conflictId: number) => async (note?: string) => {
+    try {
+      const updated = await resolveConflict(conflictId, note);
+      setConflicts((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+    } catch {
+      // ignore for now
+    }
+  };
+
   const totalSamples = columns.reduce((sum, col) => sum + col.cards.length, 0);
   
   return (
@@ -202,6 +261,9 @@ export function KanbanBoard({ role }: { role: Role }) {
         isOpen={isPanelOpen}
         onClose={handleClosePanel}
         onPlanAnalysis={selectedCard && selectedCard.analysisType === 'Sample' ? handlePlanAnalysis(selectedCard.sampleId) : undefined}
+        onResolveConflict={
+          selectedCard && selectedCard.analysisType === 'Conflict' ? handleResolveConflict(Number(selectedCard.id.replace('conflict-', ''))) : undefined
+        }
       />
     </div>
   );

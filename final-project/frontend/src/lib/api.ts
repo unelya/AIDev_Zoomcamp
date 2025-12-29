@@ -103,3 +103,45 @@ export function mapApiAnalysis(pa: { id: number; sample_id: string; analysis_typ
     assignedTo: pa.assigned_to,
   };
 }
+
+export async function fetchActionBatches() {
+  const res = await fetch("/api/action-batches");
+  if (!res.ok) throw new Error(`Failed to load action batches (${res.status})`);
+  return (await res.json()) as { id: number; title: string; date: string; status: string }[];
+}
+
+export async function createActionBatch(payload: { title: string; date: string; status?: string }) {
+  const res = await fetch("/api/action-batches", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ ...payload, status: payload.status ?? "new" }),
+  });
+  if (!res.ok) throw new Error(`Failed to create action batch (${res.status})`);
+  return (await res.json()) as { id: number; title: string; date: string; status: string };
+}
+
+export async function fetchConflicts() {
+  const res = await fetch("/api/conflicts");
+  if (!res.ok) throw new Error(`Failed to load conflicts (${res.status})`);
+  return (await res.json()) as { id: number; old_payload: string; new_payload: string; status: string; resolution_note?: string | null }[];
+}
+
+export async function createConflict(payload: { oldPayload: string; newPayload: string }) {
+  const res = await fetch("/api/conflicts", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ old_payload: payload.oldPayload, new_payload: payload.newPayload, status: "open" }),
+  });
+  if (!res.ok) throw new Error(`Failed to create conflict (${res.status})`);
+  return (await res.json()) as { id: number; old_payload: string; new_payload: string; status: string; resolution_note?: string | null };
+}
+
+export async function resolveConflict(id: number, note?: string) {
+  const res = await fetch(`/api/conflicts/${id}`, {
+    method: "PATCH",
+    headers,
+    body: JSON.stringify({ status: "resolved", resolution_note: note ?? "" }),
+  });
+  if (!res.ok) throw new Error(`Failed to resolve conflict (${res.status})`);
+  return (await res.json()) as { id: number; old_payload: string; new_payload: string; status: string; resolution_note?: string | null };
+}
