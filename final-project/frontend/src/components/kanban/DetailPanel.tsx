@@ -4,15 +4,20 @@ import { StatusBadge } from './StatusBadge';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { Input } from '@/components/ui/input';
+import { useState } from 'react';
 
 interface DetailPanelProps {
   card: KanbanCard | null;
   isOpen: boolean;
   onClose: () => void;
+  onPlanAnalysis?: (data: { analysisType: string; assignedTo?: string }) => void;
 }
 
-export function DetailPanel({ card, isOpen, onClose }: DetailPanelProps) {
+export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis }: DetailPanelProps) {
   if (!card) return null;
+  const [analysisType, setAnalysisType] = useState('');
+  const [assignedTo, setAssignedTo] = useState('');
   
   return (
     <>
@@ -96,13 +101,35 @@ export function DetailPanel({ card, isOpen, onClose }: DetailPanelProps) {
           </div>
           
           {/* Footer Actions */}
-          <div className="p-4 border-t border-border flex gap-2">
-            <Button variant="outline" className="flex-1">
-              Edit
-            </Button>
-            <Button className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90">
-              Update Status
-            </Button>
+          <div className="p-4 border-t border-border flex flex-col gap-3">
+            {onPlanAnalysis && (
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-foreground">Plan new analysis for {card.sampleId}</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input placeholder="Analysis type (e.g. SARA)" value={analysisType} onChange={(e) => setAnalysisType(e.target.value)} />
+                  <Input placeholder="Assigned to (optional)" value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)} />
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    if (!analysisType) return;
+                    onPlanAnalysis({ analysisType, assignedTo: assignedTo || undefined });
+                    setAnalysisType('');
+                    setAssignedTo('');
+                  }}
+                >
+                  Plan analysis
+                </Button>
+              </div>
+            )}
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1">
+                Edit
+              </Button>
+              <Button className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90">
+                Update Status
+              </Button>
+            </div>
           </div>
         </div>
       </div>

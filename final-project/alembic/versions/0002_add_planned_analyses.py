@@ -16,6 +16,8 @@ depends_on = None
 
 
 def upgrade():
+    op.execute("DROP TABLE IF EXISTS planned_analyses CASCADE")
+    op.execute("DROP TYPE IF EXISTS analysisstatus CASCADE")
     op.create_table(
         "planned_analyses",
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),

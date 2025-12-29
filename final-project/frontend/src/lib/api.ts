@@ -93,3 +93,13 @@ export async function updatePlannedAnalysis(id: number, status: string, assigned
   if (!res.ok) throw new Error(`Failed to update analysis (${res.status})`);
   return (await res.json()) as { id: number; sample_id: string; analysis_type: string; status: string; assigned_to?: string };
 }
+
+export function mapApiAnalysis(pa: { id: number; sample_id: string; analysis_type: string; status: string; assigned_to?: string }): PlannedAnalysisCard {
+  return {
+    id: pa.id,
+    sampleId: pa.sample_id,
+    analysisType: pa.analysis_type,
+    status: pa.status as PlannedAnalysisCard["status"],
+    assignedTo: pa.assigned_to,
+  };
+}

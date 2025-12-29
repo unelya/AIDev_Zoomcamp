@@ -6,7 +6,7 @@ import { getColumnData, getMockCards, columnConfigByRole } from '@/data/mockData
 import { KanbanCard, NewCardPayload, PlannedAnalysisCard, Role } from '@/types/kanban';
 import { Button } from '@/components/ui/button';
 import { NewCardDialog } from './NewCardDialog';
-import { createPlannedAnalysis, createSample, fetchPlannedAnalyses, fetchSamples, updatePlannedAnalysis, updateSampleStatus } from '@/lib/api';
+import { createPlannedAnalysis, createSample, fetchPlannedAnalyses, fetchSamples, mapApiAnalysis, updatePlannedAnalysis, updateSampleStatus } from '@/lib/api';
 
 const STORAGE_KEY = 'labsync-kanban-cards';
 
@@ -141,6 +141,15 @@ export function KanbanBoard({ role }: { role: Role }) {
       });
   };
 
+  const handlePlanAnalysis = (sampleId: string) => async (data: { analysisType: string; assignedTo?: string }) => {
+    try {
+      const created = await createPlannedAnalysis({ sampleId, analysisType: data.analysisType, assignedTo: data.assignedTo });
+      setPlannedAnalyses((prev) => [...prev, mapApiAnalysis(created)]);
+    } catch {
+      // ignore for now
+    }
+  };
+
   const totalSamples = columns.reduce((sum, col) => sum + col.cards.length, 0);
   
   return (
@@ -192,6 +201,7 @@ export function KanbanBoard({ role }: { role: Role }) {
         card={selectedCard}
         isOpen={isPanelOpen}
         onClose={handleClosePanel}
+        onPlanAnalysis={role === 'lab_operator' && selectedCard ? handlePlanAnalysis(selectedCard.sampleId) : undefined}
       />
     </div>
   );
