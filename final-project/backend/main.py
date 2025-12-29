@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -242,7 +243,7 @@ async def list_conflicts(db: Session = Depends(get_db)):
 
 
 @app.patch("/conflicts/{conflict_id}", response_model=ConflictOut)
-async def update_conflict(conflict_id: int, payload: ConflictUpdate, db: Session = Depends(get_db)):
+async def update_conflict(conflict_id: int, payload: ConflictUpdate, db: Session = Depends(get_db), authorization: str | None = None):
   row = db.get(ConflictModel, conflict_id)
   if not row:
     raise HTTPException(status_code=404, detail="Conflict not found")
@@ -250,6 +251,9 @@ async def update_conflict(conflict_id: int, payload: ConflictUpdate, db: Session
     row.status = ConflictStatus(payload.status)
   if payload.resolution_note is not None:
     row.resolution_note = payload.resolution_note
+  row.updated_at = datetime.utcnow().isoformat()
+  if authorization and authorization.lower().startswith("bearer "):
+    row.updated_by = authorization.split(" ", 1)[1]
   db.add(row)
   db.commit()
   db.refresh(row)
@@ -267,6 +271,8 @@ def to_conflict_out(row: ConflictModel):
     "new_payload": row.new_payload,
     "status": row.status.value,
     "resolution_note": row.resolution_note,
+    "updated_by": row.updated_by,
+    "updated_at": row.updated_at,
   }
 
 

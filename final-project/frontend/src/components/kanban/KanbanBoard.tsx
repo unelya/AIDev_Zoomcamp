@@ -27,6 +27,7 @@ export function KanbanBoard({ role }: { role: Role }) {
   const [selectedCard, setSelectedCard] = useState<KanbanCard | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const { toast } = useToast();
+  const [initialLoad, setInitialLoad] = useState(true);
 
   useEffect(() => {
     // keep detail panel in sync with card state
@@ -59,6 +60,7 @@ export function KanbanBoard({ role }: { role: Role }) {
         setCards(getMockCards());
       } finally {
         setLoading(false);
+        setInitialLoad(false);
       }
     };
     load();
@@ -271,17 +273,24 @@ export function KanbanBoard({ role }: { role: Role }) {
       
       {/* Kanban Columns */}
       <div className="flex-1 overflow-x-auto p-6">
-        <div className="flex gap-4 h-full min-w-max">
-          {columns.map((column) => (
-            <div key={column.id} className="w-72 flex-shrink-0">
-              <KanbanColumn
-                column={column}
-                onCardClick={handleCardClick}
-                onDropCard={handleDropToColumn(column.id)}
-              />
-            </div>
-          ))}
-        </div>
+        {loading && initialLoad ? (
+          <div className="flex h-full items-center justify-center text-muted-foreground">Loading board...</div>
+        ) : (
+          <div className="flex gap-4 h-full min-w-max">
+            {columns.map((column) => (
+              <div key={column.id} className="w-72 flex-shrink-0">
+                <KanbanColumn
+                  column={column}
+                  onCardClick={handleCardClick}
+                  onDropCard={handleDropToColumn(column.id)}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+        {!loading && totalSamples === 0 && (
+          <div className="mt-6 text-sm text-muted-foreground">No items yet. Create a sample or analysis to get started.</div>
+        )}
       </div>
       
       {/* Detail Panel */}

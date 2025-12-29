@@ -72,6 +72,8 @@ class ConflictModel(Base):
     new_payload: Mapped[str] = mapped_column(String, nullable=False)
     status: Mapped[ConflictStatus] = mapped_column(Enum(ConflictStatus), default=ConflictStatus.open, nullable=False)
     resolution_note: Mapped[str | None] = mapped_column(String, nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    updated_at: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
 class UserModel(Base):
