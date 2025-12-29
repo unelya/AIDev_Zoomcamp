@@ -3,8 +3,9 @@ import { Filter, SlidersHorizontal } from 'lucide-react';
 import { KanbanColumn } from './KanbanColumn';
 import { DetailPanel } from './DetailPanel';
 import { getColumnData, getMockCards } from '@/data/mockData';
-import { KanbanCard } from '@/types/kanban';
+import { KanbanCard, NewCardPayload } from '@/types/kanban';
 import { Button } from '@/components/ui/button';
+import { NewCardDialog } from './NewCardDialog';
 
 const STORAGE_KEY = 'labsync-kanban-cards';
 
@@ -60,6 +61,24 @@ export function KanbanBoard() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
   };
 
+  const handleCreateCard = (payload: NewCardPayload) => {
+    const newCard: KanbanCard = {
+      id: `NEW-${Date.now()}`,
+      status: 'new',
+      statusLabel: 'Planned',
+      analysisStatus: 'planned',
+      analysisType: 'Ad-hoc',
+      assignedTo: 'Unassigned',
+      sampleId: payload.sampleId,
+      wellId: payload.wellId,
+      horizon: payload.horizon,
+      samplingDate: payload.samplingDate,
+      storageLocation: 'Unassigned',
+      sampleStatus: 'received',
+    };
+    setCards((prev) => [...prev, newCard]);
+  };
+
   const totalSamples = columns.reduce((sum, col) => sum + col.cards.length, 0);
   
   return (
@@ -82,6 +101,7 @@ export function KanbanBoard() {
             <SlidersHorizontal className="w-4 h-4" />
             View
           </Button>
+          <NewCardDialog onCreate={handleCreateCard} />
           <Button size="sm" className="gap-2" onClick={handleSave}>
             Save
           </Button>

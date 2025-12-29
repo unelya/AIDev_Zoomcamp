@@ -32,6 +32,13 @@ export interface KanbanCard {
   sampleStatus: Sample['status'];
 }
 
+export interface NewCardPayload {
+  sampleId: string;
+  wellId: string;
+  horizon: string;
+  samplingDate: string;
+}
+
 export interface KanbanColumn {
   id: Status;
   title: string;
