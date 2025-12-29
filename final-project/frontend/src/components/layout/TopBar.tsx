@@ -12,11 +12,12 @@ const roleOptions: { id: Role; label: string }[] = [
 ];
 
 interface TopBarProps {
-  role: Role;
-  onRoleChange: (role: Role) => void;
+  role?: Role;
+  onRoleChange?: (role: Role) => void;
 }
 
 export function TopBar({ role, onRoleChange }: TopBarProps) {
+  const selectedRole = role ?? 'lab_operator';
   return (
     <header className="h-14 border-b border-border bg-card flex items-center justify-between px-6">
       <div className="flex items-center gap-8">
@@ -37,7 +38,7 @@ export function TopBar({ role, onRoleChange }: TopBarProps) {
       </div>
       
       <div className="flex items-center gap-4">
-        <Select value={role} onValueChange={(val) => onRoleChange(val as Role)}>
+        <Select value={selectedRole} onValueChange={(val) => onRoleChange?.(val as Role)}>
           <SelectTrigger className="w-48 h-9 text-sm bg-muted border-border/50">
             <SelectValue placeholder="Role" />
           </SelectTrigger>
