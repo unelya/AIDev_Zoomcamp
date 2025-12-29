@@ -4,6 +4,8 @@ import { Input } from '@/components/ui/input';
 import { Role } from '@/types/kanban';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/use-auth';
+import { Link } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 
 const roleOptions: { id: Role; label: string }[] = [
   { id: 'warehouse_worker', label: 'Warehouse' },
@@ -67,10 +69,14 @@ export function TopBar({ role, onRoleChange }: TopBarProps) {
               {(user?.fullName ?? "G").slice(0, 2).toUpperCase()}
             </AvatarFallback>
           </Avatar>
-          {user && (
+          {user ? (
             <button className="p-2 rounded-md hover:bg-muted transition-colors" onClick={logout}>
               <LogOut className="h-4 w-4 text-muted-foreground" />
             </button>
+          ) : (
+            <Button asChild size="sm" variant="outline">
+              <Link to="/login">Sign in</Link>
+            </Button>
           )}
         </div>
       </div>
