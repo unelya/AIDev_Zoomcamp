@@ -37,6 +37,7 @@ export interface NewCardPayload {
   wellId: string;
   horizon: string;
   samplingDate: string;
+  storageLocation?: string;
 }
 
 export interface KanbanColumn {

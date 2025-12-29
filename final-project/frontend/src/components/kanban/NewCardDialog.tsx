@@ -16,6 +16,7 @@ export function NewCardDialog({ onCreate }: NewCardDialogProps) {
     wellId: '',
     horizon: '',
     samplingDate: '',
+    storageLocation: '',
   });
 
   const onChange = (field: keyof NewCardPayload) => (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -27,7 +28,7 @@ export function NewCardDialog({ onCreate }: NewCardDialogProps) {
     if (!form.sampleId || !form.wellId || !form.horizon || !form.samplingDate) return;
     onCreate(form);
     setOpen(false);
-    setForm({ sampleId: '', wellId: '', horizon: '', samplingDate: '' });
+    setForm({ sampleId: '', wellId: '', horizon: '', samplingDate: '', storageLocation: '' });
   };
 
   return (
@@ -58,6 +59,10 @@ export function NewCardDialog({ onCreate }: NewCardDialogProps) {
           <div className="space-y-1">
             <Label htmlFor="samplingDate">Sampling Date</Label>
             <Input id="samplingDate" type="date" value={form.samplingDate} onChange={onChange('samplingDate')} required />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="storageLocation">Storage Location</Label>
+            <Input id="storageLocation" value={form.storageLocation} onChange={onChange('storageLocation')} />
           </div>
           <DialogFooter className="flex gap-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>

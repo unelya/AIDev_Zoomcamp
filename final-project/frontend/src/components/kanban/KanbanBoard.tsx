@@ -6,6 +6,7 @@ import { getColumnData, getMockCards, columnConfigByRole } from '@/data/mockData
 import { KanbanCard, NewCardPayload, Role } from '@/types/kanban';
 import { Button } from '@/components/ui/button';
 import { NewCardDialog } from './NewCardDialog';
+import { createSample, fetchSamples, updateSampleStatus } from '@/lib/api';
 
 const STORAGE_KEY = 'labsync-kanban-cards';
 
@@ -17,17 +18,8 @@ const roleCopy: Record<Role, string> = {
 };
 
 export function KanbanBoard({ role }: { role: Role }) {
-  const [cards, setCards] = useState<KanbanCard[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        return JSON.parse(saved) as KanbanCard[];
-      } catch {
-        return getMockCards();
-      }
-    }
-    return getMockCards();
-  });
+  const [cards, setCards] = useState<KanbanCard[]>([]);
+  const [loading, setLoading] = useState(false);
   const [selectedCard, setSelectedCard] = useState<KanbanCard | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
 
@@ -38,6 +30,21 @@ export function KanbanBoard({ role }: { role: Role }) {
       if (updated) setSelectedCard(updated);
     }
   }, [cards, selectedCard]);
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const remote = await fetchSamples();
+        setCards(remote);
+      } catch {
+        setCards(getMockCards());
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
 
   const columns = useMemo(() => getColumnData(cards, role), [cards, role]);
   const handleCardClick = (card: KanbanCard) => {
@@ -62,29 +69,42 @@ export function KanbanBoard({ role }: { role: Role }) {
           : card,
       ),
     );
+    updateSampleStatus(cardId, columnId).catch(() => {});
   };
 
-  const handleSave = () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
+  const handleSave = async () => {
+    setLoading(true);
+    try {
+      const remote = await fetchSamples();
+      setCards(remote);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleCreateCard = (payload: NewCardPayload) => {
     const newLabel = columnConfigByRole[role]?.find((c) => c.id === 'new')?.title ?? 'Planned';
-    const newCard: KanbanCard = {
-      id: `NEW-${Date.now()}`,
-      status: 'new',
-      statusLabel: newLabel,
-      analysisStatus: 'planned',
-      analysisType: 'Ad-hoc',
-      assignedTo: 'Unassigned',
-      sampleId: payload.sampleId,
-      wellId: payload.wellId,
-      horizon: payload.horizon,
-      samplingDate: payload.samplingDate,
-      storageLocation: 'Unassigned',
-      sampleStatus: 'received',
-    };
-    setCards((prev) => [...prev, newCard]);
+    createSample(payload)
+      .then((card) => {
+        setCards((prev) => [...prev, { ...card, statusLabel: newLabel }]);
+      })
+      .catch(() => {
+        const fallback: KanbanCard = {
+          id: `NEW-${Date.now()}`,
+          status: 'new',
+          statusLabel: newLabel,
+          analysisStatus: 'planned',
+          analysisType: 'Sample',
+          assignedTo: 'Unassigned',
+          sampleId: payload.sampleId,
+          wellId: payload.wellId,
+          horizon: payload.horizon,
+          samplingDate: payload.samplingDate,
+          storageLocation: payload.storageLocation ?? 'Unassigned',
+          sampleStatus: 'new',
+        };
+        setCards((prev) => [...prev, fallback]);
+      });
   };
 
   const totalSamples = columns.reduce((sum, col) => sum + col.cards.length, 0);
@@ -112,8 +132,8 @@ export function KanbanBoard({ role }: { role: Role }) {
             View
           </Button>
           <NewCardDialog onCreate={handleCreateCard} />
-          <Button size="sm" className="gap-2" onClick={handleSave}>
-            Save
+          <Button size="sm" className="gap-2" onClick={handleSave} disabled={loading}>
+            {loading ? "Syncing..." : "Refresh"}
           </Button>
         </div>
       </div>

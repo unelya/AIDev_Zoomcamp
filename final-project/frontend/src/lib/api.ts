@@ -1,0 +1,65 @@
+import { KanbanCard, NewCardPayload, Role } from "@/types/kanban";
+
+const headers = {
+  "Content-Type": "application/json",
+};
+
+export async function fetchSamples(): Promise<KanbanCard[]> {
+  const res = await fetch("/api/samples");
+  if (!res.ok) throw new Error(`Failed to load samples (${res.status})`);
+  const data = (await res.json()) as any[];
+  return data.map(mapSampleToCard);
+}
+
+export async function createSample(payload: NewCardPayload): Promise<KanbanCard> {
+  const res = await fetch("/api/samples", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      sample_id: payload.sampleId,
+      well_id: payload.wellId,
+      horizon: payload.horizon,
+      sampling_date: payload.samplingDate,
+      status: "new",
+      storage_location: payload.storageLocation ?? "Unassigned",
+    }),
+  });
+  if (!res.ok) throw new Error(`Failed to create sample (${res.status})`);
+  const data = await res.json();
+  return mapSampleToCard(data);
+}
+
+export async function updateSampleStatus(sampleId: string, status: string, storageLocation?: string): Promise<KanbanCard> {
+  const res = await fetch(`/api/samples/${sampleId}`, {
+    method: "PATCH",
+    headers,
+    body: JSON.stringify({ status, storage_location: storageLocation }),
+  });
+  if (!res.ok) throw new Error(`Failed to update sample (${res.status})`);
+  const data = await res.json();
+  return mapSampleToCard(data);
+}
+
+function mapSampleToCard(sample: any): KanbanCard {
+  const statusLabelMap: Record<string, string> = {
+    new: "Planned",
+    progress: "Awaiting arrival",
+    review: "Stored / Needs attention",
+    done: "Completed",
+  };
+
+  return {
+    id: sample.sample_id,
+    status: (sample.status ?? "new") as KanbanCard["status"],
+    statusLabel: statusLabelMap[sample.status] ?? "Planned",
+    sampleId: sample.sample_id,
+    wellId: sample.well_id,
+    horizon: sample.horizon,
+    samplingDate: sample.sampling_date,
+    storageLocation: sample.storage_location ?? "Unassigned",
+    analysisType: "Sample",
+    assignedTo: sample.assigned_to ?? "Unassigned",
+    analysisStatus: sample.status ?? "new",
+    sampleStatus: sample.status ?? "new",
+  };
+}
