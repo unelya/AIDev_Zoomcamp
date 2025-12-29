@@ -9,10 +9,12 @@ from sqlalchemy.orm import Session
 # Support running as a module or script
 try:
   from .database import Base, engine, get_db
-  from .models import SampleModel, SampleStatus
+  from .models import SampleModel, SampleStatus, PlannedAnalysisModel, AnalysisStatus
+  from .schemas import PlannedAnalysisCreate, PlannedAnalysisOut, PlannedAnalysisUpdate
 except ImportError:  # pragma: no cover - fallback for script execution
   from database import Base, engine, get_db  # type: ignore
-  from models import SampleModel, SampleStatus  # type: ignore
+  from models import SampleModel, SampleStatus, PlannedAnalysisModel, AnalysisStatus  # type: ignore
+  from schemas import PlannedAnalysisCreate, PlannedAnalysisOut, PlannedAnalysisUpdate  # type: ignore
 
 app = FastAPI(title="LabSync backend", version="0.1.0")
 
@@ -151,3 +153,51 @@ def to_sample_out(row: SampleModel):
     status=row.status.value,
     storage_location=row.storage_location,
   )
+
+
+@app.get("/planned-analyses")
+async def list_planned_analyses(status: str | None = None, db: Session = Depends(get_db)):
+  stmt = select(PlannedAnalysisModel)
+  if status:
+    stmt = stmt.where(PlannedAnalysisModel.status == AnalysisStatus(status))
+  rows = db.execute(stmt).scalars().all()
+  return [to_planned_out(r) for r in rows]
+
+
+@app.post("/planned-analyses", response_model=PlannedAnalysisOut, status_code=201)
+async def create_planned_analysis(payload: PlannedAnalysisCreate, db: Session = Depends(get_db)):
+  row = PlannedAnalysisModel(
+    sample_id=payload.sample_id,
+    analysis_type=payload.analysis_type,
+    assigned_to=payload.assigned_to,
+    status=AnalysisStatus.planned,
+  )
+  db.add(row)
+  db.commit()
+  db.refresh(row)
+  return to_planned_out(row)
+
+
+@app.patch("/planned-analyses/{analysis_id}", response_model=PlannedAnalysisOut)
+async def update_planned_analysis(analysis_id: int, payload: PlannedAnalysisUpdate, db: Session = Depends(get_db)):
+  row = db.get(PlannedAnalysisModel, analysis_id)
+  if not row:
+    raise HTTPException(status_code=404, detail="Planned analysis not found")
+  if payload.status:
+    row.status = AnalysisStatus(payload.status)
+  if payload.assigned_to is not None:
+    row.assigned_to = payload.assigned_to
+  db.add(row)
+  db.commit()
+  db.refresh(row)
+  return to_planned_out(row)
+
+
+def to_planned_out(row: PlannedAnalysisModel):
+  return {
+    "id": row.id,
+    "sample_id": row.sample_id,
+    "analysis_type": row.analysis_type,
+    "status": row.status.value,
+    "assigned_to": row.assigned_to,
+  }

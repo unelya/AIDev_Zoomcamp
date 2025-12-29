@@ -1,4 +1,4 @@
-import { KanbanCard, NewCardPayload, Role } from "@/types/kanban";
+import { KanbanCard, NewCardPayload, PlannedAnalysisCard } from "@/types/kanban";
 
 const headers = {
   "Content-Type": "application/json",
@@ -62,4 +62,34 @@ function mapSampleToCard(sample: any): KanbanCard {
     analysisStatus: sample.status ?? "new",
     sampleStatus: sample.status ?? "new",
   };
+}
+
+export async function fetchPlannedAnalyses(): Promise<PlannedAnalysisCard[]> {
+  const res = await fetch("/api/planned-analyses");
+  if (!res.ok) throw new Error(`Failed to load planned analyses (${res.status})`);
+  return (await res.json()) as PlannedAnalysisCard[];
+}
+
+export async function createPlannedAnalysis(payload: { sampleId: string; analysisType: string; assignedTo?: string }) {
+  const res = await fetch("/api/planned-analyses", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      sample_id: payload.sampleId,
+      analysis_type: payload.analysisType,
+      assigned_to: payload.assignedTo,
+    }),
+  });
+  if (!res.ok) throw new Error(`Failed to create analysis (${res.status})`);
+  return (await res.json()) as { id: number; sample_id: string; analysis_type: string; status: string; assigned_to?: string };
+}
+
+export async function updatePlannedAnalysis(id: number, status: string, assignedTo?: string) {
+  const res = await fetch(`/api/planned-analyses/${id}`, {
+    method: "PATCH",
+    headers,
+    body: JSON.stringify({ status, assigned_to: assignedTo }),
+  });
+  if (!res.ok) throw new Error(`Failed to update analysis (${res.status})`);
+  return (await res.json()) as { id: number; sample_id: string; analysis_type: string; status: string; assigned_to?: string };
 }

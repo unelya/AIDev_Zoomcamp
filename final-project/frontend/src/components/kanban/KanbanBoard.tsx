@@ -3,10 +3,10 @@ import { Filter, SlidersHorizontal } from 'lucide-react';
 import { KanbanColumn } from './KanbanColumn';
 import { DetailPanel } from './DetailPanel';
 import { getColumnData, getMockCards, columnConfigByRole } from '@/data/mockData';
-import { KanbanCard, NewCardPayload, Role } from '@/types/kanban';
+import { KanbanCard, NewCardPayload, PlannedAnalysisCard, Role } from '@/types/kanban';
 import { Button } from '@/components/ui/button';
 import { NewCardDialog } from './NewCardDialog';
-import { createSample, fetchSamples, updateSampleStatus } from '@/lib/api';
+import { createPlannedAnalysis, createSample, fetchPlannedAnalyses, fetchSamples, updatePlannedAnalysis, updateSampleStatus } from '@/lib/api';
 
 const STORAGE_KEY = 'labsync-kanban-cards';
 
@@ -19,6 +19,7 @@ const roleCopy: Record<Role, string> = {
 
 export function KanbanBoard({ role }: { role: Role }) {
   const [cards, setCards] = useState<KanbanCard[]>([]);
+  const [plannedAnalyses, setPlannedAnalyses] = useState<PlannedAnalysisCard[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedCard, setSelectedCard] = useState<KanbanCard | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
@@ -35,8 +36,9 @@ export function KanbanBoard({ role }: { role: Role }) {
     const load = async () => {
       setLoading(true);
       try {
-        const remote = await fetchSamples();
-        setCards(remote);
+        const [remoteSamples, remoteAnalyses] = await Promise.all([fetchSamples(), fetchPlannedAnalyses()]);
+        setCards(remoteSamples);
+        setPlannedAnalyses(remoteAnalyses);
       } catch {
         setCards(getMockCards());
       } finally {
@@ -46,7 +48,29 @@ export function KanbanBoard({ role }: { role: Role }) {
     load();
   }, []);
 
-  const columns = useMemo(() => getColumnData(cards, role), [cards, role]);
+  const columns = useMemo(() => {
+    if (role === 'lab_operator') {
+      const analysisCards: KanbanCard[] = plannedAnalyses.map((pa) => {
+        const relatedSample = cards.find((c) => c.sampleId === pa.sampleId);
+        return {
+          id: pa.id.toString(),
+          status: toKanbanStatus(pa.status),
+          statusLabel: columnConfigByRole[role]?.find((c) => c.id === toKanbanStatus(pa.status))?.title ?? 'Planned',
+          sampleId: pa.sampleId,
+          wellId: relatedSample?.wellId ?? '—',
+          horizon: relatedSample?.horizon ?? '—',
+          samplingDate: relatedSample?.samplingDate ?? '—',
+          storageLocation: relatedSample?.storageLocation ?? 'Unassigned',
+          analysisType: pa.analysisType,
+          assignedTo: pa.assignedTo ?? 'Unassigned',
+          analysisStatus: pa.status,
+          sampleStatus: relatedSample?.sampleStatus ?? 'received',
+        };
+      });
+      return getColumnData(analysisCards, role);
+    }
+    return getColumnData(cards, role);
+  }, [cards, plannedAnalyses, role]);
   const handleCardClick = (card: KanbanCard) => {
     setSelectedCard(card);
     setIsPanelOpen(true);
@@ -58,6 +82,15 @@ export function KanbanBoard({ role }: { role: Role }) {
   };
 
   const handleDropToColumn = (columnId: KanbanCard['status']) => (cardId: string) => {
+    const analysis = plannedAnalyses.find((a) => a.id.toString() === cardId);
+    if (analysis) {
+      setPlannedAnalyses((prev) =>
+        prev.map((pa) => (pa.id === analysis.id ? { ...pa, status: toAnalysisStatus(columnId) } : pa)),
+      );
+      updatePlannedAnalysis(analysis.id, toAnalysisStatus(columnId)).catch(() => {});
+      return;
+    }
+
     setCards((prev) =>
       prev.map((card) =>
         card.id === cardId
@@ -75,8 +108,9 @@ export function KanbanBoard({ role }: { role: Role }) {
   const handleSave = async () => {
     setLoading(true);
     try {
-      const remote = await fetchSamples();
-      setCards(remote);
+      const [remoteSamples, remoteAnalyses] = await Promise.all([fetchSamples(), fetchPlannedAnalyses()]);
+      setCards(remoteSamples);
+      setPlannedAnalyses(remoteAnalyses);
     } finally {
       setLoading(false);
     }

@@ -40,6 +40,14 @@ export interface NewCardPayload {
   storageLocation?: string;
 }
 
+export interface PlannedAnalysisCard {
+  id: number;
+  sampleId: string;
+  analysisType: string;
+  status: PlannedAnalysis['status'];
+  assignedTo?: string;
+}
+
 export interface KanbanColumn {
   id: Status;
   title: string;
