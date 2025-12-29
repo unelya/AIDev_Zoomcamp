@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 interface KanbanColumnProps {
   column: ColumnType;
   onCardClick: (card: CardType) => void;
+  onDropCard: (cardId: string) => void;
 }
 
 const columnColors = {
@@ -15,9 +16,19 @@ const columnColors = {
   done: 'border-t-status-done',
 };
 
-export function KanbanColumn({ column, onCardClick }: KanbanColumnProps) {
+export function KanbanColumn({ column, onCardClick, onDropCard }: KanbanColumnProps) {
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const cardId = event.dataTransfer.getData('text/plain');
+    if (cardId) onDropCard(cardId);
+  };
+
   return (
-    <div className={cn('kanban-column flex flex-col border-t-2', columnColors[column.id])}>
+    <div
+      className={cn('kanban-column flex flex-col border-t-2', columnColors[column.id])}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={handleDrop}
+    >
       <div className="flex items-center justify-between p-3 bg-column-header rounded-t-lg">
         <div className="flex items-center gap-2">
           <h3 className="font-medium text-sm text-foreground">{column.title}</h3>

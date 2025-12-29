@@ -1,16 +1,37 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Filter, SlidersHorizontal } from 'lucide-react';
 import { KanbanColumn } from './KanbanColumn';
 import { DetailPanel } from './DetailPanel';
-import { getColumnData } from '@/data/mockData';
+import { getColumnData, getMockCards } from '@/data/mockData';
 import { KanbanCard } from '@/types/kanban';
 import { Button } from '@/components/ui/button';
 
+const STORAGE_KEY = 'labsync-kanban-cards';
+
 export function KanbanBoard() {
-  const columns = getColumnData();
+  const [cards, setCards] = useState<KanbanCard[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        return JSON.parse(saved) as KanbanCard[];
+      } catch {
+        return getMockCards();
+      }
+    }
+    return getMockCards();
+  });
   const [selectedCard, setSelectedCard] = useState<KanbanCard | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
-  
+
+  useEffect(() => {
+    // keep detail panel in sync with card state
+    if (selectedCard) {
+      const updated = cards.find((c) => c.id === selectedCard.id);
+      if (updated) setSelectedCard(updated);
+    }
+  }, [cards, selectedCard]);
+
+  const columns = useMemo(() => getColumnData(cards), [cards]);
   const handleCardClick = (card: KanbanCard) => {
     setSelectedCard(card);
     setIsPanelOpen(true);
@@ -20,7 +41,25 @@ export function KanbanBoard() {
     setIsPanelOpen(false);
     setTimeout(() => setSelectedCard(null), 300);
   };
-  
+
+  const handleDropToColumn = (columnId: KanbanCard['status']) => (cardId: string) => {
+    setCards((prev) =>
+      prev.map((card) =>
+        card.id === cardId
+          ? {
+              ...card,
+              status: columnId,
+              statusLabel: columns.find((c) => c.id === columnId)?.title ?? card.statusLabel,
+            }
+          : card,
+      ),
+    );
+  };
+
+  const handleSave = () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
+  };
+
   const totalSamples = columns.reduce((sum, col) => sum + col.cards.length, 0);
   
   return (
@@ -43,6 +82,9 @@ export function KanbanBoard() {
             <SlidersHorizontal className="w-4 h-4" />
             View
           </Button>
+          <Button size="sm" className="gap-2" onClick={handleSave}>
+            Save
+          </Button>
         </div>
       </div>
       
@@ -54,6 +96,7 @@ export function KanbanBoard() {
               <KanbanColumn
                 column={column}
                 onCardClick={handleCardClick}
+                onDropCard={handleDropToColumn(column.id)}
               />
             </div>
           ))}

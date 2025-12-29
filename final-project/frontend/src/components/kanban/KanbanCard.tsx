@@ -9,9 +9,15 @@ interface KanbanCardProps {
 }
 
 export function KanbanCard({ card, onClick }: KanbanCardProps) {
+  const handleDragStart = (event: React.DragEvent<HTMLDivElement>) => {
+    event.dataTransfer.setData('text/plain', card.id);
+  };
+
   return (
     <div
       onClick={onClick}
+      draggable
+      onDragStart={handleDragStart}
       className={cn('kanban-card', 'border-border/60')}
     >
       <div className="flex items-start justify-between gap-2 mb-2">
