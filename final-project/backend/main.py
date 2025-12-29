@@ -9,13 +9,13 @@ from sqlalchemy.orm import Session
 
 # Support running as a module or script
 try:
-    from .database import Base, engine, get_db
-    from .models import ActionBatchModel, ActionBatchStatus, ConflictModel, ConflictStatus, SampleModel, SampleStatus, PlannedAnalysisModel, AnalysisStatus, UserModel
+  from .database import Base, engine, get_db
+  from .models import ActionBatchModel, ActionBatchStatus, AuditLogModel, ConflictModel, ConflictStatus, SampleModel, SampleStatus, PlannedAnalysisModel, AnalysisStatus, UserModel
     from .schemas import ActionBatchCreate, ActionBatchOut, ConflictCreate, ConflictOut, ConflictUpdate, PlannedAnalysisCreate, PlannedAnalysisOut, PlannedAnalysisUpdate, UserOut, UserUpdate
     from .seed import seed_users
 except ImportError:  # pragma: no cover - fallback for script execution
   from database import Base, engine, get_db  # type: ignore
-  from models import ActionBatchModel, ActionBatchStatus, ConflictModel, ConflictStatus, SampleModel, SampleStatus, PlannedAnalysisModel, AnalysisStatus, UserModel  # type: ignore
+  from models import ActionBatchModel, ActionBatchStatus, AuditLogModel, ConflictModel, ConflictStatus, SampleModel, SampleStatus, PlannedAnalysisModel, AnalysisStatus, UserModel  # type: ignore
   from schemas import ActionBatchCreate, ActionBatchOut, ConflictCreate, ConflictOut, ConflictUpdate, PlannedAnalysisCreate, PlannedAnalysisOut, PlannedAnalysisUpdate, UserOut, UserUpdate  # type: ignore
   from seed import seed_users  # type: ignore
 
@@ -135,6 +135,7 @@ async def update_sample(sample_id: str, payload: dict, db: Session = Depends(get
   row = db.get(SampleModel, sample_id)
   if not row:
     raise HTTPException(status_code=404, detail="Sample not found")
+  old_status = row.status.value
   for key, value in payload.items():
     if key == "status":
       setattr(row, key, SampleStatus(value))
@@ -143,6 +144,8 @@ async def update_sample(sample_id: str, payload: dict, db: Session = Depends(get
   db.add(row)
   db.commit()
   db.refresh(row)
+  if "status" in payload:
+    log_audit(db, entity_type="sample", entity_id=sample_id, action="status_change", performed_by=None, details=f"{old_status}->{payload['status']}")
   return to_sample_out(row)
 
 
@@ -185,6 +188,7 @@ async def update_planned_analysis(analysis_id: int, payload: PlannedAnalysisUpda
   row = db.get(PlannedAnalysisModel, analysis_id)
   if not row:
     raise HTTPException(status_code=404, detail="Planned analysis not found")
+  old_status = row.status.value
   if payload.status:
     row.status = AnalysisStatus(payload.status)
   if payload.assigned_to is not None:
@@ -192,6 +196,8 @@ async def update_planned_analysis(analysis_id: int, payload: PlannedAnalysisUpda
   db.add(row)
   db.commit()
   db.refresh(row)
+  if payload.status:
+    log_audit(db, entity_type="planned_analysis", entity_id=str(analysis_id), action="status_change", performed_by=None, details=f"{old_status}->{payload.status}")
   return to_planned_out(row)
 
 
@@ -247,6 +253,7 @@ async def update_conflict(conflict_id: int, payload: ConflictUpdate, db: Session
   row = db.get(ConflictModel, conflict_id)
   if not row:
     raise HTTPException(status_code=404, detail="Conflict not found")
+  old_status = row.status.value
   if payload.status:
     row.status = ConflictStatus(payload.status)
   if payload.resolution_note is not None:
@@ -257,6 +264,8 @@ async def update_conflict(conflict_id: int, payload: ConflictUpdate, db: Session
   db.add(row)
   db.commit()
   db.refresh(row)
+  if payload.status:
+    log_audit(db, entity_type="conflict", entity_id=str(conflict_id), action="status_change", performed_by=row.updated_by, details=f"{old_status}->{payload.status}")
   return to_conflict_out(row)
 
 
@@ -274,6 +283,19 @@ def to_conflict_out(row: ConflictModel):
     "updated_by": row.updated_by,
     "updated_at": row.updated_at,
   }
+
+
+def log_audit(db: Session, *, entity_type: str, entity_id: str, action: str, performed_by: str | None, details: str | None = None):
+  log_row = AuditLogModel(
+    entity_type=entity_type,
+    entity_id=entity_id,
+    action=action,
+    performed_by=performed_by,
+    performed_at=datetime.utcnow().isoformat(),
+    details=details,
+  )
+  db.add(log_row)
+  db.commit()
 
 
 @app.get("/admin/users", response_model=list[UserOut])

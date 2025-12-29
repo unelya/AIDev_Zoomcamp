@@ -83,3 +83,15 @@ class UserModel(Base):
     username: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     full_name: Mapped[str] = mapped_column(String, nullable=False)
     role: Mapped[str] = mapped_column(String, nullable=False, default="lab_operator")
+
+
+class AuditLogModel(Base):
+    __tablename__ = "audit_log"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    entity_type: Mapped[str] = mapped_column(String, nullable=False)
+    entity_id: Mapped[str] = mapped_column(String, nullable=False)
+    action: Mapped[str] = mapped_column(String, nullable=False)
+    performed_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    performed_at: Mapped[str] = mapped_column(String, nullable=False)
+    details: Mapped[str | None] = mapped_column(String, nullable=True)
