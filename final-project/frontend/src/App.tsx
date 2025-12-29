@@ -9,6 +9,8 @@ import Samples from "./pages/Samples";
 import Actions from "./pages/Actions";
 import Admin from "./pages/Admin";
 import Settings from "./pages/Settings";
+import Login from "./pages/Login";
+import { AuthProvider } from "./hooks/use-auth";
 
 const queryClient = new QueryClient();
 
@@ -17,18 +19,21 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Navigate to="/board" replace />} />
-          <Route path="/board" element={<Index />} />
-          <Route path="/samples" element={<Samples />} />
-          <Route path="/actions" element={<Actions />} />
-          <Route path="/admin" element={<Admin />} />
-          <Route path="/settings" element={<Settings />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Navigate to="/board" replace />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/board" element={<Index />} />
+            <Route path="/samples" element={<Samples />} />
+            <Route path="/actions" element={<Actions />} />
+            <Route path="/admin" element={<Admin />} />
+            <Route path="/settings" element={<Settings />} />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
