@@ -17,3 +17,7 @@ Then open http://localhost:8080/ to view the app. The board includes multiple ro
 - `npm run dev` – start the dev server (port 8080)
 - `npm run build` – production build
 - `npm run preview` – preview the production build
+
+## Security note
+
+`npm audit fix` leaves 2 moderate advisories (esbuild via Vite). Resolving them requires a breaking upgrade to Vite 7 (`npm audit fix --force`). Plan a Vite/esbuild upgrade later and rerun `npm run build` afterward.
