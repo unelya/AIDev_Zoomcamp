@@ -68,7 +68,8 @@ export function KanbanCard({ card, onClick, onToggleMethod }: KanbanCardProps) {
                   }}
                   disabled={!onToggleMethod}
                 />
-                <span className="truncate">{m.name}</span>
+                <span className="truncate flex-1">{m.name}</span>
+                {m.status === 'completed' && <span className="text-[10px] text-destructive font-semibold">Done</span>}
               </label>
             ))}
           </div>

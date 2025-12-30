@@ -203,16 +203,17 @@ export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onResolveCo
                         <input
                           type="checkbox"
                           checked={m.status === 'completed'}
-                          onChange={(e) => onToggleMethod?.(m.id, e.target.checked)}
-                          className="h-4 w-4 rounded border-border bg-background"
-                          disabled={!onToggleMethod}
-                        />
-                        <span>{m.name}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
+                      onChange={(e) => onToggleMethod?.(m.id, e.target.checked)}
+                      className="h-4 w-4 rounded border-border bg-background"
+                      disabled={!onToggleMethod}
+                    />
+                    <span className="flex-1">{m.name}</span>
+                    {m.status === 'completed' && <span className="text-[10px] text-destructive font-semibold">Done</span>}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
             </div>
             )}
           </div>
