@@ -103,6 +103,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
           analysisType: 'Sample',
           statusLabel: columnConfigByRole[role]?.find((c) => c.id === sample.status)?.title ?? 'Planned',
           methods: [],
+          allMethodsDone: false,
         });
       });
 
@@ -111,10 +112,18 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         if (!card) return;
         const nextMethods = [...(card.methods ?? []), { id: pa.id, name: pa.analysisType, status: pa.status }];
         card.methods = nextMethods;
-        const agg = aggregateStatus(nextMethods);
-        card.status = agg;
-        card.statusLabel = columnConfigByRole[role]?.find((c) => c.id === agg)?.title ?? card.statusLabel;
-        card.analysisStatus = agg === 'done' ? 'completed' : agg === 'progress' ? 'in_progress' : agg === 'review' ? 'review' : 'planned';
+        const { aggStatus, allDone } = aggregateStatus(nextMethods, card.status);
+        card.status = aggStatus;
+        card.statusLabel = columnConfigByRole[role]?.find((c) => c.id === aggStatus)?.title ?? card.statusLabel;
+        card.analysisStatus =
+          aggStatus === 'progress' && allDone
+            ? 'completed'
+            : aggStatus === 'progress'
+            ? 'in_progress'
+            : aggStatus === 'review'
+            ? 'review'
+            : 'planned';
+        card.allMethodsDone = allDone;
       });
 
       return getColumnData(filterCards([...bySample.values()]), role);
@@ -193,15 +202,28 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       return;
     }
 
-    // Lab operator moving aggregated sample card updates all methods
+    // Lab operator: aggregated sample cards; block forbidden moves when all methods done
     if (role === 'lab_operator') {
-      const nextStatus = toAnalysisStatus(columnId);
-      const affected = plannedAnalyses.filter((pa) => pa.sampleId === cardId);
-      if (affected.length > 0) {
-        setPlannedAnalyses((prev) =>
-          prev.map((pa) => (pa.sampleId === cardId ? { ...pa, status: nextStatus } : pa)),
-        );
-        Promise.all(affected.map((pa) => updatePlannedAnalysis(pa.id, nextStatus))).catch(() => {});
+      const sampleAnalyses = plannedAnalyses.filter((pa) => pa.sampleId === cardId);
+      const allDone = sampleAnalyses.length > 0 && sampleAnalyses.every((pa) => pa.status === 'completed');
+      if (allDone && (columnId === 'done' || columnId === 'new')) {
+        toast({
+          title: "Auto-complete only",
+          description: "All methods are done; move only to Needs attention if required.",
+          variant: "default",
+        });
+        return;
+      }
+      // Only change method statuses when moving into active work; keep completed statuses intact when sending to Needs attention
+      if (columnId !== 'review') {
+        const nextStatus = toAnalysisStatus(columnId);
+        const affected = plannedAnalyses.filter((pa) => pa.sampleId === cardId);
+        if (affected.length > 0) {
+          setPlannedAnalyses((prev) =>
+            prev.map((pa) => (pa.sampleId === cardId ? { ...pa, status: nextStatus } : pa)),
+          );
+          Promise.all(affected.map((pa) => updatePlannedAnalysis(pa.id, nextStatus))).catch(() => {});
+        }
       }
     }
 
@@ -302,7 +324,18 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
 
   const toggleMethodStatus = async (methodId: number, done: boolean) => {
     const nextStatus = done ? 'completed' : 'planned';
-    setPlannedAnalyses((prev) => prev.map((pa) => (pa.id === methodId ? { ...pa, status: nextStatus as PlannedAnalysisCard['status'] } : pa)));
+    setPlannedAnalyses((prev) => {
+      const updated = prev.map((pa) => (pa.id === methodId ? { ...pa, status: nextStatus as PlannedAnalysisCard['status'] } : pa));
+      const sampleId = updated.find((pa) => pa.id === methodId)?.sampleId;
+      if (sampleId) {
+        const methods = updated.filter((pa) => pa.sampleId === sampleId);
+        const allDone = methods.length > 0 && methods.every((m) => m.status === 'completed');
+        setCards((cardsPrev) =>
+          cardsPrev.map((c) => (c.id === sampleId ? { ...c, allMethodsDone: allDone } : c)),
+        );
+      }
+      return updated;
+    });
     try {
       await updatePlannedAnalysis(methodId, nextStatus);
     } catch (err) {
@@ -311,6 +344,8 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         description: err instanceof Error ? err.message : "Backend unreachable",
         variant: "destructive",
       });
+      // rollback
+      setPlannedAnalyses((prev) => prev.map((pa) => (pa.id === methodId ? { ...pa, status: done ? 'planned' : 'completed' } : pa)));
     }
   };
 
@@ -525,13 +560,19 @@ async function ensureAnalyses(
   }
 }
 
-function aggregateStatus(methods: { status: PlannedAnalysisCard['status'] }[]): KanbanCard['status'] {
-  if (methods.length === 0) return 'new';
+function aggregateStatus(
+  methods: { status: PlannedAnalysisCard['status'] }[],
+  fallback: KanbanCard['status'],
+): { aggStatus: KanbanCard['status']; allDone: boolean } {
+  if (methods.length === 0) return { aggStatus: fallback, allDone: false };
   const hasReview = methods.some((m) => m.status === 'review' || m.status === 'failed');
   const allDone = methods.every((m) => m.status === 'completed');
   const hasProgress = methods.some((m) => m.status === 'in_progress');
-  if (hasReview) return 'review';
-  if (allDone) return 'done';
-  if (hasProgress) return 'progress';
-  return 'new';
+  if (hasReview) return { aggStatus: 'review', allDone };
+  if (allDone) {
+    // If user placed card in review, keep it there; otherwise keep in progress with highlight
+    return { aggStatus: fallback === 'review' ? 'review' : 'progress', allDone };
+  }
+  if (hasProgress) return { aggStatus: 'progress', allDone };
+  return { aggStatus: fallback ?? 'new', allDone };
 }

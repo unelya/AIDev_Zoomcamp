@@ -14,12 +14,21 @@ export function KanbanCard({ card, onClick, onToggleMethod }: KanbanCardProps) {
     event.dataTransfer.setData('text/plain', card.id);
   };
 
+  const allMethodsDone =
+    card.status === 'progress' &&
+    (card.allMethodsDone ||
+      (card.methods && card.methods.length > 0 && card.methods.every((m) => m.status === 'completed')));
+
   return (
     <div
       onClick={onClick}
       draggable
       onDragStart={handleDragStart}
-      className={cn('kanban-card', 'border-border/60')}
+      className={cn(
+        'kanban-card',
+        'border-border/60',
+        allMethodsDone ? 'bg-emerald-900/70 border-emerald-400 shadow-[0_0_0_1px_rgba(16,185,129,0.35)]' : ''
+      )}
     >
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex flex-col gap-1">

@@ -34,6 +34,7 @@ export interface KanbanCard {
   conflictNew?: string;
   conflictResolutionNote?: string | null;
   methods?: { id: number; name: string; status: PlannedAnalysis['status'] }[];
+  allMethodsDone?: boolean;
 }
 
 export interface NewCardPayload {
