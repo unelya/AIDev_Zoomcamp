@@ -28,6 +28,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const { toast } = useToast();
   const [initialLoad, setInitialLoad] = useState(true);
+  const [newDialogOpen, setNewDialogOpen] = useState(false);
 
   useEffect(() => {
     // keep detail panel in sync with card state
@@ -326,7 +327,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
             <SlidersHorizontal className="w-4 h-4" />
             View
           </Button>
-          <NewCardDialog onCreate={handleCreateCard} />
+          <NewCardDialog onCreate={handleCreateCard} open={newDialogOpen} onOpenChange={setNewDialogOpen} />
           <Button size="sm" className="gap-2" onClick={handleSave} disabled={loading}>
             {loading ? "Syncing..." : "Refresh"}
           </Button>
@@ -345,6 +346,8 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
                   column={column}
                   onCardClick={handleCardClick}
                   onDropCard={handleDropToColumn(column.id)}
+                  showAdd={role === 'warehouse_worker' && column.id === 'new'}
+                  onAdd={() => setNewDialogOpen(true)}
                 />
               </div>
             ))}

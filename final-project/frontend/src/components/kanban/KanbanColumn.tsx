@@ -7,6 +7,8 @@ interface KanbanColumnProps {
   column: ColumnType;
   onCardClick: (card: CardType) => void;
   onDropCard: (cardId: string) => void;
+  showAdd?: boolean;
+  onAdd?: () => void;
 }
 
 const columnColors = {
@@ -16,7 +18,7 @@ const columnColors = {
   done: 'border-t-status-done',
 };
 
-export function KanbanColumn({ column, onCardClick, onDropCard }: KanbanColumnProps) {
+export function KanbanColumn({ column, onCardClick, onDropCard, showAdd = false, onAdd }: KanbanColumnProps) {
   const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     const cardId = event.dataTransfer.getData('text/plain');
@@ -36,9 +38,11 @@ export function KanbanColumn({ column, onCardClick, onDropCard }: KanbanColumnPr
             {column.cards.length}
           </span>
         </div>
-        <button className="p-1 hover:bg-muted rounded transition-colors">
-          <Plus className="w-4 h-4 text-muted-foreground" />
-        </button>
+        {showAdd && (
+          <button className="p-1 hover:bg-muted rounded transition-colors" onClick={onAdd} aria-label="Add new sample">
+            <Plus className="w-4 h-4 text-muted-foreground" />
+          </button>
+        )}
       </div>
       
       <div className="flex-1 p-2 space-y-2 overflow-y-auto scrollbar-thin">

@@ -11,10 +11,14 @@ import { format } from 'date-fns';
 
 interface NewCardDialogProps {
   onCreate: (payload: NewCardPayload) => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export function NewCardDialog({ onCreate }: NewCardDialogProps) {
-  const [open, setOpen] = useState(false);
+export function NewCardDialog({ onCreate, open, onOpenChange }: NewCardDialogProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = open !== undefined;
+  const dialogOpen = isControlled ? open : internalOpen;
   const today = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
   const [form, setForm] = useState<NewCardPayload>({
     sampleId: '',
@@ -27,12 +31,19 @@ export function NewCardDialog({ onCreate }: NewCardDialogProps) {
   const [dateOpen, setDateOpen] = useState(false);
 
   useEffect(() => {
-    if (!open) {
+    if (!dialogOpen) {
       setForm({ sampleId: '', wellId: '', horizon: '', samplingDate: today, storageLocation: '' });
       setError('');
       setDateOpen(false);
     }
-  }, [open, today]);
+  }, [dialogOpen, today]);
+
+  const setOpen = (next: boolean) => {
+    if (!isControlled) {
+      setInternalOpen(next);
+    }
+    onOpenChange?.(next);
+  };
 
   const onChange = (field: keyof NewCardPayload) => (event: React.ChangeEvent<HTMLInputElement>) => {
     setForm((prev) => ({ ...prev, [field]: event.target.value }));
@@ -50,7 +61,7 @@ export function NewCardDialog({ onCreate }: NewCardDialogProps) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={dialogOpen} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button size="sm">New Sample</Button>
       </DialogTrigger>
