@@ -11,6 +11,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandGroup, CommandItem } from '@/components/ui/command';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useAuth } from '@/hooks/use-auth';
 
 const STORAGE_KEY = 'labsync-kanban-cards';
 const DEFAULT_ANALYSIS_TYPES = ['SARA', 'NMR', 'FTIR', 'Mass Spectrometry', 'Viscosity'];
@@ -24,6 +25,7 @@ const roleCopy: Record<Role, string> = {
 };
 
 export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: string }) {
+  const { user } = useAuth();
   const [cards, setCards] = useState<KanbanCard[]>([]);
   const [plannedAnalyses, setPlannedAnalyses] = useState<PlannedAnalysisCard[]>([]);
   const [actionBatches, setActionBatches] = useState<{ id: number; title: string; date: string; status: string }[]>([]);
@@ -35,6 +37,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
   const [initialLoad, setInitialLoad] = useState(true);
   const [newDialogOpen, setNewDialogOpen] = useState(false);
   const [methodFilter, setMethodFilter] = useState<string[]>([]);
+  const [assignedOnly, setAssignedOnly] = useState(false);
 
   useEffect(() => {
     // keep detail panel in sync with card state
@@ -116,8 +119,15 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         if (METHOD_BLACKLIST.includes(pa.analysisType)) return;
         const card = bySample.get(pa.sampleId);
         if (!card) return;
-        const nextMethods = [...(card.methods ?? []), { id: pa.id, name: pa.analysisType, status: pa.status }];
+        const nextMethods = [
+          ...(card.methods ?? []),
+          { id: pa.id, name: pa.analysisType, status: pa.status, assignedTo: pa.assignedTo },
+        ];
         card.methods = nextMethods;
+        const methodAssignee = nextMethods.find((m) => m.assignedTo)?.assignedTo;
+        if (methodAssignee) {
+          card.assignedTo = methodAssignee;
+        }
         const { aggStatus, allDone } = aggregateStatus(nextMethods, card.status);
         card.status = aggStatus;
         card.statusLabel = columnConfigByRole[role]?.find((c) => c.id === aggStatus)?.title ?? card.statusLabel;
@@ -132,7 +142,19 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         card.allMethodsDone = allDone;
       });
       // remove cards that have no methods (e.g., all filtered out)
-      const cardsWithMethods = [...bySample.values()].filter((c) => c.methods && c.methods.length > 0);
+      let cardsWithMethods = [...bySample.values()].filter((c) => c.methods && c.methods.length > 0);
+      const userName = user?.fullName?.trim().toLowerCase();
+      if (assignedOnly) {
+        if (!userName) {
+          cardsWithMethods = [];
+        } else {
+          cardsWithMethods = cardsWithMethods.filter(
+            (c) =>
+              c.assignedTo?.trim().toLowerCase() === userName ||
+              c.methods?.some((m) => m.assignedTo?.trim().toLowerCase() === userName),
+          );
+        }
+      }
       const filteredByMethods =
         methodFilter.length === 0
           ? cardsWithMethods
@@ -175,7 +197,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       return getColumnData(filterCards([...batchCards, ...conflictCards]), role);
     }
     return getColumnData(filterCards(cards), role);
-  }, [cards, plannedAnalyses, actionBatches, conflicts, role, filterCards]);
+  }, [cards, plannedAnalyses, actionBatches, conflicts, role, filterCards, methodFilter, assignedOnly, user?.fullName]);
   const handleCardClick = (card: KanbanCard) => {
     setSelectedCard(card);
     setIsPanelOpen(true);
@@ -480,6 +502,15 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
               </Command>
             </PopoverContent>
           </Popover>
+          {role === 'lab_operator' && (
+            <label className="flex items-center gap-2 text-sm text-foreground">
+              <Checkbox
+                checked={assignedOnly}
+                onCheckedChange={(val) => setAssignedOnly(Boolean(val))}
+              />
+              <span>Show only assigned to me</span>
+            </label>
+          )}
           <Button variant="outline" size="sm" className="gap-2">
             <SlidersHorizontal className="w-4 h-4" />
             View
@@ -572,6 +603,7 @@ function mapSampleUpdates(card: KanbanCard, updates: Record<string, string>) {
     wellId: updates.well_id ?? card.wellId,
     horizon: updates.horizon ?? card.horizon,
     status: (updates.status as KanbanCard['status']) ?? card.status,
+    assignedTo: updates.assigned_to ?? card.assignedTo,
   };
 }
 

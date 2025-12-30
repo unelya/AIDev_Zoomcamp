@@ -95,6 +95,7 @@ class Sample(BaseModel):
   sampling_date: str
   status: str = "new"
   storage_location: str | None = None
+  assigned_to: str | None = None
 
 
 @app.get("/samples")
@@ -126,6 +127,7 @@ async def create_sample(sample: Sample, db: Session = Depends(get_db)):
     sampling_date=sample.sampling_date,
     status=SampleStatus(sample.status),
     storage_location=sample.storage_location,
+    assigned_to=sample.assigned_to,
   )
   db.add(row)
   db.commit()
@@ -142,6 +144,8 @@ async def update_sample(sample_id: str, payload: dict, db: Session = Depends(get
   for key, value in payload.items():
     if key == "status":
       setattr(row, key, SampleStatus(value))
+    elif key == "assigned_to":
+      setattr(row, key, value)
     elif hasattr(row, key):
       setattr(row, key, value)
   db.add(row)
@@ -160,6 +164,7 @@ def to_sample_out(row: SampleModel):
     sampling_date=row.sampling_date,
     status=row.status.value,
     storage_location=row.storage_location,
+    assigned_to=row.assigned_to,
   )
 
 
