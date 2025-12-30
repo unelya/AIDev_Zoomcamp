@@ -106,7 +106,7 @@ const statusMap: Record<PlannedAnalysis['status'], { column: Status; label: stri
 
 export const columnConfigByRole: Record<Role, { id: Status; title: string }[]> = {
   warehouse_worker: [
-    { id: 'new', title: 'New' },
+    { id: 'new', title: 'Planned' },
     { id: 'progress', title: 'Awaiting arrival' },
     { id: 'review', title: 'Stored' },
     { id: 'done', title: 'Issues' },

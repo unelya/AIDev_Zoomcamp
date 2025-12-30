@@ -161,6 +161,16 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
   };
 
   const handleDropToColumn = (columnId: KanbanCard['status']) => (cardId: string) => {
+    if (role === 'warehouse_worker' && columnId === 'review') {
+      const target = cards.find((c) => c.id === cardId);
+      if (target && !target.storageLocation) {
+        const location = window.prompt('Storage location is required to store this sample. Please enter it:');
+        if (!location) return;
+        handleSampleFieldUpdate(target.sampleId, { storage_location: location, status: 'review' });
+        return;
+      }
+    }
+
     const analysis = plannedAnalyses.find((a) => a.id.toString() === cardId);
     if (analysis) {
       setPlannedAnalyses((prev) =>
@@ -270,14 +280,40 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
   const totalSamples = columns.reduce((sum, col) => sum + col.cards.length, 0);
 
   const handleSampleFieldUpdate = async (sampleId: string, updates: Record<string, string>) => {
+    const shouldStore =
+      role === 'warehouse_worker' && updates.storage_location && updates.storage_location.trim().length > 0;
+    const targetStatus = shouldStore ? 'review' : undefined;
+    const statusLabel =
+      targetStatus && columnConfigByRole[role]?.find((c) => c.id === targetStatus)?.title;
+
     setCards((prev) =>
-      prev.map((card) => (card.sampleId === sampleId ? { ...card, ...mapSampleUpdates(card, updates) } : card)),
+      prev.map((card) =>
+        card.sampleId === sampleId
+          ? {
+              ...card,
+              ...mapSampleUpdates(card, updates),
+              ...(targetStatus
+                ? { status: targetStatus, statusLabel: statusLabel ?? card.statusLabel }
+                : {}),
+            }
+          : card,
+      ),
     );
     if (selectedCard?.sampleId === sampleId) {
-      setSelectedCard((prev) => (prev ? { ...prev, ...mapSampleUpdates(prev, updates) } : prev));
+      setSelectedCard((prev) =>
+        prev
+          ? {
+              ...prev,
+              ...mapSampleUpdates(prev, updates),
+              ...(targetStatus
+                ? { status: targetStatus, statusLabel: statusLabel ?? prev.statusLabel }
+                : {}),
+            }
+          : prev,
+      );
     }
     try {
-      await updateSampleFields(sampleId, updates);
+      await updateSampleFields(sampleId, targetStatus ? { ...updates, status: targetStatus } : updates);
     } catch (err) {
       toast({
         title: "Failed to update sample",
@@ -402,6 +438,7 @@ function mapSampleUpdates(card: KanbanCard, updates: Record<string, string>) {
     samplingDate: updates.sampling_date ?? card.samplingDate,
     wellId: updates.well_id ?? card.wellId,
     horizon: updates.horizon ?? card.horizon,
+    status: (updates.status as KanbanCard['status']) ?? card.status,
   };
 }
 
