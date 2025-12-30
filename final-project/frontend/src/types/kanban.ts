@@ -33,6 +33,7 @@ export interface KanbanCard {
   conflictOld?: string;
   conflictNew?: string;
   conflictResolutionNote?: string | null;
+  methods?: { id: number; name: string; status: PlannedAnalysis['status'] }[];
 }
 
 export interface NewCardPayload {

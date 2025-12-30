@@ -9,6 +9,7 @@ interface KanbanColumnProps {
   onDropCard: (cardId: string) => void;
   showAdd?: boolean;
   onAdd?: () => void;
+  onToggleMethod?: (methodId: number, done: boolean) => void;
 }
 
 const columnColors = {
@@ -18,7 +19,7 @@ const columnColors = {
   done: 'border-t-status-done',
 };
 
-export function KanbanColumn({ column, onCardClick, onDropCard, showAdd = false, onAdd }: KanbanColumnProps) {
+export function KanbanColumn({ column, onCardClick, onDropCard, showAdd = false, onAdd, onToggleMethod }: KanbanColumnProps) {
   const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     const cardId = event.dataTransfer.getData('text/plain');
@@ -51,6 +52,7 @@ export function KanbanColumn({ column, onCardClick, onDropCard, showAdd = false,
             key={card.id}
             card={card}
             onClick={() => onCardClick(card)}
+            onToggleMethod={onToggleMethod}
           />
         ))}
       </div>

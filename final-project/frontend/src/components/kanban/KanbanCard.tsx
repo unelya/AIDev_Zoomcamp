@@ -6,9 +6,10 @@ import { cn } from '@/lib/utils';
 interface KanbanCardProps {
   card: CardType;
   onClick: () => void;
+  onToggleMethod?: (methodId: number, done: boolean) => void;
 }
 
-export function KanbanCard({ card, onClick }: KanbanCardProps) {
+export function KanbanCard({ card, onClick, onToggleMethod }: KanbanCardProps) {
   const handleDragStart = (event: React.DragEvent<HTMLDivElement>) => {
     event.dataTransfer.setData('text/plain', card.id);
   };
@@ -49,6 +50,29 @@ export function KanbanCard({ card, onClick }: KanbanCardProps) {
           <span className="text-foreground font-semibold">Well {card.wellId}</span>
           <span className="text-muted-foreground">Horizon {card.horizon}</span>
         </div>
+        {card.methods && card.methods.length > 0 && (
+          <div className="space-y-1">
+            {card.methods.map((m) => (
+              <label
+                key={m.id}
+                className="flex items-center gap-2 text-[11px] text-foreground"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <input
+                  type="checkbox"
+                  className="h-3.5 w-3.5 rounded border-border bg-background"
+                  checked={m.status === 'completed'}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    onToggleMethod?.(m.id, e.target.checked);
+                  }}
+                  disabled={!onToggleMethod}
+                />
+                <span className="truncate">{m.name}</span>
+              </label>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="mt-2 flex items-center gap-2">

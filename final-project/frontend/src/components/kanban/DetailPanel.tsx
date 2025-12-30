@@ -18,9 +18,10 @@ interface DetailPanelProps {
   onResolveConflict?: (note?: string) => void;
   onUpdateSample?: (updates: Record<string, string>) => void;
   onUpdateAnalysis?: (updates: { assigned_to?: string }) => void;
+  onToggleMethod?: (methodId: number, done: boolean) => void;
 }
 
-export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onResolveConflict, onUpdateSample, onUpdateAnalysis }: DetailPanelProps) {
+export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onResolveConflict, onUpdateSample, onUpdateAnalysis, onToggleMethod }: DetailPanelProps) {
   if (!card) return null;
   const [analysisType, setAnalysisType] = useState('');
   const [assignedTo, setAssignedTo] = useState('');
@@ -191,9 +192,28 @@ export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onResolveCo
                   <div>
                     <p className="text-[11px] font-semibold text-foreground">NEW</p>
                     <pre className="whitespace-pre-wrap break-words bg-muted/40 rounded p-2 text-[11px]">{card.conflictNew ?? '—'}</pre>
-                  </div>
                 </div>
               </div>
+              {card.methods && card.methods.length > 0 && (
+                <div className="space-y-2 col-span-2">
+                  <label className="text-xs text-muted-foreground uppercase tracking-wide">Methods</label>
+                  <div className="space-y-1">
+                    {card.methods.map((m) => (
+                      <label key={m.id} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={m.status === 'completed'}
+                          onChange={(e) => onToggleMethod?.(m.id, e.target.checked)}
+                          className="h-4 w-4 rounded border-border bg-background"
+                          disabled={!onToggleMethod}
+                        />
+                        <span>{m.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
             )}
           </div>
         </div>

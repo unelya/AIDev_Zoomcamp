@@ -10,6 +10,7 @@ import { createActionBatch, createConflict, createPlannedAnalysis, createSample,
 import { useToast } from '@/components/ui/use-toast';
 
 const STORAGE_KEY = 'labsync-kanban-cards';
+const DEFAULT_ANALYSIS_TYPES = ['SARA', 'NMR', 'FTIR', 'Mass Spectrometry', 'Viscosity'];
 
 const roleCopy: Record<Role, string> = {
   warehouse_worker: 'Warehouse view: samples and storage',
@@ -95,24 +96,28 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
 
   const columns = useMemo(() => {
     if (role === 'lab_operator') {
-      const analysisCards: KanbanCard[] = plannedAnalyses.map((pa) => {
-        const relatedSample = cards.find((c) => c.sampleId === pa.sampleId);
-        return {
-          id: pa.id.toString(),
-          status: toKanbanStatus(pa.status),
-          statusLabel: columnConfigByRole[role]?.find((c) => c.id === toKanbanStatus(pa.status))?.title ?? 'Planned',
-          sampleId: pa.sampleId,
-          wellId: relatedSample?.wellId ?? '—',
-          horizon: relatedSample?.horizon ?? '—',
-          samplingDate: relatedSample?.samplingDate ?? '—',
-          storageLocation: relatedSample?.storageLocation ?? 'Unassigned',
-          analysisType: pa.analysisType,
-          assignedTo: pa.assignedTo ?? 'Unassigned',
-          analysisStatus: pa.status,
-          sampleStatus: relatedSample?.sampleStatus ?? 'received',
-        };
+      const bySample = new Map<string, KanbanCard>();
+      cards.forEach((sample) => {
+        bySample.set(sample.sampleId, {
+          ...sample,
+          analysisType: 'Sample',
+          statusLabel: columnConfigByRole[role]?.find((c) => c.id === sample.status)?.title ?? 'Planned',
+          methods: [],
+        });
       });
-      return getColumnData(filterCards(analysisCards), role);
+
+      plannedAnalyses.forEach((pa) => {
+        const card = bySample.get(pa.sampleId);
+        if (!card) return;
+        const nextMethods = [...(card.methods ?? []), { id: pa.id, name: pa.analysisType, status: pa.status }];
+        card.methods = nextMethods;
+        const agg = aggregateStatus(nextMethods);
+        card.status = agg;
+        card.statusLabel = columnConfigByRole[role]?.find((c) => c.id === agg)?.title ?? card.statusLabel;
+        card.analysisStatus = agg === 'done' ? 'completed' : agg === 'progress' ? 'in_progress' : agg === 'review' ? 'review' : 'planned';
+      });
+
+      return getColumnData(filterCards([...bySample.values()]), role);
     }
     if (role === 'action_supervision') {
       const batchCards: KanbanCard[] = actionBatches.map((b) => ({
@@ -188,6 +193,18 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       return;
     }
 
+    // Lab operator moving aggregated sample card updates all methods
+    if (role === 'lab_operator') {
+      const nextStatus = toAnalysisStatus(columnId);
+      const affected = plannedAnalyses.filter((pa) => pa.sampleId === cardId);
+      if (affected.length > 0) {
+        setPlannedAnalyses((prev) =>
+          prev.map((pa) => (pa.sampleId === cardId ? { ...pa, status: nextStatus } : pa)),
+        );
+        Promise.all(affected.map((pa) => updatePlannedAnalysis(pa.id, nextStatus))).catch(() => {});
+      }
+    }
+
     setCards((prev) =>
       prev.map((card) =>
         card.id === cardId
@@ -199,13 +216,19 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
           : card,
       ),
     );
-    updateSampleStatus(cardId, columnId).catch((err) =>
-      toast({
-        title: "Failed to update sample",
-        description: err instanceof Error ? err.message : "Backend unreachable",
-        variant: "destructive",
-      }),
-    );
+    updateSampleStatus(cardId, columnId)
+      .then((updated) => {
+        if (role === 'warehouse_worker' && columnId === 'review') {
+          ensureAnalyses(updated.sampleId, plannedAnalyses, setPlannedAnalyses);
+        }
+      })
+      .catch((err) =>
+        toast({
+          title: "Failed to update sample",
+          description: err instanceof Error ? err.message : "Backend unreachable",
+          variant: "destructive",
+        }),
+      );
   };
 
   const handleSave = async () => {
@@ -277,6 +300,20 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     }
   };
 
+  const toggleMethodStatus = async (methodId: number, done: boolean) => {
+    const nextStatus = done ? 'completed' : 'planned';
+    setPlannedAnalyses((prev) => prev.map((pa) => (pa.id === methodId ? { ...pa, status: nextStatus as PlannedAnalysisCard['status'] } : pa)));
+    try {
+      await updatePlannedAnalysis(methodId, nextStatus);
+    } catch (err) {
+      toast({
+        title: "Failed to update method",
+        description: err instanceof Error ? err.message : "Backend unreachable",
+        variant: "destructive",
+      });
+    }
+  };
+
   const totalSamples = columns.reduce((sum, col) => sum + col.cards.length, 0);
 
   const handleSampleFieldUpdate = async (sampleId: string, updates: Record<string, string>) => {
@@ -314,6 +351,9 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     }
     try {
       await updateSampleFields(sampleId, targetStatus ? { ...updates, status: targetStatus } : updates);
+      if (role === 'warehouse_worker' && (targetStatus === 'review' || updates.status === 'review')) {
+        ensureAnalyses(sampleId, plannedAnalyses, setPlannedAnalyses);
+      }
     } catch (err) {
       toast({
         title: "Failed to update sample",
@@ -384,6 +424,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
                   onDropCard={handleDropToColumn(column.id)}
                   showAdd={role === 'warehouse_worker' && column.id === 'new'}
                   onAdd={() => setNewDialogOpen(true)}
+                  onToggleMethod={role === 'lab_operator' ? toggleMethodStatus : undefined}
                 />
               </div>
             ))}
@@ -411,6 +452,17 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         onUpdateAnalysis={
           selectedCard && selectedCard.analysisType !== 'Sample' && role === 'lab_operator'
             ? (updates) => handleAnalysisFieldUpdate(Number(selectedCard.id), updates)
+            : undefined
+        }
+        onToggleMethod={
+          role === 'lab_operator'
+            ? async (methodId, done) => {
+                const nextStatus = done ? 'completed' : 'planned';
+                setPlannedAnalyses((prev) =>
+                  prev.map((pa) => (pa.id === methodId ? { ...pa, status: nextStatus as PlannedAnalysisCard['status'] } : pa)),
+                );
+                await updatePlannedAnalysis(methodId, nextStatus);
+              }
             : undefined
         }
       />
@@ -453,4 +505,33 @@ function toAnalysisStatus(status: KanbanCard['status']): PlannedAnalysisCard['st
     default:
       return 'planned';
   }
+}
+
+async function ensureAnalyses(
+  sampleId: string,
+  existing: PlannedAnalysisCard[],
+  setPlannedAnalyses: React.Dispatch<React.SetStateAction<PlannedAnalysisCard[]>>,
+) {
+  const existingTypes = new Set(existing.filter((pa) => pa.sampleId === sampleId).map((pa) => pa.analysisType));
+  const missing = DEFAULT_ANALYSIS_TYPES.filter((t) => !existingTypes.has(t));
+  if (missing.length === 0) return;
+  for (const type of missing) {
+    try {
+      const created = await createPlannedAnalysis({ sampleId, analysisType: type });
+      setPlannedAnalyses((prev) => [...prev, mapApiAnalysis(created)]);
+    } catch {
+      // ignore failures silently for now
+    }
+  }
+}
+
+function aggregateStatus(methods: { status: PlannedAnalysisCard['status'] }[]): KanbanCard['status'] {
+  if (methods.length === 0) return 'new';
+  const hasReview = methods.some((m) => m.status === 'review' || m.status === 'failed');
+  const allDone = methods.every((m) => m.status === 'completed');
+  const hasProgress = methods.some((m) => m.status === 'in_progress');
+  if (hasReview) return 'review';
+  if (allDone) return 'done';
+  if (hasProgress) return 'progress';
+  return 'new';
 }
