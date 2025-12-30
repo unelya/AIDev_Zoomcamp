@@ -162,6 +162,82 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
 
       return getColumnData(filterCards(filteredByMethods), role);
     }
+    if (role === 'admin') {
+      // Compose admin view: Needs attention (lab review), Conflicts (action conflicts), Resolved empty, Deleted empty
+      const adminCards: KanbanCard[] = [];
+      // Lab needs attention (mirror lab view with current filters)
+      const labMap = new Map<string, KanbanCard>();
+      cards.forEach((sample) => {
+        labMap.set(sample.sampleId, {
+          ...sample,
+          analysisType: 'Sample',
+          statusLabel: columnConfigByRole.lab_operator.find((c) => c.id === sample.status)?.title ?? 'Planned',
+          methods: [],
+          allMethodsDone: false,
+        });
+      });
+      plannedAnalyses.forEach((pa) => {
+        if (METHOD_BLACKLIST.includes(pa.analysisType)) return;
+        const card = labMap.get(pa.sampleId);
+        if (!card) return;
+        const nextMethods = [
+          ...(card.methods ?? []),
+          { id: pa.id, name: pa.analysisType, status: pa.status, assignedTo: pa.assignedTo },
+        ];
+        card.methods = nextMethods;
+        const { aggStatus, allDone } = aggregateStatus(nextMethods, card.status);
+        card.status = aggStatus;
+        card.statusLabel = columnConfigByRole.lab_operator.find((c) => c.id === aggStatus)?.title ?? card.statusLabel;
+        card.allMethodsDone = allDone;
+      });
+      let labCards = [...labMap.values()].filter((c) => c.methods && c.methods.length > 0);
+      const userName = user?.fullName?.trim().toLowerCase();
+      if (assignedOnly) {
+        if (!userName) {
+          labCards = [];
+        } else {
+          labCards = labCards.filter(
+            (c) =>
+              c.assignedTo?.trim().toLowerCase() === userName ||
+              c.methods?.some((m) => m.assignedTo?.trim().toLowerCase() === userName),
+          );
+        }
+      }
+      labCards =
+        methodFilter.length === 0
+          ? labCards
+          : labCards.filter((c) => c.methods?.some((m) => methodFilter.includes(m.name)));
+      const labNeeds = getColumnData(filterCards(labCards), 'lab_operator').find((col) => col.id === 'review')?.cards ?? [];
+      labNeeds.forEach((c) => adminCards.push({ ...c, status: 'new', statusLabel: 'Needs attention' }));
+
+      // admin "Resolved" currently unused; leave empty
+
+      // Conflicts same as action supervision
+      // Conflicts mirror action supervision "Conflicts" (unresolved only)
+      conflicts
+        .filter((c) => c.status !== 'resolved')
+        .forEach((c) => {
+          adminCards.push({
+            id: `conflict-${c.id}`,
+            status: 'progress',
+            statusLabel: 'Conflicts',
+            sampleId: `Conflict ${c.id}`,
+            wellId: '',
+            horizon: '',
+            samplingDate: '',
+            storageLocation: '—',
+            analysisType: 'Conflict',
+            assignedTo: 'Action supervisor',
+            analysisStatus: 'review',
+            sampleStatus: 'received',
+            conflictOld: c.old_payload,
+            conflictNew: c.new_payload,
+            conflictResolutionNote: c.resolution_note,
+          });
+        });
+
+      return getColumnData(filterCards(adminCards), role);
+    }
     if (role === 'action_supervision') {
       const batchCards: KanbanCard[] = actionBatches.map((b) => ({
         id: `batch-${b.id}`,
