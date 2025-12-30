@@ -314,6 +314,18 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
 
     // Lab operator: aggregated sample cards; block forbidden moves, never change method statuses via drag
     if (role === 'lab_operator') {
+      const sampleAnalyses = plannedAnalyses.filter((pa) => pa.sampleId === cardId);
+      const allDone = sampleAnalyses.length > 0 && sampleAnalyses.every((pa) => pa.status === 'completed');
+      const currentCard = cards.find((c) => c.id === cardId);
+      // allow moving into review; block moving out of review
+      if (currentCard?.status === 'review' && columnId !== 'review') {
+        toast({
+          title: "Locked in Needs attention",
+          description: "This card must stay in Needs attention until an admin clears it.",
+          variant: "default",
+        });
+        return;
+      }
       if (columnId === 'done') {
         toast({
           title: "Cannot move to Completed",
@@ -330,8 +342,6 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         });
         return;
       }
-      const sampleAnalyses = plannedAnalyses.filter((pa) => pa.sampleId === cardId);
-      const allDone = sampleAnalyses.length > 0 && sampleAnalyses.every((pa) => pa.status === 'completed');
       if (allDone && (columnId === 'done' || columnId === 'new')) {
         toast({
           title: "Auto-complete only",
