@@ -9,10 +9,10 @@ except ImportError:  # pragma: no cover
 
 
 DEFAULT_USERS = [
-    {"username": "warehouse", "full_name": "Warehouse Worker", "role": "warehouse_worker"},
-    {"username": "lab", "full_name": "Lab Operator", "role": "lab_operator"},
-    {"username": "action", "full_name": "Action Supervisor", "role": "action_supervision"},
-    {"username": "admin", "full_name": "Admin User", "role": "admin"},
+    {"username": "warehouse", "full_name": "Warehouse Worker", "role": "warehouse_worker", "roles": "warehouse_worker"},
+    {"username": "lab", "full_name": "Lab Operator", "role": "lab_operator", "roles": "lab_operator"},
+    {"username": "action", "full_name": "Action Supervisor", "role": "action_supervision", "roles": "action_supervision"},
+    {"username": "admin", "full_name": "Admin User", "role": "admin", "roles": "admin"},
 ]
 
 

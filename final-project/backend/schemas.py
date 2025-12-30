@@ -66,7 +66,9 @@ class UserOut(BaseModel):
     username: str
     full_name: str
     role: str
+    roles: list[str]
 
 
 class UserUpdate(BaseModel):
-    role: str = Field(pattern="^(warehouse_worker|lab_operator|action_supervision|admin)$")
+    role: str | None = Field(default=None, pattern="^(warehouse_worker|lab_operator|action_supervision|admin)$")
+    roles: list[str] | None = None

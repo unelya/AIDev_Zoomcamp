@@ -149,15 +149,15 @@ export async function resolveConflict(id: number, note?: string) {
 export async function fetchUsers() {
   const res = await fetch("/api/admin/users");
   if (!res.ok) throw new Error(`Failed to load users (${res.status})`);
-  return (await res.json()) as { id: number; username: string; full_name: string; role: string }[];
+  return (await res.json()) as { id: number; username: string; full_name: string; role: string; roles: string[] }[];
 }
 
-export async function updateUserRole(id: number, role: string) {
+export async function updateUserRole(id: number, roles: string[]) {
   const res = await fetch(`/api/admin/users/${id}`, {
     method: "PATCH",
     headers,
-    body: JSON.stringify({ role }),
+    body: JSON.stringify({ roles }),
   });
   if (!res.ok) throw new Error(`Failed to update user (${res.status})`);
-  return (await res.json()) as { id: number; username: string; full_name: string; role: string };
+  return (await res.json()) as { id: number; username: string; full_name: string; role: string; roles: string[] };
 }

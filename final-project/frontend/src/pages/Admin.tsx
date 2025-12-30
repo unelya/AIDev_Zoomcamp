@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { TopBar } from "@/components/layout/TopBar";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { fetchUsers, updateUserRole } from "@/lib/api";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 
 const roles = [
   { id: "warehouse_worker", label: "Warehouse" },
@@ -13,8 +14,9 @@ const roles = [
 ];
 
 const Admin = () => {
-  const [users, setUsers] = useState<{ id: number; username: string; full_name: string; role: string }[]>([]);
+  const [users, setUsers] = useState<{ id: number; username: string; full_name: string; role: string; roles: string[] }[]>([]);
   const [loading, setLoading] = useState(false);
+  const [savingId, setSavingId] = useState<number | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -30,9 +32,17 @@ const Admin = () => {
     load();
   }, []);
 
-  const handleRoleChange = async (id: number, role: string) => {
-    await updateUserRole(id, role);
-    setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, role } : u)));
+  const toggleRole = async (id: number, roleId: string, checked: boolean) => {
+    const user = users.find((u) => u.id === id);
+    if (!user) return;
+    const nextRoles = checked ? Array.from(new Set([...user.roles, roleId])) : user.roles.filter((r) => r !== roleId);
+    setSavingId(id);
+    try {
+      const updated = await updateUserRole(id, nextRoles);
+      setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, role: updated.role, roles: updated.roles } : u)));
+    } finally {
+      setSavingId(null);
+    }
   };
 
   return (
@@ -51,29 +61,43 @@ const Admin = () => {
             <div className="grid grid-cols-4 text-xs uppercase tracking-wide text-muted-foreground px-4 py-2 border-b border-border/60">
               <div>Username</div>
               <div>Full name</div>
-              <div>Role</div>
+              <div>Roles</div>
               <div>Status</div>
             </div>
             <div className="divide-y divide-border/60">
               {users.map((user) => (
-                <div key={user.id} className="grid grid-cols-4 items-center px-4 py-3 text-sm text-foreground">
+                <div key={user.id} className="grid grid-cols-4 items-start px-4 py-3 text-sm text-foreground gap-2">
                   <div className="font-mono text-primary">{user.username}</div>
                   <div>{user.full_name}</div>
                   <div>
-                    <Select value={user.role} onValueChange={(val) => handleRoleChange(user.id, val)}>
-                      <SelectTrigger className="w-48 h-9 text-sm bg-muted border-border/50">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
+                    <div className="space-y-2 rounded-md border border-border/60 bg-muted/30 p-3">
+                      <div className="flex flex-wrap gap-1">
+                        {user.roles.map((r) => {
+                          const label = roles.find((opt) => opt.id === r)?.label ?? r;
+                          return (
+                            <Badge key={r} variant="secondary" className="text-xs">
+                              {label}
+                            </Badge>
+                          );
+                        })}
+                        {user.roles.length === 0 && <span className="text-xs text-muted-foreground">No roles yet</span>}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
                         {roles.map((r) => (
-                          <SelectItem key={r.id} value={r.id}>
-                            {r.label}
-                          </SelectItem>
+                          <label key={r.id} className="flex items-center gap-2 text-sm">
+                            <Checkbox
+                              checked={user.roles.includes(r.id)}
+                              onCheckedChange={(val) => toggleRole(user.id, r.id, Boolean(val))}
+                            />
+                            <span>{r.label}</span>
+                          </label>
                         ))}
-                      </SelectContent>
-                    </Select>
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-muted-foreground">{loading ? "Syncing..." : "Active"}</div>
+                  <div className="text-muted-foreground">
+                    {savingId === user.id ? "Saving..." : loading ? "Syncing..." : "Active"}
+                  </div>
                 </div>
               ))}
               {users.length === 0 && (

@@ -83,6 +83,7 @@ class UserModel(Base):
     username: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     full_name: Mapped[str] = mapped_column(String, nullable=False)
     role: Mapped[str] = mapped_column(String, nullable=False, default="lab_operator")
+    roles: Mapped[str] = mapped_column(String, nullable=False, default="lab_operator")
 
 
 class AuditLogModel(Base):

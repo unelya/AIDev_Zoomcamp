@@ -47,6 +47,7 @@ class LoginRequest(BaseModel):
 class LoginResponse(BaseModel):
   token: str
   role: str
+  roles: list[str]
   full_name: str
 
 
@@ -56,12 +57,13 @@ async def login(payload: LoginRequest, db: Session = Depends(get_db)):
   user = db.execute(select(UserModel).where(UserModel.username == username)).scalars().first()
   if not user:
     full_name = payload.full_name or username.replace(".", " ").title()
-    user = UserModel(username=username, full_name=full_name, role="lab_operator")
+    user = UserModel(username=username, full_name=full_name, role="lab_operator", roles="lab_operator")
     db.add(user)
     db.commit()
     db.refresh(user)
   token = f"fake-{user.id}"
-  return LoginResponse(token=token, role=user.role, full_name=user.full_name)
+  roles = parse_roles(user.roles)
+  return LoginResponse(token=token, role=roles[0] if roles else user.role, roles=roles, full_name=user.full_name)
 
 
 @app.get("/auth/me", response_model=LoginResponse)
@@ -82,7 +84,8 @@ async def me(authorization: str | None = None, db: Session = Depends(get_db)):
   user = db.get(UserModel, user_id_int)
   if not user:
     raise HTTPException(status_code=401, detail="Invalid token")
-  return LoginResponse(token=token, role=user.role, full_name=user.full_name)
+  roles = parse_roles(user.roles)
+  return LoginResponse(token=token, role=roles[0] if roles else user.role, roles=roles, full_name=user.full_name)
 
 
 class Sample(BaseModel):
@@ -298,10 +301,30 @@ def log_audit(db: Session, *, entity_type: str, entity_id: str, action: str, per
   db.commit()
 
 
+def parse_roles(role_str: str | None) -> list[str]:
+  if not role_str:
+    return []
+  return [r for r in (role_str.split(",") if "," in role_str else [role_str]) if r]
+
+
+def serialize_roles(roles: list[str]) -> str:
+  cleaned = [r for r in roles if r]
+  return ",".join(cleaned) if cleaned else "lab_operator"
+
+
 @app.get("/admin/users", response_model=list[UserOut])
 async def list_users(db: Session = Depends(get_db)):
   rows = db.execute(select(UserModel)).scalars().all()
-  return [UserOut(id=r.id, username=r.username, full_name=r.full_name, role=r.role) for r in rows]
+  return [
+    UserOut(
+      id=r.id,
+      username=r.username,
+      full_name=r.full_name,
+      role=parse_roles(r.roles)[0] if parse_roles(r.roles) else r.role,
+      roles=parse_roles(r.roles) or [r.role],
+    )
+    for r in rows
+  ]
 
 
 @app.patch("/admin/users/{user_id}", response_model=UserOut)
@@ -309,8 +332,11 @@ async def update_user_role(user_id: int, payload: UserUpdate, db: Session = Depe
   row = db.get(UserModel, user_id)
   if not row:
     raise HTTPException(status_code=404, detail="User not found")
-  row.role = payload.role
+  roles = payload.roles or ([payload.role] if payload.role else parse_roles(row.roles) or [row.role])
+  primary = roles[0] if roles else row.role
+  row.role = primary
+  row.roles = serialize_roles(roles)
   db.add(row)
   db.commit()
   db.refresh(row)
-  return UserOut(id=row.id, username=row.username, full_name=row.full_name, role=row.role)
+  return UserOut(id=row.id, username=row.username, full_name=row.full_name, role=row.role, roles=parse_roles(row.roles) or [row.role])

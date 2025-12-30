@@ -4,6 +4,7 @@ import { Role } from "@/types/kanban";
 interface AuthUser {
   token: string;
   role: Role;
+  roles: Role[];
   fullName: string;
 }
 
@@ -24,7 +25,7 @@ async function apiLogin(username: string, password: string) {
     body: JSON.stringify({ username, password }),
   });
   if (!res.ok) throw new Error(`Login failed: ${res.status}`);
-  return (await res.json()) as { token: string; role: Role; full_name: string };
+  return (await res.json()) as { token: string; role: Role; roles?: Role[]; full_name: string };
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -35,7 +36,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (stored) {
       try {
         const parsed = JSON.parse(stored) as AuthUser;
-        setUser(parsed);
+        setUser({ ...parsed, roles: parsed.roles ?? [parsed.role] });
       } catch {
         localStorage.removeItem(STORAGE_KEY);
       }
@@ -44,7 +45,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (username: string, password: string) => {
     const data = await apiLogin(username, password);
-    const authUser: AuthUser = { token: data.token, role: data.role, fullName: data.full_name };
+    const authUser: AuthUser = { token: data.token, role: data.role, roles: data.roles ?? [data.role], fullName: data.full_name };
     setUser(authUser);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(authUser));
   };
