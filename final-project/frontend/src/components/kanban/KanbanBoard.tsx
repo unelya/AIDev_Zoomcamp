@@ -6,7 +6,7 @@ import { getColumnData, getMockCards, columnConfigByRole } from '@/data/mockData
 import { KanbanCard, NewCardPayload, PlannedAnalysisCard, Role } from '@/types/kanban';
 import { Button } from '@/components/ui/button';
 import { NewCardDialog } from './NewCardDialog';
-import { createActionBatch, createConflict, createPlannedAnalysis, createSample, fetchActionBatches, fetchConflicts, fetchPlannedAnalyses, fetchSamples, mapApiAnalysis, resolveConflict, updatePlannedAnalysis, updateSampleStatus } from '@/lib/api';
+import { createActionBatch, createConflict, createPlannedAnalysis, createSample, fetchActionBatches, fetchConflicts, fetchPlannedAnalyses, fetchSamples, mapApiAnalysis, resolveConflict, updatePlannedAnalysis, updateSampleFields, updateSampleStatus } from '@/lib/api';
 import { useToast } from '@/components/ui/use-toast';
 
 const STORAGE_KEY = 'labsync-kanban-cards';
@@ -267,6 +267,42 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
   };
 
   const totalSamples = columns.reduce((sum, col) => sum + col.cards.length, 0);
+
+  const handleSampleFieldUpdate = async (sampleId: string, updates: Record<string, string>) => {
+    setCards((prev) =>
+      prev.map((card) => (card.sampleId === sampleId ? { ...card, ...mapSampleUpdates(card, updates) } : card)),
+    );
+    if (selectedCard?.sampleId === sampleId) {
+      setSelectedCard((prev) => (prev ? { ...prev, ...mapSampleUpdates(prev, updates) } : prev));
+    }
+    try {
+      await updateSampleFields(sampleId, updates);
+    } catch (err) {
+      toast({
+        title: "Failed to update sample",
+        description: err instanceof Error ? err.message : "Backend unreachable",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleAnalysisFieldUpdate = async (analysisId: number, updates: { assigned_to?: string }) => {
+    setPlannedAnalyses((prev) =>
+      prev.map((pa) => (pa.id === analysisId ? { ...pa, assignedTo: updates.assigned_to ?? pa.assignedTo } : pa)),
+    );
+    if (selectedCard?.id === analysisId.toString()) {
+      setSelectedCard((prev) => (prev ? { ...prev, assignedTo: updates.assigned_to ?? prev.assignedTo } : prev));
+    }
+    try {
+      await updatePlannedAnalysis(analysisId, undefined as any, updates.assigned_to);
+    } catch (err) {
+      toast({
+        title: "Failed to update analysis",
+        description: err instanceof Error ? err.message : "Backend unreachable",
+        variant: "destructive",
+      });
+    }
+  };
   
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -328,6 +364,16 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         onResolveConflict={
           selectedCard && selectedCard.analysisType === 'Conflict' ? handleResolveConflict(Number(selectedCard.id.replace('conflict-', ''))) : undefined
         }
+        onUpdateSample={
+          selectedCard && selectedCard.analysisType === 'Sample'
+            ? (updates) => handleSampleFieldUpdate(selectedCard.sampleId, updates)
+            : undefined
+        }
+        onUpdateAnalysis={
+          selectedCard && selectedCard.analysisType !== 'Sample' && role === 'lab_operator'
+            ? (updates) => handleAnalysisFieldUpdate(Number(selectedCard.id), updates)
+            : undefined
+        }
       />
     </div>
   );
@@ -345,6 +391,15 @@ function toKanbanStatus(status: string): KanbanCard['status'] {
     default:
       return 'new';
   }
+}
+
+function mapSampleUpdates(card: KanbanCard, updates: Record<string, string>) {
+  return {
+    storageLocation: updates.storage_location ?? card.storageLocation,
+    samplingDate: updates.sampling_date ?? card.samplingDate,
+    wellId: updates.well_id ?? card.wellId,
+    horizon: updates.horizon ?? card.horizon,
+  };
 }
 
 function toAnalysisStatus(status: KanbanCard['status']): PlannedAnalysisCard['status'] {

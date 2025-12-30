@@ -40,6 +40,17 @@ export async function updateSampleStatus(sampleId: string, status: string, stora
   return mapSampleToCard(data);
 }
 
+export async function updateSampleFields(sampleId: string, payload: Record<string, string | undefined>): Promise<KanbanCard> {
+  const res = await fetch(`/api/samples/${sampleId}`, {
+    method: "PATCH",
+    headers,
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(`Failed to update sample (${res.status})`);
+  const data = await res.json();
+  return mapSampleToCard(data);
+}
+
 function mapSampleToCard(sample: any): KanbanCard {
   const statusLabelMap: Record<string, string> = {
     new: "Planned",

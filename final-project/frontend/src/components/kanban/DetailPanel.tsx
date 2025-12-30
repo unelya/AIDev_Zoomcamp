@@ -13,9 +13,11 @@ interface DetailPanelProps {
   onClose: () => void;
   onPlanAnalysis?: (data: { analysisType: string; assignedTo?: string }) => void;
   onResolveConflict?: (note?: string) => void;
+  onUpdateSample?: (updates: Record<string, string>) => void;
+  onUpdateAnalysis?: (updates: { assigned_to?: string }) => void;
 }
 
-export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onResolveConflict }: DetailPanelProps) {
+export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onResolveConflict, onUpdateSample, onUpdateAnalysis }: DetailPanelProps) {
   if (!card) return null;
   const [analysisType, setAnalysisType] = useState('');
   const [assignedTo, setAssignedTo] = useState('');
@@ -76,13 +78,30 @@ export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onResolveCo
               </div>
               <div className="space-y-1">
                 <label className="text-xs text-muted-foreground uppercase tracking-wide">Assigned To</label>
-                <p className="text-sm text-foreground">{card.assignedTo ?? 'Unassigned'}</p>
+                <EditableField
+                  value={card.assignedTo ?? 'Unassigned'}
+                  placeholder="Add assignee"
+                  onSave={(val) => {
+                    if (card.analysisType === 'Sample' && onUpdateSample) {
+                      onUpdateSample({ assigned_to: val || 'Unassigned' });
+                    }
+                    if (card.analysisType !== 'Sample' && onUpdateAnalysis) {
+                      onUpdateAnalysis({ assigned_to: val || 'Unassigned' });
+                    }
+                  }}
+                  readOnly={!onUpdateSample && !onUpdateAnalysis}
+                />
               </div>
               <div className="space-y-1">
                 <label className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1">
                   <Calendar className="w-3 h-3" /> Sampling Date
                 </label>
-                <p className="text-sm text-foreground">{card.samplingDate}</p>
+                <EditableField
+                  value={card.samplingDate}
+                  placeholder="Set date"
+                  onSave={(val) => onUpdateSample?.({ sampling_date: val || card.samplingDate })}
+                  readOnly={!onUpdateSample}
+                />
               </div>
               <div className="space-y-1">
                 <label className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1">
@@ -94,11 +113,30 @@ export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onResolveCo
                 <label className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1">
                   <MapPin className="w-3 h-3" /> Storage
                 </label>
-                <p className="text-sm text-foreground">{card.storageLocation}</p>
+                <EditableField
+                  value={card.storageLocation}
+                  placeholder="Add location"
+                  onSave={(val) => onUpdateSample?.({ storage_location: val || card.storageLocation })}
+                  readOnly={!onUpdateSample}
+                />
               </div>
               <div className="space-y-1">
                 <label className="text-xs text-muted-foreground uppercase tracking-wide">Well</label>
-                <p className="text-sm text-foreground">Well {card.wellId} · Horizon {card.horizon}</p>
+                <div className="flex gap-2">
+                  <EditableField
+                    value={card.wellId}
+                    placeholder="Well"
+                    onSave={(val) => onUpdateSample?.({ well_id: val || card.wellId })}
+                    readOnly={!onUpdateSample}
+                  />
+                  <span className="text-sm text-muted-foreground">·</span>
+                  <EditableField
+                    value={card.horizon}
+                    placeholder="Horizon"
+                    onSave={(val) => onUpdateSample?.({ horizon: val || card.horizon })}
+                    readOnly={!onUpdateSample}
+                  />
+                </div>
               </div>
               {card.conflictResolutionNote && (
                 <div className="space-y-1 col-span-2">
@@ -155,17 +193,63 @@ export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onResolveCo
                 </div>
               </div>
             )}
-            <div className="flex gap-2">
-              <Button variant="outline" className="flex-1">
-                Edit
-              </Button>
-              <Button className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90">
-                Update Status
-              </Button>
-            </div>
           </div>
         </div>
       </div>
     </>
+  );
+}
+
+function EditableField({
+  value,
+  placeholder,
+  onSave,
+  readOnly = false,
+}: {
+  value: string;
+  placeholder?: string;
+  onSave?: (val: string) => void;
+  readOnly?: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+
+  const commit = () => {
+    if (readOnly) return;
+    setEditing(false);
+    if (onSave && draft !== value) {
+      onSave(draft.trim());
+    }
+  };
+
+  return editing && !readOnly ? (
+    <Input
+      autoFocus
+      value={draft}
+      placeholder={placeholder}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          commit();
+        }
+        if (e.key === 'Escape') {
+          setEditing(false);
+          setDraft(value);
+        }
+      }}
+      className="h-9"
+    />
+  ) : (
+    <p
+      className="text-sm text-foreground cursor-text rounded px-1 py-0.5 hover:bg-muted/50 transition-colors"
+      onClick={() => {
+        if (!readOnly) {
+          setEditing(true);
+        }
+      }}
+    >
+      {value || <span className="text-muted-foreground">{placeholder ?? 'Add value'}</span>}
+    </p>
   );
 }
