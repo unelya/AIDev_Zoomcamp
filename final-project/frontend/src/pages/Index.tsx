@@ -16,9 +16,11 @@ const Index = () => {
     }
   }, [user]);
 
+  const allowedRoles = user?.role === 'admin' ? undefined : user?.roles ?? (user?.role ? [user.role] : undefined);
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <TopBar role={role} onRoleChange={setRole} searchTerm={searchTerm} onSearch={setSearchTerm} />
+      <TopBar role={role} onRoleChange={setRole} searchTerm={searchTerm} onSearch={setSearchTerm} allowedRoles={allowedRoles} />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
         <KanbanBoard role={role} searchTerm={searchTerm} />

@@ -9,7 +9,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useTheme } from '@/hooks/use-theme';
 
-const roleOptions: { id: Role; label: string }[] = [
+const allRoleOptions: { id: Role; label: string }[] = [
   { id: 'warehouse_worker', label: 'Warehouse' },
   { id: 'lab_operator', label: 'Lab Operator' },
   { id: 'action_supervision', label: 'Action Supervision' },
@@ -21,12 +21,19 @@ interface TopBarProps {
   onRoleChange?: (role: Role) => void;
   searchTerm?: string;
   onSearch?: (value: string) => void;
+  allowedRoles?: Role[];
 }
 
-export function TopBar({ role, onRoleChange, searchTerm, onSearch }: TopBarProps) {
+export function TopBar({ role, onRoleChange, searchTerm, onSearch, allowedRoles }: TopBarProps) {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const selectedRole = role ?? user?.role ?? 'lab_operator';
+  const selectableRoles: Role[] =
+    user?.role === 'admin'
+      ? allRoleOptions.map((r) => r.id)
+      : (allowedRoles && allowedRoles.length > 0 ? allowedRoles : user?.roles ?? (user?.role ? [user.role] : []));
+  const selectedRole = role && selectableRoles.includes(role)
+    ? role
+    : selectableRoles[0] ?? user?.role ?? 'lab_operator';
 
   const handleSearch = (event: ChangeEvent<HTMLInputElement>) => {
     onSearch?.(event.target.value);
@@ -60,11 +67,13 @@ export function TopBar({ role, onRoleChange, searchTerm, onSearch }: TopBarProps
             <SelectValue placeholder="Role" />
           </SelectTrigger>
           <SelectContent>
-            {roleOptions.map((opt) => (
-              <SelectItem key={opt.id} value={opt.id}>
-                {opt.label}
-              </SelectItem>
-            ))}
+            {(user?.role === 'admin' ? allRoleOptions : allRoleOptions.filter((opt) => selectableRoles.includes(opt.id))).map(
+              (opt) => (
+                <SelectItem key={opt.id} value={opt.id}>
+                  {opt.label}
+                </SelectItem>
+              ),
+            )}
           </SelectContent>
         </Select>
         <button

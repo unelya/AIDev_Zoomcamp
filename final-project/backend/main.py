@@ -57,7 +57,7 @@ async def login(payload: LoginRequest, db: Session = Depends(get_db)):
   user = db.execute(select(UserModel).where(UserModel.username == username)).scalars().first()
   if not user:
     full_name = payload.full_name or username.replace(".", " ").title()
-    user = UserModel(username=username, full_name=full_name, role="lab_operator", roles="lab_operator")
+    user = UserModel(username=username, full_name=full_name, role="warehouse_worker", roles="warehouse_worker")
     db.add(user)
     db.commit()
     db.refresh(user)
