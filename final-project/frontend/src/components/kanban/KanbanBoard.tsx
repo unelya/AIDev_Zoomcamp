@@ -202,8 +202,24 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       return;
     }
 
-    // Lab operator: aggregated sample cards; block forbidden moves when all methods done
+    // Lab operator: aggregated sample cards; block forbidden moves, never change method statuses via drag
     if (role === 'lab_operator') {
+      if (columnId === 'done') {
+        toast({
+          title: "Cannot move to Completed",
+          description: "Completion will be handled automatically when ready.",
+          variant: "default",
+        });
+        return;
+      }
+      if (columnId === 'new') {
+        toast({
+          title: "Cannot move to Planned",
+          description: "In-progress items stay active; send to Needs attention if required.",
+          variant: "default",
+        });
+        return;
+      }
       const sampleAnalyses = plannedAnalyses.filter((pa) => pa.sampleId === cardId);
       const allDone = sampleAnalyses.length > 0 && sampleAnalyses.every((pa) => pa.status === 'completed');
       if (allDone && (columnId === 'done' || columnId === 'new')) {
@@ -214,17 +230,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         });
         return;
       }
-      // Only change method statuses when moving into active work; keep completed statuses intact when sending to Needs attention
-      if (columnId !== 'review') {
-        const nextStatus = toAnalysisStatus(columnId);
-        const affected = plannedAnalyses.filter((pa) => pa.sampleId === cardId);
-        if (affected.length > 0) {
-          setPlannedAnalyses((prev) =>
-            prev.map((pa) => (pa.sampleId === cardId ? { ...pa, status: nextStatus } : pa)),
-          );
-          Promise.all(affected.map((pa) => updatePlannedAnalysis(pa.id, nextStatus))).catch(() => {});
-        }
-      }
+      // Do not adjust method statuses on drag; only move the sample card
     }
 
     setCards((prev) =>
