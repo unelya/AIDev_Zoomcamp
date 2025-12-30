@@ -317,8 +317,8 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       const sampleAnalyses = plannedAnalyses.filter((pa) => pa.sampleId === cardId);
       const allDone = sampleAnalyses.length > 0 && sampleAnalyses.every((pa) => pa.status === 'completed');
       const currentCard = cards.find((c) => c.id === cardId);
-      // allow moving into review; block moving out of review
-      if (currentCard?.status === 'review' && columnId !== 'review') {
+      // allow moving into review; block moving out of review for lab-only users (no admin)
+      if (currentCard?.status === 'review' && columnId !== 'review' && user?.role !== 'admin') {
         toast({
           title: "Locked in Needs attention",
           description: "This card must stay in Needs attention until an admin clears it.",
