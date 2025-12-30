@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/use-auth';
 
 const Index = () => {
   const [role, setRole] = useState<Role>('lab_operator');
+  const [searchTerm, setSearchTerm] = useState('');
   const { user } = useAuth();
 
   useEffect(() => {
@@ -17,10 +18,10 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <TopBar role={role} onRoleChange={setRole} />
+      <TopBar role={role} onRoleChange={setRole} searchTerm={searchTerm} onSearch={setSearchTerm} />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
-        <KanbanBoard role={role} />
+        <KanbanBoard role={role} searchTerm={searchTerm} />
       </div>
     </div>
   );

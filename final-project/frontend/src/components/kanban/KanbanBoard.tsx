@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Filter, SlidersHorizontal } from 'lucide-react';
 import { KanbanColumn } from './KanbanColumn';
 import { DetailPanel } from './DetailPanel';
@@ -18,7 +18,7 @@ const roleCopy: Record<Role, string> = {
   admin: 'Admin view',
 };
 
-export function KanbanBoard({ role }: { role: Role }) {
+export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: string }) {
   const [cards, setCards] = useState<KanbanCard[]>([]);
   const [plannedAnalyses, setPlannedAnalyses] = useState<PlannedAnalysisCard[]>([]);
   const [actionBatches, setActionBatches] = useState<{ id: number; title: string; date: string; status: string }[]>([]);
@@ -66,6 +66,32 @@ export function KanbanBoard({ role }: { role: Role }) {
     load();
   }, []);
 
+  const filterCards = useCallback(
+    (list: KanbanCard[]) => {
+      const query = searchTerm?.trim().toLowerCase();
+      if (!query) return list;
+      return list.filter((card) => {
+        const haystack = [
+          card.sampleId,
+          card.wellId,
+          card.horizon,
+          card.analysisType,
+          card.assignedTo,
+          card.storageLocation,
+          card.statusLabel,
+          card.conflictOld,
+          card.conflictNew,
+          card.conflictResolutionNote,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        return haystack.includes(query);
+      });
+    },
+    [searchTerm],
+  );
+
   const columns = useMemo(() => {
     if (role === 'lab_operator') {
       const analysisCards: KanbanCard[] = plannedAnalyses.map((pa) => {
@@ -85,7 +111,7 @@ export function KanbanBoard({ role }: { role: Role }) {
           sampleStatus: relatedSample?.sampleStatus ?? 'received',
         };
       });
-      return getColumnData(analysisCards, role);
+      return getColumnData(filterCards(analysisCards), role);
     }
     if (role === 'action_supervision') {
       const batchCards: KanbanCard[] = actionBatches.map((b) => ({
@@ -119,10 +145,10 @@ export function KanbanBoard({ role }: { role: Role }) {
         conflictNew: c.new_payload,
         conflictResolutionNote: c.resolution_note,
       }));
-      return getColumnData([...batchCards, ...conflictCards], role);
+      return getColumnData(filterCards([...batchCards, ...conflictCards]), role);
     }
-    return getColumnData(cards, role);
-  }, [cards, plannedAnalyses, actionBatches, conflicts, role]);
+    return getColumnData(filterCards(cards), role);
+  }, [cards, plannedAnalyses, actionBatches, conflicts, role, filterCards]);
   const handleCardClick = (card: KanbanCard) => {
     setSelectedCard(card);
     setIsPanelOpen(true);

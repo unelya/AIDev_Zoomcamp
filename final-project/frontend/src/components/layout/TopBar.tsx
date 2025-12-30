@@ -1,3 +1,4 @@
+import { ChangeEvent } from 'react';
 import { Bell, Search, LogOut } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
@@ -17,11 +18,18 @@ const roleOptions: { id: Role; label: string }[] = [
 interface TopBarProps {
   role?: Role;
   onRoleChange?: (role: Role) => void;
+  searchTerm?: string;
+  onSearch?: (value: string) => void;
 }
 
-export function TopBar({ role, onRoleChange }: TopBarProps) {
+export function TopBar({ role, onRoleChange, searchTerm, onSearch }: TopBarProps) {
   const { user, logout } = useAuth();
   const selectedRole = role ?? user?.role ?? 'lab_operator';
+
+  const handleSearch = (event: ChangeEvent<HTMLInputElement>) => {
+    onSearch?.(event.target.value);
+  };
+
   return (
     <header className="h-14 border-b border-border bg-card flex items-center justify-between px-6">
       <div className="flex items-center gap-8">
@@ -37,6 +45,9 @@ export function TopBar({ role, onRoleChange }: TopBarProps) {
           <Input 
             placeholder="Search samples, analyses, or IDs..." 
             className="pl-9 bg-muted border-border/50 h-9 text-sm placeholder:text-muted-foreground/60"
+            value={searchTerm ?? ''}
+            onChange={handleSearch}
+            aria-label="Search samples and analyses"
           />
         </div>
       </div>
