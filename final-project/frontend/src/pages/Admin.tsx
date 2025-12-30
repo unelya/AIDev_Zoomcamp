@@ -2,9 +2,12 @@ import { useEffect, useState } from "react";
 import { TopBar } from "@/components/layout/TopBar";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { fetchUsers, updateUserRole } from "@/lib/api";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
+import { Check, ChevronsUpDown } from "lucide-react";
 
 const roles = [
   { id: "warehouse_worker", label: "Warehouse" },
@@ -70,7 +73,7 @@ const Admin = () => {
                   <div className="font-mono text-primary">{user.username}</div>
                   <div>{user.full_name}</div>
                   <div>
-                    <div className="space-y-2 rounded-md border border-border/60 bg-muted/30 p-3">
+                    <div className="space-y-2">
                       <div className="flex flex-wrap gap-1">
                         {user.roles.map((r) => {
                           const label = roles.find((opt) => opt.id === r)?.label ?? r;
@@ -82,17 +85,40 @@ const Admin = () => {
                         })}
                         {user.roles.length === 0 && <span className="text-xs text-muted-foreground">No roles yet</span>}
                       </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        {roles.map((r) => (
-                          <label key={r.id} className="flex items-center gap-2 text-sm">
-                            <Checkbox
-                              checked={user.roles.includes(r.id)}
-                              onCheckedChange={(val) => toggleRole(user.id, r.id, Boolean(val))}
-                            />
-                            <span>{r.label}</span>
-                          </label>
-                        ))}
-                      </div>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm" className="w-full justify-between">
+                            <span>Select roles</span>
+                            <ChevronsUpDown className="h-4 w-4 opacity-60" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-64 p-0" align="start">
+                          <Command>
+                            <CommandEmpty>No roles found.</CommandEmpty>
+                            <CommandGroup>
+                              {roles.map((r) => {
+                                const selected = user.roles.includes(r.id);
+                                return (
+                                  <CommandItem
+                                    key={r.id}
+                                    onSelect={() => toggleRole(user.id, r.id, !selected)}
+                                    className="flex items-center gap-2"
+                                  >
+                                    <div
+                                      className={`flex h-4 w-4 items-center justify-center rounded border ${
+                                        selected ? "bg-primary text-primary-foreground border-primary" : "border-border"
+                                      }`}
+                                    >
+                                      {selected && <Check className="h-3 w-3" />}
+                                    </div>
+                                    <span>{r.label}</span>
+                                  </CommandItem>
+                                );
+                              })}
+                            </CommandGroup>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                   </div>
                   <div className="text-muted-foreground">
