@@ -6,6 +6,66 @@
 
 @layer base {
   :root {
+    /* Light theme */
+    --background: 210 40% 98%;
+    --foreground: 220 25% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 25% 15%;
+    --card-hover: 210 30% 96%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 25% 15%;
+
+    --primary: 190 70% 45%;
+    --primary-foreground: 220 20% 10%;
+
+    --secondary: 210 25% 94%;
+    --secondary-foreground: 220 25% 20%;
+
+    --muted: 210 15% 92%;
+    --muted-foreground: 215 15% 45%;
+
+    --accent: 38 92% 50%;
+    --accent-foreground: 220 20% 10%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 40% 98%;
+
+    --success: 160 84% 39%;
+    --success-foreground: 220 20% 10%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 220 20% 10%;
+
+    --border: 210 15% 88%;
+    --input: 210 15% 92%;
+    --ring: 190 70% 45%;
+
+    --radius: 0.375rem;
+
+    /* Kanban specific */
+    --column-bg: 0 0% 100%;
+    --column-header: 210 25% 96%;
+    
+    /* Status colors */
+    --status-new: 210 100% 46%;
+    --status-progress: 38 92% 50%;
+    --status-review: 280 60% 55%;
+    --status-done: 160 84% 39%;
+
+    /* Sidebar */
+    --sidebar-background: 210 30% 97%;
+    --sidebar-foreground: 220 25% 25%;
+    --sidebar-primary: 190 70% 45%;
+    --sidebar-primary-foreground: 220 20% 10%;
+    --sidebar-accent: 210 25% 90%;
+    --sidebar-accent-foreground: 220 25% 20%;
+    --sidebar-border: 210 20% 88%;
+    --sidebar-ring: 190 70% 45%;
+  }
+
+  .dark {
     --background: 220 20% 10%;
     --foreground: 210 20% 92%;
 
@@ -41,8 +101,6 @@
     --input: 220 15% 18%;
     --ring: 190 70% 45%;
 
-    --radius: 0.375rem;
-
     /* Kanban specific */
     --column-bg: 220 18% 11%;
     --column-header: 220 15% 16%;
@@ -62,11 +120,6 @@
     --sidebar-accent-foreground: 210 20% 92%;
     --sidebar-border: 220 15% 18%;
     --sidebar-ring: 190 70% 45%;
-  }
-
-  .dark {
-    --background: 220 20% 10%;
-    --foreground: 210 20% 92%;
   }
 }
 

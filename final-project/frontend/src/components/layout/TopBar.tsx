@@ -1,5 +1,5 @@
 import { ChangeEvent } from 'react';
-import { Bell, Search, LogOut } from 'lucide-react';
+import { Bell, Search, LogOut, Moon, Sun } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Role } from '@/types/kanban';
@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/hooks/use-auth';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { useTheme } from '@/hooks/use-theme';
 
 const roleOptions: { id: Role; label: string }[] = [
   { id: 'warehouse_worker', label: 'Warehouse' },
@@ -24,6 +25,7 @@ interface TopBarProps {
 
 export function TopBar({ role, onRoleChange, searchTerm, onSearch }: TopBarProps) {
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const selectedRole = role ?? user?.role ?? 'lab_operator';
 
   const handleSearch = (event: ChangeEvent<HTMLInputElement>) => {
@@ -65,6 +67,19 @@ export function TopBar({ role, onRoleChange, searchTerm, onSearch }: TopBarProps
             ))}
           </SelectContent>
         </Select>
+        <button
+          type="button"
+          className="p-2 rounded-md hover:bg-muted transition-colors"
+          onClick={toggleTheme}
+          aria-label="Toggle theme"
+          title="Toggle theme"
+        >
+          {theme === 'dark' ? (
+            <Sun className="h-5 w-5 text-muted-foreground" />
+          ) : (
+            <Moon className="h-5 w-5 text-muted-foreground" />
+          )}
+        </button>
         <button className="relative p-2 rounded-md hover:bg-muted transition-colors">
           <Bell className="h-5 w-5 text-muted-foreground" />
           <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-accent rounded-full" />
