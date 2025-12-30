@@ -8,9 +8,13 @@ import { Button } from '@/components/ui/button';
 import { NewCardDialog } from './NewCardDialog';
 import { createActionBatch, createConflict, createPlannedAnalysis, createSample, fetchActionBatches, fetchConflicts, fetchPlannedAnalyses, fetchSamples, mapApiAnalysis, resolveConflict, updatePlannedAnalysis, updateSampleFields, updateSampleStatus } from '@/lib/api';
 import { useToast } from '@/components/ui/use-toast';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandGroup, CommandItem } from '@/components/ui/command';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const STORAGE_KEY = 'labsync-kanban-cards';
 const DEFAULT_ANALYSIS_TYPES = ['SARA', 'NMR', 'FTIR', 'Mass Spectrometry', 'Viscosity'];
+const METHOD_BLACKLIST = ['fsf', 'dadq'];
 
 const roleCopy: Record<Role, string> = {
   warehouse_worker: 'Warehouse view: samples and storage',
@@ -30,6 +34,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
   const { toast } = useToast();
   const [initialLoad, setInitialLoad] = useState(true);
   const [newDialogOpen, setNewDialogOpen] = useState(false);
+  const [methodFilter, setMethodFilter] = useState<string[]>([]);
 
   useEffect(() => {
     // keep detail panel in sync with card state
@@ -50,7 +55,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
           fetchConflicts(),
         ]);
         setCards(remoteSamples);
-        setPlannedAnalyses(remoteAnalyses.map(mapApiAnalysis));
+        setPlannedAnalyses(remoteAnalyses.filter((pa) => !METHOD_BLACKLIST.includes(pa.analysis_type)).map(mapApiAnalysis));
         setActionBatches(batches);
         setConflicts(conflictList);
       } catch (err) {
@@ -108,6 +113,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       });
 
       plannedAnalyses.forEach((pa) => {
+        if (METHOD_BLACKLIST.includes(pa.analysisType)) return;
         const card = bySample.get(pa.sampleId);
         if (!card) return;
         const nextMethods = [...(card.methods ?? []), { id: pa.id, name: pa.analysisType, status: pa.status }];
@@ -125,8 +131,14 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
             : 'planned';
         card.allMethodsDone = allDone;
       });
+      // remove cards that have no methods (e.g., all filtered out)
+      const cardsWithMethods = [...bySample.values()].filter((c) => c.methods && c.methods.length > 0);
+      const filteredByMethods =
+        methodFilter.length === 0
+          ? cardsWithMethods
+          : cardsWithMethods.filter((c) => c.methods?.some((m) => methodFilter.includes(m.name)));
 
-      return getColumnData(filterCards([...bySample.values()]), role);
+      return getColumnData(filterCards(filteredByMethods), role);
     }
     if (role === 'action_supervision') {
       const batchCards: KanbanCard[] = actionBatches.map((b) => ({
@@ -436,10 +448,38 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         </div>
         
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-2">
-            <Filter className="w-4 h-4" />
-            Filter
-          </Button>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                <Filter className="w-4 h-4" />
+                Methods {methodFilter.length > 0 ? `(${methodFilter.length})` : ''}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="p-0 w-56" align="end">
+              <Command>
+                <CommandGroup>
+                  {[...new Set([...DEFAULT_ANALYSIS_TYPES, ...plannedAnalyses.map((pa) => pa.analysisType)])]
+                    .filter((m) => !METHOD_BLACKLIST.includes(m))
+                    .map((m) => (
+                      <CommandItem
+                        key={m}
+                        onSelect={() => {
+                          setMethodFilter((prev) =>
+                            prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m]
+                          );
+                        }}
+                      >
+                        <Checkbox
+                          checked={methodFilter.includes(m)}
+                          className="mr-2 pointer-events-none"
+                        />
+                        <span>{m}</span>
+                      </CommandItem>
+                    ))}
+                </CommandGroup>
+              </Command>
+            </PopoverContent>
+          </Popover>
           <Button variant="outline" size="sm" className="gap-2">
             <SlidersHorizontal className="w-4 h-4" />
             View
