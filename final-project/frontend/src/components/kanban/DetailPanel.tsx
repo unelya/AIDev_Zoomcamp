@@ -5,7 +5,10 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarCmp } from '@/components/ui/calendar';
+import { format, parseISO, isValid as isValidDate } from 'date-fns';
 
 interface DetailPanelProps {
   card: KanbanCard | null;
@@ -96,10 +99,9 @@ export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onResolveCo
                 <label className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1">
                   <Calendar className="w-3 h-3" /> Sampling Date
                 </label>
-                <EditableField
+                <DateEditable
                   value={card.samplingDate}
-                  placeholder="Set date"
-                  onSave={(val) => onUpdateSample?.({ sampling_date: val || card.samplingDate })}
+                  onSave={(val) => onUpdateSample?.({ sampling_date: val })}
                   readOnly={!onUpdateSample}
                 />
               </div>
@@ -251,5 +253,55 @@ function EditableField({
     >
       {value || <span className="text-muted-foreground">{placeholder ?? 'Add value'}</span>}
     </p>
+  );
+}
+
+function DateEditable({
+  value,
+  onSave,
+  readOnly = false,
+}: {
+  value: string;
+  onSave?: (val: string) => void;
+  readOnly?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const initialDate = useMemo(() => {
+    const parsed = parseISO(value);
+    return isValidDate(parsed) ? parsed : new Date();
+  }, [value]);
+  const [selected, setSelected] = useState<Date>(initialDate);
+
+  const save = (date: Date | undefined) => {
+    if (!date || readOnly) return;
+    setSelected(date);
+    const formatted = format(date, 'yyyy-MM-dd');
+    onSave?.(formatted);
+    setOpen(false);
+  };
+
+  const label = format(selected, 'yyyy-MM-dd');
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="justify-start px-2 h-9 w-full text-left font-normal hover:bg-muted/50"
+          disabled={readOnly}
+        >
+          {label}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <CalendarCmp
+          mode="single"
+          selected={selected}
+          onSelect={(date) => save(date ?? new Date())}
+          initialFocus
+        />
+      </PopoverContent>
+    </Popover>
   );
 }

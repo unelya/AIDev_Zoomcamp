@@ -1,9 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NewCardPayload } from '@/types/kanban';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarCmp } from '@/components/ui/calendar';
+import { Calendar } from 'lucide-react';
+import { format } from 'date-fns';
 
 interface NewCardDialogProps {
   onCreate: (payload: NewCardPayload) => void;
@@ -11,14 +15,24 @@ interface NewCardDialogProps {
 
 export function NewCardDialog({ onCreate }: NewCardDialogProps) {
   const [open, setOpen] = useState(false);
+  const today = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
   const [form, setForm] = useState<NewCardPayload>({
     sampleId: '',
     wellId: '',
     horizon: '',
-    samplingDate: '',
+    samplingDate: today,
     storageLocation: '',
   });
   const [error, setError] = useState('');
+  const [dateOpen, setDateOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      setForm({ sampleId: '', wellId: '', horizon: '', samplingDate: today, storageLocation: '' });
+      setError('');
+      setDateOpen(false);
+    }
+  }, [open, today]);
 
   const onChange = (field: keyof NewCardPayload) => (event: React.ChangeEvent<HTMLInputElement>) => {
     setForm((prev) => ({ ...prev, [field]: event.target.value }));
@@ -33,8 +47,6 @@ export function NewCardDialog({ onCreate }: NewCardDialogProps) {
     }
     onCreate(form);
     setOpen(false);
-    setForm({ sampleId: '', wellId: '', horizon: '', samplingDate: '', storageLocation: '' });
-    setError('');
   };
 
   return (
@@ -64,7 +76,30 @@ export function NewCardDialog({ onCreate }: NewCardDialogProps) {
           </div>
           <div className="space-y-1">
             <Label htmlFor="samplingDate">Sampling Date</Label>
-            <Input id="samplingDate" type="date" value={form.samplingDate} onChange={onChange('samplingDate')} required />
+            <Popover open={dateOpen} onOpenChange={setDateOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-left font-normal"
+                  type="button"
+                >
+                  <Calendar className="mr-2 h-4 w-4" />
+                  {form.samplingDate || 'Pick a date'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="p-0" align="start">
+                <CalendarCmp
+                  mode="single"
+                  selected={form.samplingDate ? new Date(form.samplingDate) : new Date()}
+                  onSelect={(date) => {
+                    const next = date ? format(date, 'yyyy-MM-dd') : today;
+                    setForm((prev) => ({ ...prev, samplingDate: next }));
+                    setDateOpen(false);
+                  }}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
           </div>
           <div className="space-y-1">
             <Label htmlFor="storageLocation">Storage Location</Label>
