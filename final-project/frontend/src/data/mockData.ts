@@ -120,7 +120,7 @@ export const columnConfigByRole: Record<Role, { id: Status; title: string }[]> =
   action_supervision: [
     { id: 'new', title: 'Uploaded batch' },
     { id: 'progress', title: 'Conflicts' },
-    { id: 'done', title: 'Resolved' },
+    { id: 'done', title: 'Stored' },
   ],
   admin: [
     { id: 'new', title: 'Planned' },
