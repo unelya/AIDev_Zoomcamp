@@ -11,6 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar as CalendarCmp } from '@/components/ui/calendar';
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Users } from 'lucide-react';
 
 interface DetailPanelProps {
   card: KanbanCard | null;
@@ -185,25 +186,30 @@ export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onAssignOpe
             <div className="space-y-2 mt-4">
               <label className="text-xs text-muted-foreground uppercase tracking-wide">Methods</label>
               <div className="space-y-1">
-                {sortMethods(card.methods).map((m) => (
-                  <label key={m.id} className="flex items-center gap-2 text-sm">
-                    <Checkbox
-                      checked={m.status === 'completed'}
-                      onCheckedChange={(val) => {
-                        if (readOnlyMethods) return;
-                        onToggleMethod?.(m.id, Boolean(val));
-                      }}
-                      className="h-4 w-4 rounded border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary data-[state=checked]:text-white data-[state=checked]:disabled:bg-primary data-[state=checked]:disabled:border-primary data-[state=checked]:disabled:text-white disabled:opacity-100 disabled:cursor-not-allowed"
-                      disabled={!onToggleMethod || readOnlyMethods}
-                    />
-                    <span className="flex-1">
-                      {m.name}
-                      {m.assignedTo ? <span className="text-xs text-muted-foreground"> · {m.assignedTo}</span> : null}
-                    </span>
-                    {m.status === 'completed' && <span className="text-[10px] text-destructive font-semibold">Done</span>}
-                  </label>
-                ))}
-              </div>
+                  {sortMethods(card.methods).map((m) => (
+                    <label key={m.id} className="flex items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={m.status === 'completed'}
+                        onCheckedChange={(val) => {
+                          if (readOnlyMethods) return;
+                          onToggleMethod?.(m.id, Boolean(val));
+                        }}
+                        className="h-4 w-4 rounded border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary data-[state=checked]:text-white data-[state=checked]:disabled:bg-primary data-[state=checked]:disabled:border-primary data-[state=checked]:disabled:text-white disabled:opacity-100 disabled:cursor-not-allowed"
+                        disabled={!onToggleMethod || readOnlyMethods}
+                      />
+                      <span className="flex-1">
+                        {m.name}
+                        {m.assignedTo ? (
+                          <span className="text-xs text-muted-foreground inline-flex items-center gap-1 ml-1">
+                            <Users className="w-3 h-3" />
+                            {m.assignedTo}
+                          </span>
+                        ) : null}
+                      </span>
+                      {m.status === 'completed' && <span className="text-[10px] text-destructive font-semibold">Done</span>}
+                    </label>
+                  ))}
+                </div>
             </div>
           )}
         </div>

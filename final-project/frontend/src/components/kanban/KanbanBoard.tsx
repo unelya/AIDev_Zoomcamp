@@ -40,6 +40,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
   const [newDialogOpen, setNewDialogOpen] = useState(false);
   const [methodFilter, setMethodFilter] = useState<string[]>([]);
   const [assignedOnly, setAssignedOnly] = useState(false);
+  const [incompleteOnly, setIncompleteOnly] = useState(false);
   const analysisTypes = DEFAULT_ANALYSIS_TYPES;
   const [undoStack, setUndoStack] = useState<
     (
@@ -96,11 +97,9 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
           fetchUsers().catch(() => []),
         ]);
         setCards(remoteSamples);
-        const initialAnalyses = dedupeAnalyses(
-          remoteAnalyses
-            .filter((pa) => !METHOD_BLACKLIST.includes(pa.analysis_type) && DEFAULT_ANALYSIS_TYPES.includes(pa.analysis_type))
-            .map(mapApiAnalysis),
-        );
+        const initialAnalyses = remoteAnalyses
+          .filter((pa) => !METHOD_BLACKLIST.includes(pa.analysis_type) && DEFAULT_ANALYSIS_TYPES.includes(pa.analysis_type))
+          .map(mapApiAnalysis);
         setPlannedAnalyses(initialAnalyses);
         // ensure all default methods exist per sample (adds missing ones such as IR)
         for (const sample of remoteSamples) {
@@ -155,6 +154,18 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
   );
 
   const columns = useMemo(() => {
+    const userName = user?.fullName?.trim().toLowerCase();
+    const matchesUser = (assignee?: string | null) => {
+      if (!assignee || !userName) return false;
+      return assignee.trim().toLowerCase() === userName;
+    };
+    const hasUserAssignment = (c: KanbanCard) =>
+      c.methods?.some((m) => matchesUser(m.assignedTo));
+    const hasIncomplete = (c: KanbanCard) =>
+      c.methods?.some((m) => m.status !== 'completed');
+    const hasUserIncomplete = (c: KanbanCard) =>
+      c.methods?.some((m) => matchesUser(m.assignedTo) && m.status !== 'completed');
+
     if (role === 'lab_operator') {
       const bySample = new Map<string, KanbanCard>();
       cards.forEach((sample) => {
@@ -195,24 +206,32 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       });
       // remove cards that have no methods (e.g., all filtered out)
       let cardsWithMethods = [...bySample.values()].filter((c) => c.methods && c.methods.length > 0);
-      const userName = user?.fullName?.trim().toLowerCase();
-      if (assignedOnly) {
+      // apply filters:
+      if (assignedOnly && incompleteOnly) {
+        // intersection: assigned to me AND has an incomplete method
         if (!userName) {
           cardsWithMethods = [];
         } else {
-          cardsWithMethods = cardsWithMethods.filter(
-            (c) =>
-              c.assignedTo?.trim().toLowerCase() === userName ||
-              c.methods?.some((m) => m.assignedTo?.trim().toLowerCase() === userName),
-          );
+          cardsWithMethods = cardsWithMethods.filter((c) => hasUserAssignment(c) && hasUserIncomplete(c));
+        }
+      } else {
+        if (incompleteOnly) {
+          cardsWithMethods = cardsWithMethods.filter((c) => hasIncomplete(c));
+        }
+        if (assignedOnly) {
+          if (!userName) {
+            cardsWithMethods = [];
+          } else {
+            cardsWithMethods = cardsWithMethods.filter((c) => hasUserAssignment(c));
+          }
         }
       }
-      const filteredByMethods =
-        methodFilter.length === 0
-          ? cardsWithMethods
-          : cardsWithMethods.filter((c) => c.methods?.some((m) => methodFilter.includes(m.name)));
+      // apply method filter if any
+      if (methodFilter.length > 0) {
+        cardsWithMethods = cardsWithMethods.filter((c) => c.methods?.some((m) => methodFilter.includes(m.name)));
+      }
 
-      return getColumnData(filterCards(filteredByMethods), role);
+      return getColumnData(filterCards(cardsWithMethods), role);
     }
     if (role === 'admin') {
       // Compose admin view: Needs attention (lab review), Conflicts (action conflicts), Resolved empty, Deleted empty
@@ -243,17 +262,15 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         card.allMethodsDone = allDone;
       });
       let labCards = [...labMap.values()].filter((c) => c.methods && c.methods.length > 0);
-      const userName = user?.fullName?.trim().toLowerCase();
       if (assignedOnly) {
         if (!userName) {
           labCards = [];
         } else {
-          labCards = labCards.filter(
-            (c) =>
-              c.assignedTo?.trim().toLowerCase() === userName ||
-              c.methods?.some((m) => m.assignedTo?.trim().toLowerCase() === userName),
-          );
+          labCards = labCards.filter((c) => hasUserAssignment(c));
         }
+      }
+      if (incompleteOnly) {
+        labCards = labCards.filter((c) => hasIncomplete(c));
       }
       labCards =
         methodFilter.length === 0
@@ -291,7 +308,14 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
           });
         });
 
-      return getColumnData(filterCards(adminCards), role);
+      let cols = getColumnData(filterCards(adminCards), role);
+      if (incompleteOnly) {
+        cols = cols.map((col) => ({
+          ...col,
+          cards: col.cards.filter((c) => hasIncomplete(c)),
+        }));
+      }
+      return cols;
     }
     if (role === 'action_supervision') {
       const batchCards: KanbanCard[] = actionBatches.map((b) => ({
@@ -328,7 +352,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       return getColumnData(filterCards([...batchCards, ...conflictCards]), role);
     }
     return getColumnData(filterCards(cards), role);
-  }, [cards, plannedAnalyses, actionBatches, conflicts, role, filterCards, methodFilter, assignedOnly, user?.fullName]);
+  }, [cards, plannedAnalyses, actionBatches, conflicts, role, filterCards, methodFilter, assignedOnly, incompleteOnly, user?.fullName]);
   const handleCardClick = (card: KanbanCard) => {
     // ensure methods are attached for the detail panel even if this card came from a role/column that does not render them
     const methodsFromAnalyses =
@@ -791,6 +815,15 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
                 onCheckedChange={(val) => setAssignedOnly(Boolean(val))}
               />
               <span>Show only assigned to me</span>
+            </label>
+          )}
+          {role === 'lab_operator' && (
+            <label className="flex items-center gap-2 text-sm text-foreground">
+              <Checkbox
+                checked={incompleteOnly}
+                onCheckedChange={(val) => setIncompleteOnly(Boolean(val))}
+              />
+              <span>Show only incomplete</span>
             </label>
           )}
           <Button variant="outline" size="sm" className="gap-2">
