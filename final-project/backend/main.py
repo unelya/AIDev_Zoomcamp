@@ -4,7 +4,7 @@ from datetime import datetime
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import select, distinct
 from sqlalchemy.orm import Session
 
 # Support running as a module or script
@@ -179,10 +179,18 @@ async def list_planned_analyses(status: str | None = None, db: Session = Depends
 
 
 @app.post("/planned-analyses", response_model=PlannedAnalysisOut, status_code=201)
-async def create_planned_analysis(payload: PlannedAnalysisCreate, db: Session = Depends(get_db)):
+async def create_planned_analysis(payload: PlannedAnalysisCreate, request: Request, db: Session = Depends(get_db)):
+  default_allowed = {"SARA", "IR", "NMR", "Mass Spectrometry", "Viscosity"}
+  existing_types = {r[0] for r in db.execute(select(distinct(PlannedAnalysisModel.analysis_type))).all()}
+  allowed = default_allowed  # only these five are allowed globally
+  name = payload.analysis_type.strip()
+  if not name:
+    raise HTTPException(status_code=400, detail="Analysis type required")
+  if name not in allowed:
+    raise HTTPException(status_code=403, detail="Only these analysis types are allowed: SARA, IR, NMR, Mass Spectrometry, Viscosity")
   row = PlannedAnalysisModel(
     sample_id=payload.sample_id,
-    analysis_type=payload.analysis_type,
+    analysis_type=name,
     assigned_to=payload.assigned_to,
     status=AnalysisStatus.planned,
   )

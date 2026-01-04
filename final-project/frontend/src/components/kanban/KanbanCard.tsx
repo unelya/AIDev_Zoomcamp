@@ -16,6 +16,17 @@ interface KanbanCardProps {
 }
 
 export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adminActions }: KanbanCardProps) {
+  const METHOD_ORDER = ['SARA', 'IR', 'NMR', 'Mass Spectrometry', 'Viscosity'];
+  const sortMethods = (methods: NonNullable<CardType['methods']>) =>
+    [...methods].sort((a, b) => {
+      const ia = METHOD_ORDER.indexOf(a.name);
+      const ib = METHOD_ORDER.indexOf(b.name);
+      if (ia === -1 && ib === -1) return a.name.localeCompare(b.name);
+      if (ia === -1) return 1;
+      if (ib === -1) return -1;
+      return ia - ib;
+    });
+
   const handleDragStart = (event: React.DragEvent<HTMLDivElement>) => {
     event.dataTransfer.setData('text/plain', card.id);
   };
@@ -67,7 +78,7 @@ export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adm
         </div>
         {card.methods && card.methods.length > 0 && (
           <div className="space-y-1">
-            {card.methods.map((m) => (
+            {sortMethods(card.methods).map((m) => (
               <label
                 key={m.id}
                 className="flex items-center gap-2 text-[11px] text-foreground"

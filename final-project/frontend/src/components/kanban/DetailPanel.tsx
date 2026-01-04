@@ -29,6 +29,16 @@ interface DetailPanelProps {
 
 export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onResolveConflict, onUpdateSample, onUpdateAnalysis, onToggleMethod, readOnlyMethods, adminActions }: DetailPanelProps) {
   if (!card) return null;
+  const METHOD_ORDER = ['SARA', 'IR', 'NMR', 'Mass Spectrometry', 'Viscosity'];
+  const sortMethods = (methods: NonNullable<KanbanCard['methods']>) =>
+    [...methods].sort((a, b) => {
+      const ia = METHOD_ORDER.indexOf(a.name);
+      const ib = METHOD_ORDER.indexOf(b.name);
+      if (ia === -1 && ib === -1) return a.name.localeCompare(b.name);
+      if (ia === -1) return 1;
+      if (ib === -1) return -1;
+      return ia - ib;
+    });
   const [analysisType, setAnalysisType] = useState('');
   const [assignedTo, setAssignedTo] = useState('');
   const [resolution, setResolution] = useState('');
@@ -169,7 +179,7 @@ export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onResolveCo
             <div className="space-y-2 mt-4">
               <label className="text-xs text-muted-foreground uppercase tracking-wide">Methods</label>
               <div className="space-y-1">
-                {card.methods.map((m) => (
+                {sortMethods(card.methods).map((m) => (
                   <label key={m.id} className="flex items-center gap-2 text-sm">
                     <Checkbox
                       checked={m.status === 'completed'}

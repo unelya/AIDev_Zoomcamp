@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '@/components/ui/input';
 
 const STORAGE_KEY = 'labsync-kanban-cards';
-const DEFAULT_ANALYSIS_TYPES = ['SARA', 'NMR', 'FTIR', 'Mass Spectrometry', 'Viscosity'];
+const DEFAULT_ANALYSIS_TYPES = ['SARA', 'IR', 'NMR', 'Mass Spectrometry', 'Viscosity'];
 const METHOD_BLACKLIST = ['fsf', 'dadq'];
 
 const roleCopy: Record<Role, string> = {
@@ -40,6 +40,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
   const [newDialogOpen, setNewDialogOpen] = useState(false);
   const [methodFilter, setMethodFilter] = useState<string[]>([]);
   const [assignedOnly, setAssignedOnly] = useState(false);
+  const analysisTypes = DEFAULT_ANALYSIS_TYPES;
   const [undoStack, setUndoStack] = useState<
     (
       | { kind: 'sample'; sampleId: string; prev: Partial<KanbanCard> }
@@ -83,17 +84,24 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      try {
-        const [remoteSamples, remoteAnalyses, batches, conflictList] = await Promise.all([
-          fetchSamples(),
-          fetchPlannedAnalyses(),
-          fetchActionBatches(),
-          fetchConflicts(),
-        ]);
-        setCards(remoteSamples);
-        setPlannedAnalyses(remoteAnalyses.filter((pa) => !METHOD_BLACKLIST.includes(pa.analysis_type)).map(mapApiAnalysis));
-        setActionBatches(batches);
-        setConflicts(conflictList);
+    try {
+      const [remoteSamples, remoteAnalyses, batches, conflictList] = await Promise.all([
+        fetchSamples(),
+        fetchPlannedAnalyses(),
+        fetchActionBatches(),
+        fetchConflicts(),
+      ]);
+      setCards(remoteSamples);
+      const initialAnalyses = remoteAnalyses
+        .filter((pa) => !METHOD_BLACKLIST.includes(pa.analysis_type) && DEFAULT_ANALYSIS_TYPES.includes(pa.analysis_type))
+        .map(mapApiAnalysis);
+      setPlannedAnalyses(initialAnalyses);
+      // ensure all default methods exist per sample (adds missing ones such as IR)
+      for (const sample of remoteSamples) {
+        await ensureAnalyses(sample.sampleId, initialAnalyses, setPlannedAnalyses, DEFAULT_ANALYSIS_TYPES);
+      }
+      setActionBatches(batches);
+      setConflicts(conflictList);
       } catch (err) {
         toast({
           title: "Failed to load data",
@@ -415,7 +423,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     updateSampleStatus(cardId, columnId)
       .then((updated) => {
         if (role === 'warehouse_worker' && columnId === 'review') {
-          ensureAnalyses(updated.sampleId, plannedAnalyses, setPlannedAnalyses);
+        ensureAnalyses(updated.sampleId, plannedAnalyses, setPlannedAnalyses, analysisTypes);
         }
       })
       .catch((err) =>
@@ -543,6 +551,16 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
 
   const handlePlanAnalysis = (sampleId: string) => async (data: { analysisType: string; assignedTo?: string }) => {
     try {
+      const name = data.analysisType.trim();
+      if (!name) {
+        toast({ title: "Analysis name required", description: "Enter an analysis type", variant: "destructive" });
+        return;
+      }
+      const known = analysisTypes.map((t) => t.toLowerCase());
+      if (!known.includes(name.toLowerCase())) {
+        toast({ title: "Invalid analysis type", description: "Only SARA, IR, NMR, Mass Spectrometry, or Viscosity are allowed.", variant: "destructive" });
+        return;
+      }
       const created = await createPlannedAnalysis({ sampleId, analysisType: data.analysisType, assignedTo: data.assignedTo });
       setPlannedAnalyses((prev) => [...prev, mapApiAnalysis(created)]);
     } catch (err) {
@@ -659,7 +677,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     try {
       await updateSampleFields(sampleId, targetStatus ? { ...updates, status: targetStatus } : updates);
       if (role === 'warehouse_worker' && (targetStatus === 'review' || updates.status === 'review')) {
-        ensureAnalyses(sampleId, plannedAnalyses, setPlannedAnalyses);
+        ensureAnalyses(sampleId, plannedAnalyses, setPlannedAnalyses, analysisTypes);
       }
     } catch (err) {
       toast({
@@ -902,9 +920,10 @@ async function ensureAnalyses(
   sampleId: string,
   existing: PlannedAnalysisCard[],
   setPlannedAnalyses: React.Dispatch<React.SetStateAction<PlannedAnalysisCard[]>>,
+  analysisTypes: string[],
 ) {
   const existingTypes = new Set(existing.filter((pa) => pa.sampleId === sampleId).map((pa) => pa.analysisType));
-  const missing = DEFAULT_ANALYSIS_TYPES.filter((t) => !existingTypes.has(t));
+  const missing = analysisTypes.filter((t) => !existingTypes.has(t));
   if (missing.length === 0) return;
   for (const type of missing) {
     try {

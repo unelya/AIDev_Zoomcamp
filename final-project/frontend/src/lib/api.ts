@@ -2,12 +2,16 @@ import { KanbanCard, NewCardPayload, PlannedAnalysisCard } from "@/types/kanban"
 
 function authHeaders() {
   let userName: string | undefined;
+  let roles: string[] | undefined;
+  let role: string | undefined;
   if (typeof window !== "undefined") {
     try {
       const stored = localStorage.getItem("labsync-auth");
       if (stored) {
         const parsed = JSON.parse(stored);
         userName = parsed?.fullName || parsed?.username;
+        roles = parsed?.roles;
+        role = parsed?.role;
       }
     } catch {
       // ignore
@@ -16,6 +20,8 @@ function authHeaders() {
   return {
     "Content-Type": "application/json",
     ...(userName ? { "X-User": userName } : {}),
+    ...(role ? { "X-Role": role } : {}),
+    ...(roles ? { "X-Roles": Array.isArray(roles) ? roles.join(",") : roles } : {}),
   };
 }
 
