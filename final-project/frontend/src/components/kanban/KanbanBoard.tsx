@@ -38,6 +38,12 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
   const [newDialogOpen, setNewDialogOpen] = useState(false);
   const [methodFilter, setMethodFilter] = useState<string[]>([]);
   const [assignedOnly, setAssignedOnly] = useState(false);
+  const [undoStack, setUndoStack] = useState<
+    (
+      | { kind: 'sample'; sampleId: string; prev: Partial<KanbanCard> }
+      | { kind: 'analysis'; analysisId: number; sampleId: string; prevStatus: PlannedAnalysisCard['status']; prevAssignedTo?: string | null }
+    )[]
+  >([]);
 
   useEffect(() => {
     // keep detail panel in sync with card state and latest methods
@@ -58,6 +64,17 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       setSelectedCard(merged);
     }
   }, [cards, plannedAnalyses, selectedCard]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        undoLast();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [undoStack]);
 
   useEffect(() => {
     const load = async () => {
@@ -371,6 +388,13 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       // Do not adjust method statuses on drag; only move the sample card
     }
 
+    const prevCard = cards.find((c) => c.id === cardId);
+    if (prevCard) {
+      setUndoStack((prev) => [
+        ...prev.slice(-19),
+        { kind: 'sample', sampleId: prevCard.sampleId, prev: { status: prevCard.status, statusLabel: prevCard.statusLabel } },
+      ]);
+    }
     setCards((prev) =>
       prev.map((card) =>
         card.id === cardId
@@ -411,6 +435,67 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const undoLast = async () => {
+    let lastAction: (typeof undoStack)[number] | undefined;
+    setUndoStack((prev) => {
+      const next = [...prev];
+      lastAction = next.pop();
+      return next;
+    });
+    if (!lastAction) return;
+
+    if (lastAction.kind === 'sample') {
+      const payload: Record<string, string | undefined> = {};
+      if (lastAction.prev.status) payload.status = lastAction.prev.status;
+      if (lastAction.prev.storageLocation !== undefined) payload.storage_location = lastAction.prev.storageLocation;
+      if (lastAction.prev.samplingDate) payload.sampling_date = lastAction.prev.samplingDate;
+      if (lastAction.prev.wellId) payload.well_id = lastAction.prev.wellId;
+      if (lastAction.prev.horizon) payload.horizon = lastAction.prev.horizon;
+      if (lastAction.prev.assignedTo) payload.assigned_to = lastAction.prev.assignedTo;
+      try {
+        await updateSampleFields(lastAction.sampleId, payload);
+        setCards((prev) =>
+          prev.map((card) =>
+            card.sampleId === lastAction!.sampleId
+              ? {
+                  ...card,
+                  ...mapSampleUpdates(card, payload),
+                  status: (payload.status as KanbanCard['status']) ?? card.status,
+                  statusLabel:
+                    payload.status && columnConfigByRole[role]?.find((c) => c.id === (payload.status as KanbanCard['status']))?.title
+                      ? columnConfigByRole[role]?.find((c) => c.id === (payload.status as KanbanCard['status']))?.title!
+                      : card.statusLabel,
+                }
+              : card,
+          ),
+        );
+        toast({ title: 'Undo', description: 'Last change reverted' });
+      } catch (err) {
+        toast({
+          title: 'Undo failed',
+          description: err instanceof Error ? err.message : 'Could not revert sample change',
+          variant: 'destructive',
+        });
+      }
+    } else if (lastAction.kind === 'analysis') {
+      try {
+        await updatePlannedAnalysis(lastAction.analysisId, lastAction.prevStatus, lastAction.prevAssignedTo ?? undefined);
+        setPlannedAnalyses((prev) =>
+          prev.map((pa) =>
+            pa.id === lastAction!.analysisId ? { ...pa, status: lastAction!.prevStatus, assignedTo: lastAction!.prevAssignedTo ?? pa.assignedTo } : pa,
+          ),
+        );
+        toast({ title: 'Undo', description: 'Last method change reverted' });
+      } catch (err) {
+        toast({
+          title: 'Undo failed',
+          description: err instanceof Error ? err.message : 'Could not revert method change',
+          variant: 'destructive',
+        });
+      }
     }
   };
 
@@ -475,6 +560,10 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       }
     }
     const nextStatus = done ? 'completed' : 'planned';
+    const prevPa = plannedAnalyses.find((pa) => pa.id === methodId);
+    if (prevPa) {
+      setUndoStack((prev) => [...prev.slice(-19), { kind: 'analysis', analysisId: methodId, sampleId: prevPa.sampleId, prevStatus: prevPa.status, prevAssignedTo: prevPa.assignedTo }]);
+    }
     setPlannedAnalyses((prev) => {
       const updated = prev.map((pa) => (pa.id === methodId ? { ...pa, status: nextStatus as PlannedAnalysisCard['status'] } : pa));
       const sampleId = updated.find((pa) => pa.id === methodId)?.sampleId;
@@ -504,11 +593,30 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
   const lockNeedsAttentionCards = role === 'lab_operator' && user?.role !== 'admin';
 
   const handleSampleFieldUpdate = async (sampleId: string, updates: Record<string, string>) => {
+    const prevCard = cards.find((c) => c.sampleId === sampleId);
     const shouldStore =
       role === 'warehouse_worker' && updates.storage_location && updates.storage_location.trim().length > 0;
     const targetStatus = shouldStore ? 'review' : undefined;
     const statusLabel =
       targetStatus && columnConfigByRole[role]?.find((c) => c.id === targetStatus)?.title;
+
+    if (prevCard) {
+      setUndoStack((prev) => [
+        ...prev.slice(-19),
+        {
+          kind: 'sample',
+          sampleId,
+          prev: {
+            status: prevCard.status,
+            storageLocation: prevCard.storageLocation,
+            samplingDate: prevCard.samplingDate,
+            wellId: prevCard.wellId,
+            horizon: prevCard.horizon,
+            assignedTo: prevCard.assignedTo,
+          },
+        },
+      ]);
+    }
 
     setCards((prev) =>
       prev.map((card) =>

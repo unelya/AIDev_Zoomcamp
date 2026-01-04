@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -136,7 +136,7 @@ async def create_sample(sample: Sample, db: Session = Depends(get_db)):
 
 
 @app.patch("/samples/{sample_id}")
-async def update_sample(sample_id: str, payload: dict, db: Session = Depends(get_db)):
+async def update_sample(sample_id: str, payload: dict, request: Request, db: Session = Depends(get_db)):
   row = db.get(SampleModel, sample_id)
   if not row:
     raise HTTPException(status_code=404, detail="Sample not found")
@@ -152,7 +152,8 @@ async def update_sample(sample_id: str, payload: dict, db: Session = Depends(get
   db.commit()
   db.refresh(row)
   if "status" in payload:
-    log_audit(db, entity_type="sample", entity_id=sample_id, action="status_change", performed_by=None, details=f"{old_status}->{payload['status']}")
+    actor = request.headers.get("x-user")
+    log_audit(db, entity_type="sample", entity_id=sample_id, action="status_change", performed_by=actor, details=f"{old_status}->{payload['status']}")
   return to_sample_out(row)
 
 
@@ -192,7 +193,7 @@ async def create_planned_analysis(payload: PlannedAnalysisCreate, db: Session = 
 
 
 @app.patch("/planned-analyses/{analysis_id}", response_model=PlannedAnalysisOut)
-async def update_planned_analysis(analysis_id: int, payload: PlannedAnalysisUpdate, db: Session = Depends(get_db)):
+async def update_planned_analysis(analysis_id: int, payload: PlannedAnalysisUpdate, request: Request, db: Session = Depends(get_db)):
   row = db.get(PlannedAnalysisModel, analysis_id)
   if not row:
     raise HTTPException(status_code=404, detail="Planned analysis not found")
@@ -205,7 +206,8 @@ async def update_planned_analysis(analysis_id: int, payload: PlannedAnalysisUpda
   db.commit()
   db.refresh(row)
   if payload.status:
-    log_audit(db, entity_type="planned_analysis", entity_id=str(analysis_id), action="status_change", performed_by=None, details=f"{old_status}->{payload.status}")
+    actor = request.headers.get("x-user")
+    log_audit(db, entity_type="planned_analysis", entity_id=str(analysis_id), action="status_change", performed_by=actor, details=f"{old_status}->{payload.status}")
   return to_planned_out(row)
 
 
@@ -257,7 +259,7 @@ async def list_conflicts(db: Session = Depends(get_db)):
 
 
 @app.patch("/conflicts/{conflict_id}", response_model=ConflictOut)
-async def update_conflict(conflict_id: int, payload: ConflictUpdate, db: Session = Depends(get_db), authorization: str | None = None):
+async def update_conflict(conflict_id: int, payload: ConflictUpdate, request: Request, db: Session = Depends(get_db), authorization: str | None = None):
   row = db.get(ConflictModel, conflict_id)
   if not row:
     raise HTTPException(status_code=404, detail="Conflict not found")
@@ -273,7 +275,8 @@ async def update_conflict(conflict_id: int, payload: ConflictUpdate, db: Session
   db.commit()
   db.refresh(row)
   if payload.status:
-    log_audit(db, entity_type="conflict", entity_id=str(conflict_id), action="status_change", performed_by=row.updated_by, details=f"{old_status}->{payload.status}")
+    actor = request.headers.get("x-user") or row.updated_by
+    log_audit(db, entity_type="conflict", entity_id=str(conflict_id), action="status_change", performed_by=actor, details=f"{old_status}->{payload.status}")
   return to_conflict_out(row)
 
 

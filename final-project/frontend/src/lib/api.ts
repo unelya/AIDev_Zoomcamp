@@ -1,8 +1,23 @@
 import { KanbanCard, NewCardPayload, PlannedAnalysisCard } from "@/types/kanban";
 
-const headers = {
-  "Content-Type": "application/json",
-};
+function authHeaders() {
+  let userName: string | undefined;
+  if (typeof window !== "undefined") {
+    try {
+      const stored = localStorage.getItem("labsync-auth");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        userName = parsed?.fullName || parsed?.username;
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return {
+    "Content-Type": "application/json",
+    ...(userName ? { "X-User": userName } : {}),
+  };
+}
 
 export async function fetchSamples(): Promise<KanbanCard[]> {
   const res = await fetch("/api/samples");
@@ -14,7 +29,7 @@ export async function fetchSamples(): Promise<KanbanCard[]> {
 export async function createSample(payload: NewCardPayload): Promise<KanbanCard> {
   const res = await fetch("/api/samples", {
     method: "POST",
-    headers,
+    headers: authHeaders(),
     body: JSON.stringify({
       sample_id: payload.sampleId,
       well_id: payload.wellId,
@@ -32,7 +47,7 @@ export async function createSample(payload: NewCardPayload): Promise<KanbanCard>
 export async function updateSampleStatus(sampleId: string, status: string, storageLocation?: string): Promise<KanbanCard> {
   const res = await fetch(`/api/samples/${sampleId}`, {
     method: "PATCH",
-    headers,
+    headers: authHeaders(),
     body: JSON.stringify({ status, storage_location: storageLocation }),
   });
   if (!res.ok) throw new Error(`Failed to update sample (${res.status})`);
@@ -43,7 +58,7 @@ export async function updateSampleStatus(sampleId: string, status: string, stora
 export async function updateSampleFields(sampleId: string, payload: Record<string, string | undefined>): Promise<KanbanCard> {
   const res = await fetch(`/api/samples/${sampleId}`, {
     method: "PATCH",
-    headers,
+    headers: authHeaders(),
     body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error(`Failed to update sample (${res.status})`);
@@ -84,7 +99,7 @@ export async function fetchPlannedAnalyses(): Promise<PlannedAnalysisCard[]> {
 export async function createPlannedAnalysis(payload: { sampleId: string; analysisType: string; assignedTo?: string }) {
   const res = await fetch("/api/planned-analyses", {
     method: "POST",
-    headers,
+    headers: authHeaders(),
     body: JSON.stringify({
       sample_id: payload.sampleId,
       analysis_type: payload.analysisType,
@@ -98,7 +113,7 @@ export async function createPlannedAnalysis(payload: { sampleId: string; analysi
 export async function updatePlannedAnalysis(id: number, status: string, assignedTo?: string) {
   const res = await fetch(`/api/planned-analyses/${id}`, {
     method: "PATCH",
-    headers,
+    headers: authHeaders(),
     body: JSON.stringify({ status, assigned_to: assignedTo }),
   });
   if (!res.ok) throw new Error(`Failed to update analysis (${res.status})`);
@@ -124,7 +139,7 @@ export async function fetchActionBatches() {
 export async function createActionBatch(payload: { title: string; date: string; status?: string }) {
   const res = await fetch("/api/action-batches", {
     method: "POST",
-    headers,
+    headers: authHeaders(),
     body: JSON.stringify({ ...payload, status: payload.status ?? "new" }),
   });
   if (!res.ok) throw new Error(`Failed to create action batch (${res.status})`);
@@ -140,7 +155,7 @@ export async function fetchConflicts() {
 export async function createConflict(payload: { oldPayload: string; newPayload: string }) {
   const res = await fetch("/api/conflicts", {
     method: "POST",
-    headers,
+    headers: authHeaders(),
     body: JSON.stringify({ old_payload: payload.oldPayload, new_payload: payload.newPayload, status: "open" }),
   });
   if (!res.ok) throw new Error(`Failed to create conflict (${res.status})`);
@@ -150,7 +165,7 @@ export async function createConflict(payload: { oldPayload: string; newPayload: 
 export async function resolveConflict(id: number, note?: string) {
   const res = await fetch(`/api/conflicts/${id}`, {
     method: "PATCH",
-    headers,
+    headers: authHeaders(),
     body: JSON.stringify({ status: "resolved", resolution_note: note ?? "" }),
   });
   if (!res.ok) throw new Error(`Failed to resolve conflict (${res.status})`);
