@@ -12,6 +12,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandGroup, CommandItem } from '@/components/ui/command';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useAuth } from '@/hooks/use-auth';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 
 const STORAGE_KEY = 'labsync-kanban-cards';
 const DEFAULT_ANALYSIS_TYPES = ['SARA', 'NMR', 'FTIR', 'Mass Spectrometry', 'Viscosity'];
@@ -44,6 +46,8 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       | { kind: 'analysis'; analysisId: number; sampleId: string; prevStatus: PlannedAnalysisCard['status']; prevAssignedTo?: string | null }
     )[]
   >([]);
+  const [storagePrompt, setStoragePrompt] = useState<{ open: boolean; sampleId: string | null }>({ open: false, sampleId: null });
+  const [storageValue, setStorageValue] = useState('');
 
   useEffect(() => {
     // keep detail panel in sync with card state and latest methods
@@ -326,9 +330,8 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     if (role === 'warehouse_worker' && columnId === 'review') {
       const target = cards.find((c) => c.id === cardId);
       if (target && !target.storageLocation) {
-        const location = window.prompt('Storage location is required to store this sample. Please enter it:');
-        if (!location) return;
-        handleSampleFieldUpdate(target.sampleId, { storage_location: location, status: 'review' });
+        setStoragePrompt({ open: true, sampleId: target.sampleId });
+        setStorageValue(target.storageLocation ?? '');
         return;
       }
     }
@@ -500,6 +503,12 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         });
       }
     }
+  };
+
+  const confirmStorage = () => {
+    if (!storagePrompt.sampleId || !storageValue.trim()) return;
+    handleSampleFieldUpdate(storagePrompt.sampleId, { storage_location: storageValue.trim(), status: 'review' });
+    setStoragePrompt({ open: false, sampleId: null });
   };
 
   const handleCreateCard = (payload: NewCardPayload) => {
@@ -820,6 +829,33 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
             : undefined
         }
       />
+      <Dialog open={storagePrompt.open} onOpenChange={(open) => setStoragePrompt({ open, sampleId: open ? storagePrompt.sampleId : null })}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Storage location</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">Storage location is required to store this sample.</p>
+          <Input
+            autoFocus
+            placeholder="e.g. Rack A · Bin 2"
+            value={storageValue}
+            onChange={(e) => setStorageValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                confirmStorage();
+              }
+            }}
+          />
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setStoragePrompt({ open: false, sampleId: null })}>
+              Cancel
+            </Button>
+            <Button onClick={confirmStorage} disabled={!storageValue.trim()}>
+              Save & Store
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
