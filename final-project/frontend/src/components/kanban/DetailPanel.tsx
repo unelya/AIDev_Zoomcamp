@@ -20,9 +20,10 @@ interface DetailPanelProps {
   onUpdateSample?: (updates: Record<string, string>) => void;
   onUpdateAnalysis?: (updates: { assigned_to?: string }) => void;
   onToggleMethod?: (methodId: number, done: boolean) => void;
+  readOnlyMethods?: boolean;
 }
 
-export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onResolveConflict, onUpdateSample, onUpdateAnalysis, onToggleMethod }: DetailPanelProps) {
+export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onResolveConflict, onUpdateSample, onUpdateAnalysis, onToggleMethod, readOnlyMethods }: DetailPanelProps) {
   if (!card) return null;
   const [analysisType, setAnalysisType] = useState('');
   const [assignedTo, setAssignedTo] = useState('');
@@ -201,11 +202,14 @@ export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onResolveCo
                   <div className="space-y-1">
                     {card.methods.map((m) => (
                       <label key={m.id} className="flex items-center gap-2 text-sm">
-                        <Checkbox
+                      <Checkbox
                           checked={m.status === 'completed'}
-                          onCheckedChange={(val) => onToggleMethod?.(m.id, Boolean(val))}
-                          className="h-4 w-4 rounded border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary data-[state=checked]:text-white data-[state=checked]:disabled:bg-primary data-[state=checked]:disabled:border-primary data-[state=checked]:disabled:text-white"
-                          disabled={!onToggleMethod}
+                          onCheckedChange={(val) => {
+                            if (readOnlyMethods) return;
+                            onToggleMethod?.(m.id, Boolean(val));
+                          }}
+                          className="h-4 w-4 rounded border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary data-[state=checked]:text-white data-[state=checked]:disabled:bg-primary data-[state=checked]:disabled:border-primary data-[state=checked]:disabled:text-white disabled:opacity-100 disabled:cursor-not-allowed"
+                          disabled={!onToggleMethod || readOnlyMethods}
                         />
                         <span className="flex-1">{m.name}</span>
                         {m.status === 'completed' && <span className="text-[10px] text-destructive font-semibold">Done</span>}

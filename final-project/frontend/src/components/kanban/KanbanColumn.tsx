@@ -10,6 +10,7 @@ interface KanbanColumnProps {
   showAdd?: boolean;
   onAdd?: () => void;
   onToggleMethod?: (methodId: number, done: boolean) => void;
+  lockNeedsAttention?: boolean;
 }
 
 const columnColors = {
@@ -19,7 +20,7 @@ const columnColors = {
   done: 'border-t-status-done',
 };
 
-export function KanbanColumn({ column, onCardClick, onDropCard, showAdd = false, onAdd, onToggleMethod }: KanbanColumnProps) {
+export function KanbanColumn({ column, onCardClick, onDropCard, showAdd = false, onAdd, onToggleMethod, lockNeedsAttention = false }: KanbanColumnProps) {
   const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     const cardId = event.dataTransfer.getData('text/plain');
@@ -53,6 +54,7 @@ export function KanbanColumn({ column, onCardClick, onDropCard, showAdd = false,
             card={card}
             onClick={() => onCardClick(card)}
             onToggleMethod={onToggleMethod}
+            readOnlyMethods={lockNeedsAttention && card.status === 'review'}
           />
         ))}
       </div>

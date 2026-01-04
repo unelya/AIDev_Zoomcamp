@@ -8,9 +8,10 @@ interface KanbanCardProps {
   card: CardType;
   onClick: () => void;
   onToggleMethod?: (methodId: number, done: boolean) => void;
+  readOnlyMethods?: boolean;
 }
 
-export function KanbanCard({ card, onClick, onToggleMethod }: KanbanCardProps) {
+export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods }: KanbanCardProps) {
   const handleDragStart = (event: React.DragEvent<HTMLDivElement>) => {
     event.dataTransfer.setData('text/plain', card.id);
   };
@@ -70,9 +71,12 @@ export function KanbanCard({ card, onClick, onToggleMethod }: KanbanCardProps) {
               >
                 <Checkbox
                   checked={m.status === 'completed'}
-                  onCheckedChange={(val) => onToggleMethod?.(m.id, Boolean(val))}
-                  disabled={!onToggleMethod}
-                  className="h-3.5 w-3.5 rounded border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary data-[state=checked]:text-white data-[state=checked]:disabled:bg-primary data-[state=checked]:disabled:border-primary data-[state=checked]:disabled:text-white"
+                  onCheckedChange={(val) => {
+                    if (readOnlyMethods) return;
+                    onToggleMethod?.(m.id, Boolean(val));
+                  }}
+                  disabled={!onToggleMethod || readOnlyMethods}
+                  className="h-3.5 w-3.5 rounded border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary data-[state=checked]:text-white data-[state=checked]:disabled:bg-primary data-[state=checked]:disabled:border-primary data-[state=checked]:disabled:text-white disabled:opacity-100 disabled:cursor-not-allowed"
                 />
                 <span className="truncate flex-1">{m.name}</span>
                 {m.status === 'completed' && <span className="text-[10px] text-destructive font-semibold">Done</span>}

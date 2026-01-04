@@ -449,6 +449,13 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
   };
 
   const toggleMethodStatus = async (methodId: number, done: boolean) => {
+    const sampleIdFromMethod = plannedAnalyses.find((pa) => pa.id === methodId)?.sampleId;
+    if (role === 'lab_operator' && sampleIdFromMethod) {
+      const targetCard = cards.find((c) => c.id === sampleIdFromMethod);
+      if (targetCard?.status === 'review' && user?.role !== 'admin') {
+        return;
+      }
+    }
     const nextStatus = done ? 'completed' : 'planned';
     setPlannedAnalyses((prev) => {
       const updated = prev.map((pa) => (pa.id === methodId ? { ...pa, status: nextStatus as PlannedAnalysisCard['status'] } : pa));
@@ -476,6 +483,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
   };
 
   const totalSamples = columns.reduce((sum, col) => sum + col.cards.length, 0);
+  const lockNeedsAttentionCards = role === 'lab_operator' && user?.role !== 'admin';
 
   const handleSampleFieldUpdate = async (sampleId: string, updates: Record<string, string>) => {
     const shouldStore =
@@ -623,6 +631,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
             showAdd={role === 'warehouse_worker' && column.id === 'new'}
             onAdd={() => setNewDialogOpen(true)}
             onToggleMethod={role === 'lab_operator' || role === 'admin' ? toggleMethodStatus : undefined}
+            lockNeedsAttention={lockNeedsAttentionCards}
           />
               </div>
             ))}
@@ -643,17 +652,17 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
           selectedCard && selectedCard.analysisType === 'Conflict' ? handleResolveConflict(Number(selectedCard.id.replace('conflict-', ''))) : undefined
         }
         onUpdateSample={
-          selectedCard && selectedCard.analysisType === 'Sample'
+          selectedCard && selectedCard.analysisType === 'Sample' && !(lockNeedsAttentionCards && selectedCard.status === 'review')
             ? (updates) => handleSampleFieldUpdate(selectedCard.sampleId, updates)
             : undefined
         }
         onUpdateAnalysis={
-          selectedCard && selectedCard.analysisType !== 'Sample' && role === 'lab_operator'
+          selectedCard && selectedCard.analysisType !== 'Sample' && role === 'lab_operator' && !(lockNeedsAttentionCards && selectedCard.status === 'review')
             ? (updates) => handleAnalysisFieldUpdate(Number(selectedCard.id), updates)
             : undefined
         }
         onToggleMethod={
-          role === 'lab_operator'
+          role === 'lab_operator' && !(lockNeedsAttentionCards && selectedCard?.status === 'review')
             ? async (methodId, done) => {
                 const nextStatus = done ? 'completed' : 'planned';
                 setPlannedAnalyses((prev) =>
@@ -663,6 +672,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
               }
             : undefined
         }
+        readOnlyMethods={lockNeedsAttentionCards && selectedCard?.status === 'review'}
       />
     </div>
   );
