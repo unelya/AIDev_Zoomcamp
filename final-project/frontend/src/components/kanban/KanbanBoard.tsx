@@ -208,7 +208,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
           ? labCards
           : labCards.filter((c) => c.methods?.some((m) => methodFilter.includes(m.name)));
       const labNeeds = getColumnData(filterCards(labCards), 'lab_operator').find((col) => col.id === 'review')?.cards ?? [];
-      labNeeds.forEach((c) => adminCards.push({ ...c, status: 'new', statusLabel: 'Needs attention' }));
+      labNeeds.forEach((c) => adminCards.push({ ...c, status: 'review', statusLabel: 'Needs attention' }));
 
       // admin "Resolved" currently unused; leave empty
 
@@ -616,14 +616,14 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
           <div className="flex gap-4 h-full min-w-max">
             {columns.map((column) => (
               <div key={column.id} className="w-72 flex-shrink-0">
-                <KanbanColumn
-                  column={column}
-                  onCardClick={handleCardClick}
-                  onDropCard={handleDropToColumn(column.id)}
-                  showAdd={role === 'warehouse_worker' && column.id === 'new'}
-                  onAdd={() => setNewDialogOpen(true)}
-                  onToggleMethod={role === 'lab_operator' ? toggleMethodStatus : undefined}
-                />
+          <KanbanColumn
+            column={column}
+            onCardClick={handleCardClick}
+            onDropCard={handleDropToColumn(column.id)}
+            showAdd={role === 'warehouse_worker' && column.id === 'new'}
+            onAdd={() => setNewDialogOpen(true)}
+            onToggleMethod={role === 'lab_operator' || role === 'admin' ? toggleMethodStatus : undefined}
+          />
               </div>
             ))}
           </div>

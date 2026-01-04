@@ -123,10 +123,10 @@ export const columnConfigByRole: Record<Role, { id: Status; title: string }[]> =
     { id: 'done', title: 'Stored' },
   ],
   admin: [
-    { id: 'new', title: 'Needs attention' },
+    { id: 'review', title: 'Needs attention' },
     { id: 'progress', title: 'Conflicts' },
-    { id: 'review', title: 'Resolved' },
-    { id: 'done', title: 'Deleted' },
+    { id: 'done', title: 'Resolved' },
+    { id: 'new', title: 'Deleted' },
   ],
 };
 

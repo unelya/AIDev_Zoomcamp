@@ -9,6 +9,7 @@ import { useMemo, useState } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarCmp } from '@/components/ui/calendar';
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface DetailPanelProps {
   card: KanbanCard | null;
@@ -200,18 +201,17 @@ export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onResolveCo
                   <div className="space-y-1">
                     {card.methods.map((m) => (
                       <label key={m.id} className="flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
+                        <Checkbox
                           checked={m.status === 'completed'}
-                      onChange={(e) => onToggleMethod?.(m.id, e.target.checked)}
-                      className="h-4 w-4 rounded border-border bg-background"
-                      disabled={!onToggleMethod}
-                    />
-                    <span className="flex-1">{m.name}</span>
-                    {m.status === 'completed' && <span className="text-[10px] text-destructive font-semibold">Done</span>}
-                  </label>
-                ))}
-              </div>
+                          onCheckedChange={(val) => onToggleMethod?.(m.id, Boolean(val))}
+                          className="h-4 w-4 rounded border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary data-[state=checked]:text-white data-[state=checked]:disabled:bg-primary data-[state=checked]:disabled:border-primary data-[state=checked]:disabled:text-white"
+                          disabled={!onToggleMethod}
+                        />
+                        <span className="flex-1">{m.name}</span>
+                        {m.status === 'completed' && <span className="text-[10px] text-destructive font-semibold">Done</span>}
+                      </label>
+                    ))}
+                  </div>
             </div>
           )}
             </div>

@@ -2,6 +2,7 @@ import { Calendar, FlaskConical, MapPin, User } from 'lucide-react';
 import { KanbanCard as CardType } from '@/types/kanban';
 import { StatusBadge } from './StatusBadge';
 import { cn } from '@/lib/utils';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface KanbanCardProps {
   card: CardType;
@@ -67,15 +68,11 @@ export function KanbanCard({ card, onClick, onToggleMethod }: KanbanCardProps) {
                 className="flex items-center gap-2 text-[11px] text-foreground"
                 onClick={(e) => e.stopPropagation()}
               >
-                <input
-                  type="checkbox"
-                  className="h-3.5 w-3.5 rounded border-border bg-background"
+                <Checkbox
                   checked={m.status === 'completed'}
-                  onChange={(e) => {
-                    e.stopPropagation();
-                    onToggleMethod?.(m.id, e.target.checked);
-                  }}
+                  onCheckedChange={(val) => onToggleMethod?.(m.id, Boolean(val))}
                   disabled={!onToggleMethod}
+                  className="h-3.5 w-3.5 rounded border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary data-[state=checked]:text-white data-[state=checked]:disabled:bg-primary data-[state=checked]:disabled:border-primary data-[state=checked]:disabled:text-white"
                 />
                 <span className="truncate flex-1">{m.name}</span>
                 {m.status === 'completed' && <span className="text-[10px] text-destructive font-semibold">Done</span>}
