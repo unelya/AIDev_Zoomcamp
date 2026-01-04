@@ -849,7 +849,26 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         card={selectedCard}
         isOpen={isPanelOpen}
         onClose={handleClosePanel}
-        onPlanAnalysis={selectedCard && selectedCard.analysisType === 'Sample' ? handlePlanAnalysis(selectedCard.sampleId) : undefined}
+        onPlanAnalysis={undefined}
+        onAssignOperator={
+          selectedCard ? (method, operator) => {
+            const target = plannedAnalyses.find(
+              (pa) => pa.sampleId === selectedCard.sampleId && pa.analysisType.toLowerCase() === method.toLowerCase(),
+            );
+            if (!target) {
+              toast({ title: "Method not found", description: "This method is not available on the card.", variant: "destructive" });
+              return;
+            }
+            updatePlannedAnalysis(target.id, target.status, operator).then(() => {
+              setPlannedAnalyses((prev) =>
+                prev.map((pa) => (pa.id === target.id ? { ...pa, assignedTo: operator } : pa)),
+              );
+              toast({ title: "Operator assigned", description: `${method} → ${operator}` });
+            }).catch((err) => {
+              toast({ title: "Failed to assign", description: err instanceof Error ? err.message : "Backend unreachable", variant: "destructive" });
+            });
+          } : undefined
+        }
         onResolveConflict={
           selectedCard && selectedCard.analysisType === 'Conflict' ? handleResolveConflict(Number(selectedCard.id.replace('conflict-', ''))) : undefined
         }

@@ -17,6 +17,7 @@ interface DetailPanelProps {
   isOpen: boolean;
   onClose: () => void;
   onPlanAnalysis?: (data: { analysisType: string; assignedTo?: string }) => void;
+  onAssignOperator?: (method: string, operator?: string) => void;
   onResolveConflict?: (note?: string) => void;
   onUpdateSample?: (updates: Record<string, string>) => void;
   onUpdateAnalysis?: (updates: { assigned_to?: string }) => void;
@@ -30,7 +31,7 @@ interface DetailPanelProps {
   operatorOptions?: { id: number; name: string }[];
 }
 
-export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onResolveConflict, onUpdateSample, onUpdateAnalysis, onToggleMethod, readOnlyMethods, adminActions, availableMethods = ['SARA', 'IR', 'NMR', 'Mass Spectrometry', 'Viscosity'], operatorOptions = [] }: DetailPanelProps) {
+export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onAssignOperator, onResolveConflict, onUpdateSample, onUpdateAnalysis, onToggleMethod, readOnlyMethods, adminActions, availableMethods = ['SARA', 'IR', 'NMR', 'Mass Spectrometry', 'Viscosity'], operatorOptions = [] }: DetailPanelProps) {
   if (!card) return null;
   const METHOD_ORDER = ['SARA', 'IR', 'NMR', 'Mass Spectrometry', 'Viscosity'];
   const sortMethods = (methods: NonNullable<KanbanCard['methods']>) =>
@@ -44,6 +45,8 @@ export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onResolveCo
     });
   const [analysisType, setAnalysisType] = useState('');
   const [assignedTo, setAssignedTo] = useState('');
+  const [assignMethod, setAssignMethod] = useState('');
+  const [assignOperator, setAssignOperator] = useState('');
   const [resolution, setResolution] = useState('');
   const [planError, setPlanError] = useState('');
   
@@ -193,7 +196,10 @@ export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onResolveCo
                       className="h-4 w-4 rounded border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary data-[state=checked]:text-white data-[state=checked]:disabled:bg-primary data-[state=checked]:disabled:border-primary data-[state=checked]:disabled:text-white disabled:opacity-100 disabled:cursor-not-allowed"
                       disabled={!onToggleMethod || readOnlyMethods}
                     />
-                    <span className="flex-1">{m.name}</span>
+                    <span className="flex-1">
+                      {m.name}
+                      {m.assignedTo ? <span className="text-xs text-muted-foreground"> · {m.assignedTo}</span> : null}
+                    </span>
                     {m.status === 'completed' && <span className="text-[10px] text-destructive font-semibold">Done</span>}
                   </label>
                 ))}
@@ -204,16 +210,13 @@ export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onResolveCo
         
         {/* Footer Actions */}
         <div className="p-4 border-t border-border flex flex-col gap-3">
-            {onPlanAnalysis && (
+            {onAssignOperator && (
               <div className="space-y-2">
-                <p className="text-sm font-semibold text-foreground">Plan new analysis for {card.sampleId}</p>
+                <p className="text-sm font-semibold text-foreground">Assign operator to method</p>
                 <div className="grid grid-cols-2 gap-2">
-                  <Select
-                    onValueChange={(val) => setAnalysisType(val)}
-                    value={analysisType || undefined}
-                  >
+                  <Select value={assignMethod || undefined} onValueChange={(v) => setAssignMethod(v)}>
                     <SelectTrigger className="h-9">
-                      <SelectValue placeholder="Select method (SARA, IR, NMR, ...)" />
+                      <SelectValue placeholder="Select method" />
                     </SelectTrigger>
                     <SelectContent>
                       {availableMethods.map((m) => (
@@ -223,15 +226,11 @@ export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onResolveCo
                       ))}
                     </SelectContent>
                   </Select>
-                  <Select
-                    onValueChange={(val) => setAssignedTo(val)}
-                    value={assignedTo || undefined}
-                  >
+                  <Select value={assignOperator || undefined} onValueChange={(v) => setAssignOperator(v)}>
                     <SelectTrigger className="h-9">
-                      <SelectValue placeholder="Assign to lab operator (optional)" />
+                      <SelectValue placeholder="Assign to lab operator" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__unassigned">Unassigned</SelectItem>
                       {operatorOptions.map((op) => (
                         <SelectItem key={op.id} value={op.name}>
                           {op.name}
@@ -244,18 +243,21 @@ export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onResolveCo
                 <Button
                   size="sm"
                   onClick={() => {
-                    if (!analysisType) {
-                      setPlanError('Analysis type is required');
+                    if (!assignMethod) {
+                      setPlanError('Method is required');
                       return;
                     }
-                    const assignee = assignedTo === '__unassigned' ? undefined : assignedTo || undefined;
-                    onPlanAnalysis({ analysisType, assignedTo: assignee });
-                    setAnalysisType('');
-                    setAssignedTo('');
+                    if (!assignOperator) {
+                      setPlanError('Select an operator to assign');
+                      return;
+                    }
+                    onAssignOperator?.(assignMethod, assignOperator);
+                    setAssignMethod('');
+                    setAssignOperator('');
                     setPlanError('');
                   }}
                 >
-                  Plan analysis
+                  Assign operator
                 </Button>
               </div>
             )}
