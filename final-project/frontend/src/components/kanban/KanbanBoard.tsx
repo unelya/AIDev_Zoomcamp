@@ -236,8 +236,11 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         methodFilter.length === 0
           ? labCards
           : labCards.filter((c) => c.methods?.some((m) => methodFilter.includes(m.name)));
-      const labNeeds = getColumnData(filterCards(labCards), 'lab_operator').find((col) => col.id === 'review')?.cards ?? [];
+      const labColumns = getColumnData(filterCards(labCards), 'lab_operator');
+      const labNeeds = labColumns.find((col) => col.id === 'review')?.cards ?? [];
+      const labDone = labColumns.find((col) => col.id === 'done')?.cards ?? [];
       labNeeds.forEach((c) => adminCards.push({ ...c, status: 'review', statusLabel: 'Needs attention' }));
+      labDone.forEach((c) => adminCards.push({ ...c, status: 'done', statusLabel: 'Stored' }));
 
       // admin "Resolved" currently unused; leave empty
 
@@ -762,6 +765,14 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
             onAdd={() => setNewDialogOpen(true)}
             onToggleMethod={role === 'lab_operator' || role === 'admin' ? toggleMethodStatus : undefined}
             lockNeedsAttention={lockNeedsAttentionCards}
+            adminActions={
+              role === 'admin'
+                ? {
+                    onResolve: (card) => handleSampleFieldUpdate(card.sampleId, { status: 'done' }),
+                    onReturn: (card) => handleSampleFieldUpdate(card.sampleId, { status: 'progress' }),
+                  }
+                : undefined
+            }
           />
               </div>
             ))}

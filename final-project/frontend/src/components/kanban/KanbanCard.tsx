@@ -9,9 +9,13 @@ interface KanbanCardProps {
   onClick: () => void;
   onToggleMethod?: (methodId: number, done: boolean) => void;
   readOnlyMethods?: boolean;
+  adminActions?: {
+    onResolve: () => void;
+    onReturn: () => void;
+  };
 }
 
-export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods }: KanbanCardProps) {
+export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adminActions }: KanbanCardProps) {
   const handleDragStart = (event: React.DragEvent<HTMLDivElement>) => {
     event.dataTransfer.setData('text/plain', card.id);
   };
@@ -90,6 +94,28 @@ export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods }: K
         <span className="text-[10px] px-2 py-1 rounded bg-muted text-muted-foreground">
           Sample status: {card.sampleStatus}
         </span>
+        {adminActions && (
+          <div className="ml-auto flex gap-2">
+            <button
+              className="text-[10px] px-2 py-1 rounded bg-emerald-900 text-emerald-100 hover:bg-emerald-800 transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                adminActions.onResolve();
+              }}
+            >
+              Mark as resolved
+            </button>
+            <button
+              className="text-[10px] px-2 py-1 rounded bg-amber-900 text-amber-100 hover:bg-amber-800 transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                adminActions.onReturn();
+              }}
+            >
+              Return for analysis
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
