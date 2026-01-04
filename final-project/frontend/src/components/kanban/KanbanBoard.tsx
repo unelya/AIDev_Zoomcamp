@@ -55,9 +55,11 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     // keep detail panel in sync with card state and latest methods
     if (selectedCard) {
       const updatedCard = cards.find((c) => c.id === selectedCard.id);
-      const methodsFromAnalyses = plannedAnalyses
-        .filter((pa) => pa.sampleId === selectedCard.sampleId && !METHOD_BLACKLIST.includes(pa.analysisType))
-        .map((pa) => ({ id: pa.id, name: pa.analysisType, status: pa.status, assignedTo: pa.assignedTo }));
+      const methodsFromAnalyses = mergeMethods(
+        plannedAnalyses
+          .filter((pa) => pa.sampleId === selectedCard.sampleId && !METHOD_BLACKLIST.includes(pa.analysisType))
+          .map((pa) => ({ id: pa.id, name: pa.analysisType, status: pa.status, assignedTo: pa.assignedTo })),
+      );
       const merged = {
         ...selectedCard,
         ...(updatedCard ?? {}),
@@ -94,9 +96,11 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
           fetchUsers().catch(() => []),
         ]);
         setCards(remoteSamples);
-        const initialAnalyses = remoteAnalyses
-          .filter((pa) => !METHOD_BLACKLIST.includes(pa.analysis_type) && DEFAULT_ANALYSIS_TYPES.includes(pa.analysis_type))
-          .map(mapApiAnalysis);
+        const initialAnalyses = dedupeAnalyses(
+          remoteAnalyses
+            .filter((pa) => !METHOD_BLACKLIST.includes(pa.analysis_type) && DEFAULT_ANALYSIS_TYPES.includes(pa.analysis_type))
+            .map(mapApiAnalysis),
+        );
         setPlannedAnalyses(initialAnalyses);
         // ensure all default methods exist per sample (adds missing ones such as IR)
         for (const sample of remoteSamples) {
@@ -167,10 +171,10 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         if (METHOD_BLACKLIST.includes(pa.analysisType)) return;
         const card = bySample.get(pa.sampleId);
         if (!card) return;
-        const nextMethods = [
+        const nextMethods = mergeMethods([
           ...(card.methods ?? []),
           { id: pa.id, name: pa.analysisType, status: pa.status, assignedTo: pa.assignedTo },
-        ];
+        ]);
         card.methods = nextMethods;
         const methodAssignee = nextMethods.find((m) => m.assignedTo)?.assignedTo;
         if (methodAssignee) {
@@ -228,10 +232,10 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         if (METHOD_BLACKLIST.includes(pa.analysisType)) return;
         const card = labMap.get(pa.sampleId);
         if (!card) return;
-        const nextMethods = [
+        const nextMethods = mergeMethods([
           ...(card.methods ?? []),
           { id: pa.id, name: pa.analysisType, status: pa.status, assignedTo: pa.assignedTo },
-        ];
+        ]);
         card.methods = nextMethods;
         const { aggStatus, allDone } = aggregateStatus(nextMethods, card.status);
         card.status = aggStatus;
@@ -328,10 +332,12 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
   const handleCardClick = (card: KanbanCard) => {
     // ensure methods are attached for the detail panel even if this card came from a role/column that does not render them
     const methodsFromAnalyses =
-      plannedAnalyses
-        .filter((pa) => pa.sampleId === card.sampleId && !METHOD_BLACKLIST.includes(pa.analysisType))
-        .map((pa) => ({ id: pa.id, name: pa.analysisType, status: pa.status, assignedTo: pa.assignedTo })) || [];
-    const mergedMethods = card.methods?.length ? card.methods : methodsFromAnalyses;
+      mergeMethods(
+        plannedAnalyses
+          .filter((pa) => pa.sampleId === card.sampleId && !METHOD_BLACKLIST.includes(pa.analysisType))
+          .map((pa) => ({ id: pa.id, name: pa.analysisType, status: pa.status, assignedTo: pa.assignedTo })),
+      ) || [];
+    const mergedMethods = card.methods?.length ? mergeMethods(card.methods) : methodsFromAnalyses;
     setSelectedCard({ ...card, methods: mergedMethods });
     setIsPanelOpen(true);
   };
@@ -568,6 +574,25 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         toast({ title: "Invalid analysis type", description: "Only SARA, IR, NMR, Mass Spectrometry, or Viscosity are allowed.", variant: "destructive" });
         return;
       }
+
+      // If method already exists for this sample, do not create a duplicate. Allow assigning operator if provided.
+      const existing = plannedAnalyses.find(
+        (pa) => pa.sampleId === sampleId && pa.analysisType.toLowerCase() === name.toLowerCase(),
+      );
+      if (existing) {
+        const assignee = data.assignedTo && data.assignedTo !== '__unassigned' ? data.assignedTo : undefined;
+        if (!assignee) {
+          toast({ title: "Method already exists", description: "Select a lab operator to assign if needed.", variant: "default" });
+          return;
+        }
+        await updatePlannedAnalysis(existing.id, existing.status, assignee);
+        setPlannedAnalyses((prev) =>
+          prev.map((pa) => (pa.id === existing.id ? { ...pa, assignedTo: assignee } : pa)),
+        );
+        toast({ title: "Operator assigned", description: `${name} assigned to ${assignee}` });
+        return;
+      }
+
       const created = await createPlannedAnalysis({ sampleId, analysisType: data.analysisType, assignedTo: data.assignedTo });
       setPlannedAnalyses((prev) => [...prev, mapApiAnalysis(created)]);
     } catch (err) {
@@ -959,4 +984,40 @@ function aggregateStatus(
   }
   if (hasProgress) return { aggStatus: 'progress', allDone };
   return { aggStatus: fallback ?? 'new', allDone };
+}
+
+function mergeMethods(methods: { id: number; name: string; status: PlannedAnalysisCard['status']; assignedTo?: string | null }[]) {
+  const priority: Record<PlannedAnalysisCard['status'], number> = {
+    completed: 4,
+    review: 3,
+    in_progress: 2,
+    planned: 1,
+    failed: 0,
+  };
+  const map = new Map<
+    string,
+    { id: number; name: string; status: PlannedAnalysisCard['status']; assignedTo?: string | null }
+  >();
+  methods.forEach((m) => {
+    const key = m.name.trim().toLowerCase();
+    const existing = map.get(key);
+    if (!existing || priority[m.status] > priority[existing.status]) {
+      map.set(key, m);
+    }
+  });
+  return Array.from(map.values());
+}
+
+function dedupeAnalyses(list: PlannedAnalysisCard[]) {
+  const merged = mergeMethods(list.map((pa) => ({ id: pa.id, name: pa.analysisType, status: pa.status, assignedTo: pa.assignedTo })));
+  return merged.map((m) => {
+    const source = list.find((pa) => pa.analysisType.toLowerCase() === m.name.toLowerCase());
+    return {
+      id: m.id,
+      sampleId: source?.sampleId ?? '',
+      analysisType: m.name,
+      status: m.status,
+      assignedTo: m.assignedTo,
+    } as PlannedAnalysisCard;
+  });
 }
