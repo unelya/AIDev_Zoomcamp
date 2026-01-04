@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { useMemo, useState } from 'react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarCmp } from '@/components/ui/calendar';
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
@@ -25,9 +26,11 @@ interface DetailPanelProps {
     onResolve: () => void;
     onReturn: () => void;
   };
+  availableMethods?: string[];
+  operatorOptions?: { id: number; name: string }[];
 }
 
-export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onResolveConflict, onUpdateSample, onUpdateAnalysis, onToggleMethod, readOnlyMethods, adminActions }: DetailPanelProps) {
+export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onResolveConflict, onUpdateSample, onUpdateAnalysis, onToggleMethod, readOnlyMethods, adminActions, availableMethods = ['SARA', 'IR', 'NMR', 'Mass Spectrometry', 'Viscosity'], operatorOptions = [] }: DetailPanelProps) {
   if (!card) return null;
   const METHOD_ORDER = ['SARA', 'IR', 'NMR', 'Mass Spectrometry', 'Viscosity'];
   const sortMethods = (methods: NonNullable<KanbanCard['methods']>) =>
@@ -201,12 +204,41 @@ export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onResolveCo
         
         {/* Footer Actions */}
         <div className="p-4 border-t border-border flex flex-col gap-3">
-          {onPlanAnalysis && (
+            {onPlanAnalysis && (
               <div className="space-y-2">
                 <p className="text-sm font-semibold text-foreground">Plan new analysis for {card.sampleId}</p>
                 <div className="grid grid-cols-2 gap-2">
-                  <Input placeholder="Analysis type (e.g. SARA)" value={analysisType} onChange={(e) => setAnalysisType(e.target.value)} />
-                  <Input placeholder="Assigned to (optional)" value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)} />
+                  <Select
+                    onValueChange={(val) => setAnalysisType(val)}
+                    value={analysisType || undefined}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Select method (SARA, IR, NMR, ...)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableMethods.map((m) => (
+                        <SelectItem key={m} value={m}>
+                          {m}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    onValueChange={(val) => setAssignedTo(val)}
+                    value={assignedTo || undefined}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Assign to lab operator (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__unassigned">Unassigned</SelectItem>
+                      {operatorOptions.map((op) => (
+                        <SelectItem key={op.id} value={op.name}>
+                          {op.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 {planError && <p className="text-sm text-destructive">{planError}</p>}
                 <Button
@@ -216,7 +248,8 @@ export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onResolveCo
                       setPlanError('Analysis type is required');
                       return;
                     }
-                    onPlanAnalysis({ analysisType, assignedTo: assignedTo || undefined });
+                    const assignee = assignedTo === '__unassigned' ? undefined : assignedTo || undefined;
+                    onPlanAnalysis({ analysisType, assignedTo: assignee });
                     setAnalysisType('');
                     setAssignedTo('');
                     setPlanError('');

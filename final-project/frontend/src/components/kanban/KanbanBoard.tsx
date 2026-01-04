@@ -6,7 +6,7 @@ import { getColumnData, getMockCards, columnConfigByRole } from '@/data/mockData
 import { KanbanCard, NewCardPayload, PlannedAnalysisCard, Role } from '@/types/kanban';
 import { Button } from '@/components/ui/button';
 import { NewCardDialog } from './NewCardDialog';
-import { createActionBatch, createConflict, createPlannedAnalysis, createSample, fetchActionBatches, fetchConflicts, fetchPlannedAnalyses, fetchSamples, mapApiAnalysis, resolveConflict, updatePlannedAnalysis, updateSampleFields, updateSampleStatus } from '@/lib/api';
+import { createActionBatch, createConflict, createPlannedAnalysis, createSample, fetchActionBatches, fetchConflicts, fetchPlannedAnalyses, fetchSamples, fetchUsers, mapApiAnalysis, resolveConflict, updatePlannedAnalysis, updateSampleFields, updateSampleStatus } from '@/lib/api';
 import { useToast } from '@/components/ui/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandGroup, CommandItem } from '@/components/ui/command';
@@ -49,6 +49,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
   >([]);
   const [storagePrompt, setStoragePrompt] = useState<{ open: boolean; sampleId: string | null }>({ open: false, sampleId: null });
   const [storageValue, setStorageValue] = useState('');
+  const [labOperators, setLabOperators] = useState<{ id: number; name: string }[]>([]);
 
   useEffect(() => {
     // keep detail panel in sync with card state and latest methods
@@ -84,24 +85,30 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-    try {
-      const [remoteSamples, remoteAnalyses, batches, conflictList] = await Promise.all([
-        fetchSamples(),
-        fetchPlannedAnalyses(),
-        fetchActionBatches(),
-        fetchConflicts(),
-      ]);
-      setCards(remoteSamples);
-      const initialAnalyses = remoteAnalyses
-        .filter((pa) => !METHOD_BLACKLIST.includes(pa.analysis_type) && DEFAULT_ANALYSIS_TYPES.includes(pa.analysis_type))
-        .map(mapApiAnalysis);
-      setPlannedAnalyses(initialAnalyses);
-      // ensure all default methods exist per sample (adds missing ones such as IR)
-      for (const sample of remoteSamples) {
-        await ensureAnalyses(sample.sampleId, initialAnalyses, setPlannedAnalyses, DEFAULT_ANALYSIS_TYPES);
-      }
-      setActionBatches(batches);
-      setConflicts(conflictList);
+      try {
+        const [remoteSamples, remoteAnalyses, batches, conflictList, users] = await Promise.all([
+          fetchSamples(),
+          fetchPlannedAnalyses(),
+          fetchActionBatches(),
+          fetchConflicts(),
+          fetchUsers().catch(() => []),
+        ]);
+        setCards(remoteSamples);
+        const initialAnalyses = remoteAnalyses
+          .filter((pa) => !METHOD_BLACKLIST.includes(pa.analysis_type) && DEFAULT_ANALYSIS_TYPES.includes(pa.analysis_type))
+          .map(mapApiAnalysis);
+        setPlannedAnalyses(initialAnalyses);
+        // ensure all default methods exist per sample (adds missing ones such as IR)
+        for (const sample of remoteSamples) {
+          await ensureAnalyses(sample.sampleId, initialAnalyses, setPlannedAnalyses, DEFAULT_ANALYSIS_TYPES);
+        }
+        setActionBatches(batches);
+        setConflicts(conflictList);
+        setLabOperators(
+          users
+            .filter((u: any) => (u.roles || []).includes('lab_operator') || u.role === 'lab_operator')
+            .map((u: any) => ({ id: u.id, name: u.full_name || u.username })),
+        );
       } catch (err) {
         toast({
           title: "Failed to load data",
@@ -846,6 +853,8 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
               }
             : undefined
         }
+        availableMethods={DEFAULT_ANALYSIS_TYPES}
+        operatorOptions={labOperators}
       />
       <Dialog open={storagePrompt.open} onOpenChange={(open) => setStoragePrompt({ open, sampleId: open ? storagePrompt.sampleId : null })}>
         <DialogContent className="sm:max-w-md">
