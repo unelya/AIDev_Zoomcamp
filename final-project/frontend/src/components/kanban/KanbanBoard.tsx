@@ -742,7 +742,9 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
             <Undo2 className="w-4 h-4" />
             Undo
           </Button>
-          <NewCardDialog onCreate={handleCreateCard} open={newDialogOpen} onOpenChange={setNewDialogOpen} />
+          {role === 'warehouse_worker' && (
+            <NewCardDialog onCreate={handleCreateCard} open={newDialogOpen} onOpenChange={setNewDialogOpen} />
+          )}
           <Button size="sm" className="gap-2" onClick={handleSave} disabled={loading}>
             {loading ? "Syncing..." : "Refresh"}
           </Button>
