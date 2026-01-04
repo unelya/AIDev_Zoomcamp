@@ -40,12 +40,24 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
   const [assignedOnly, setAssignedOnly] = useState(false);
 
   useEffect(() => {
-    // keep detail panel in sync with card state
+    // keep detail panel in sync with card state and latest methods
     if (selectedCard) {
-      const updated = cards.find((c) => c.id === selectedCard.id);
-      if (updated) setSelectedCard(updated);
+      const updatedCard = cards.find((c) => c.id === selectedCard.id);
+      const methodsFromAnalyses = plannedAnalyses
+        .filter((pa) => pa.sampleId === selectedCard.sampleId && !METHOD_BLACKLIST.includes(pa.analysisType))
+        .map((pa) => ({ id: pa.id, name: pa.analysisType, status: pa.status, assignedTo: pa.assignedTo }));
+      const merged = {
+        ...selectedCard,
+        ...(updatedCard ?? {}),
+        methods: methodsFromAnalyses.length > 0 ? methodsFromAnalyses : selectedCard.methods,
+      };
+      if (merged.methods) {
+        const { allDone } = aggregateStatus(merged.methods, merged.status);
+        merged.allMethodsDone = allDone;
+      }
+      setSelectedCard(merged);
     }
-  }, [cards, selectedCard]);
+  }, [cards, plannedAnalyses, selectedCard]);
 
   useEffect(() => {
     const load = async () => {
@@ -275,7 +287,13 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     return getColumnData(filterCards(cards), role);
   }, [cards, plannedAnalyses, actionBatches, conflicts, role, filterCards, methodFilter, assignedOnly, user?.fullName]);
   const handleCardClick = (card: KanbanCard) => {
-    setSelectedCard(card);
+    // ensure methods are attached for the detail panel even if this card came from a role/column that does not render them
+    const methodsFromAnalyses =
+      plannedAnalyses
+        .filter((pa) => pa.sampleId === card.sampleId && !METHOD_BLACKLIST.includes(pa.analysisType))
+        .map((pa) => ({ id: pa.id, name: pa.analysisType, status: pa.status, assignedTo: pa.assignedTo })) || [];
+    const mergedMethods = card.methods?.length ? card.methods : methodsFromAnalyses;
+    setSelectedCard({ ...card, methods: mergedMethods });
     setIsPanelOpen(true);
   };
   
@@ -662,17 +680,12 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
             : undefined
         }
         onToggleMethod={
-          role === 'lab_operator' && !(lockNeedsAttentionCards && selectedCard?.status === 'review')
-            ? async (methodId, done) => {
-                const nextStatus = done ? 'completed' : 'planned';
-                setPlannedAnalyses((prev) =>
-                  prev.map((pa) => (pa.id === methodId ? { ...pa, status: nextStatus as PlannedAnalysisCard['status'] } : pa)),
-                );
-                await updatePlannedAnalysis(methodId, nextStatus);
-              }
+          selectedCard &&
+          ((role === 'lab_operator' && !(lockNeedsAttentionCards && selectedCard.status === 'review')) || role === 'admin')
+            ? toggleMethodStatus
             : undefined
         }
-        readOnlyMethods={lockNeedsAttentionCards && selectedCard?.status === 'review'}
+        readOnlyMethods={selectedCard ? !((role === 'lab_operator' && !(lockNeedsAttentionCards && selectedCard.status === 'review')) || role === 'admin') : false}
       />
     </div>
   );

@@ -143,18 +143,41 @@ export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onResolveCo
                   />
                 </div>
               </div>
-              {card.conflictResolutionNote && (
-                <div className="space-y-1 col-span-2">
-                  <label className="text-xs text-muted-foreground uppercase tracking-wide">Resolution note</label>
-                  <p className="text-sm text-foreground whitespace-pre-wrap break-words">{card.conflictResolutionNote}</p>
-                </div>
-              )}
-            </div>
+            {card.conflictResolutionNote && (
+              <div className="space-y-1 col-span-2">
+                <label className="text-xs text-muted-foreground uppercase tracking-wide">Resolution note</label>
+                <p className="text-sm text-foreground whitespace-pre-wrap break-words">{card.conflictResolutionNote}</p>
+              </div>
+            )}
           </div>
-          
-          {/* Footer Actions */}
-          <div className="p-4 border-t border-border flex flex-col gap-3">
-            {onPlanAnalysis && (
+
+          {card.methods && card.methods.length > 0 && (
+            <div className="space-y-2 mt-4">
+              <label className="text-xs text-muted-foreground uppercase tracking-wide">Methods</label>
+              <div className="space-y-1">
+                {card.methods.map((m) => (
+                  <label key={m.id} className="flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={m.status === 'completed'}
+                      onCheckedChange={(val) => {
+                        if (readOnlyMethods) return;
+                        onToggleMethod?.(m.id, Boolean(val));
+                      }}
+                      className="h-4 w-4 rounded border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary data-[state=checked]:text-white data-[state=checked]:disabled:bg-primary data-[state=checked]:disabled:border-primary data-[state=checked]:disabled:text-white disabled:opacity-100 disabled:cursor-not-allowed"
+                      disabled={!onToggleMethod || readOnlyMethods}
+                    />
+                    <span className="flex-1">{m.name}</span>
+                    {m.status === 'completed' && <span className="text-[10px] text-destructive font-semibold">Done</span>}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        
+        {/* Footer Actions */}
+        <div className="p-4 border-t border-border flex flex-col gap-3">
+          {onPlanAnalysis && (
               <div className="space-y-2">
                 <p className="text-sm font-semibold text-foreground">Plan new analysis for {card.sampleId}</p>
                 <div className="grid grid-cols-2 gap-2">
@@ -194,32 +217,11 @@ export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onResolveCo
                   <div>
                     <p className="text-[11px] font-semibold text-foreground">NEW</p>
                     <pre className="whitespace-pre-wrap break-words bg-muted/40 rounded p-2 text-[11px]">{card.conflictNew ?? '—'}</pre>
+                  </div>
                 </div>
               </div>
-              {card.methods && card.methods.length > 0 && (
-                <div className="space-y-2 col-span-2">
-                  <label className="text-xs text-muted-foreground uppercase tracking-wide">Methods</label>
-                  <div className="space-y-1">
-                    {card.methods.map((m) => (
-                      <label key={m.id} className="flex items-center gap-2 text-sm">
-                      <Checkbox
-                          checked={m.status === 'completed'}
-                          onCheckedChange={(val) => {
-                            if (readOnlyMethods) return;
-                            onToggleMethod?.(m.id, Boolean(val));
-                          }}
-                          className="h-4 w-4 rounded border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary data-[state=checked]:text-white data-[state=checked]:disabled:bg-primary data-[state=checked]:disabled:border-primary data-[state=checked]:disabled:text-white disabled:opacity-100 disabled:cursor-not-allowed"
-                          disabled={!onToggleMethod || readOnlyMethods}
-                        />
-                        <span className="flex-1">{m.name}</span>
-                        {m.status === 'completed' && <span className="text-[10px] text-destructive font-semibold">Done</span>}
-                      </label>
-                    ))}
-                  </div>
-            </div>
-          )}
-            </div>
             )}
+
           </div>
         </div>
       </div>
