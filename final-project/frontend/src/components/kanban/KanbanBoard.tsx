@@ -809,6 +809,14 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
             : undefined
         }
         readOnlyMethods={selectedCard ? !((role === 'lab_operator' && !(lockNeedsAttentionCards && selectedCard.status === 'review')) || role === 'admin') : false}
+        adminActions={
+          role === 'admin' && selectedCard?.status === 'review'
+            ? {
+                onResolve: () => handleSampleFieldUpdate(selectedCard.sampleId, { status: 'done' }),
+                onReturn: () => handleSampleFieldUpdate(selectedCard.sampleId, { status: 'progress' }),
+              }
+            : undefined
+        }
       />
     </div>
   );

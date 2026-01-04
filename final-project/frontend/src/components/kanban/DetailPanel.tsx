@@ -21,9 +21,13 @@ interface DetailPanelProps {
   onUpdateAnalysis?: (updates: { assigned_to?: string }) => void;
   onToggleMethod?: (methodId: number, done: boolean) => void;
   readOnlyMethods?: boolean;
+  adminActions?: {
+    onResolve: () => void;
+    onReturn: () => void;
+  };
 }
 
-export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onResolveConflict, onUpdateSample, onUpdateAnalysis, onToggleMethod, readOnlyMethods }: DetailPanelProps) {
+export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onResolveConflict, onUpdateSample, onUpdateAnalysis, onToggleMethod, readOnlyMethods, adminActions }: DetailPanelProps) {
   if (!card) return null;
   const [analysisType, setAnalysisType] = useState('');
   const [assignedTo, setAssignedTo] = useState('');
@@ -71,6 +75,16 @@ export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onResolveCo
               <StatusBadge status={card.status} label={card.statusLabel} />
               <div className="text-sm text-muted-foreground">Analysis status: {card.analysisStatus}</div>
             </div>
+            {adminActions && card.status === 'review' && (
+              <div className="flex gap-2">
+                <Button size="sm" variant="secondary" className="bg-emerald-900 text-emerald-100 hover:bg-emerald-800" onClick={() => adminActions.onResolve()}>
+                  Mark as resolved
+                </Button>
+                <Button size="sm" variant="secondary" className="bg-amber-900 text-amber-100 hover:bg-amber-800" onClick={() => adminActions.onReturn()}>
+                  Return for analysis
+                </Button>
+              </div>
+            )}
             
             <Separator />
             
