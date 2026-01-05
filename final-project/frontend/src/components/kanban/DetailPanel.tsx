@@ -36,7 +36,7 @@ interface DetailPanelProps {
   currentUserName?: string;
 }
 
-export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onAssignOperator, onResolveConflict, onUpdateSample, onUpdateAnalysis, onToggleMethod, readOnlyMethods, adminActions, availableMethods = ['SARA', 'IR', 'NMR', 'Mass Spectrometry', 'Viscosity'], operatorOptions = [], comments = [], onAddComment, currentUserName }: DetailPanelProps) {
+export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onAssignOperator, onResolveConflict, onUpdateSample, onUpdateAnalysis, onToggleMethod, readOnlyMethods, adminActions, availableMethods = ['SARA', 'IR', 'Mass Spectrometry', 'Viscosity'], operatorOptions = [], comments = [], onAddComment, currentUserName }: DetailPanelProps) {
   if (!card) return null;
   const METHOD_ORDER = ['SARA', 'IR', 'NMR', 'Mass Spectrometry', 'Viscosity'];
   const sortMethods = (methods: NonNullable<KanbanCard['methods']>) =>
@@ -56,6 +56,7 @@ export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onAssignOpe
   const [planError, setPlanError] = useState('');
   const [commentText, setCommentText] = useState('');
   const [commentAuthor, setCommentAuthor] = useState(currentUserName ?? '');
+  const isAdmin = Boolean(onPlanAnalysis);
 
   useEffect(() => {
     if (currentUserName) {
@@ -320,6 +321,50 @@ export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onAssignOpe
                   }}
                 >
                   Assign operator
+                </Button>
+              </div>
+            )}
+            {isAdmin && onPlanAnalysis && (
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-foreground">Add analysis (Admin)</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    placeholder="e.g. NMR"
+                    value={analysisType}
+                    onChange={(e) => setAnalysisType(e.target.value)}
+                  />
+                  <Select value={assignedTo || undefined} onValueChange={(v) => setAssignedTo(v)}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Assign to (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {operatorOptions.map((op) => (
+                        <SelectItem key={op.id} value={op.name}>
+                          {op.name}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="__unassigned">Unassigned</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {planError && <p className="text-sm text-destructive">{planError}</p>}
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    if (!analysisType.trim()) {
+                      setPlanError('Analysis type is required');
+                      return;
+                    }
+                    onPlanAnalysis({
+                      analysisType: analysisType.trim(),
+                      assignedTo: assignedTo === '__unassigned' ? undefined : assignedTo || undefined,
+                    });
+                    setAnalysisType('');
+                    setAssignedTo('');
+                    setPlanError('');
+                  }}
+                >
+                  Add analysis
                 </Button>
               </div>
             )}

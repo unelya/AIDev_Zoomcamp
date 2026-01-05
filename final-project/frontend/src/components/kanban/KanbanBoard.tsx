@@ -120,7 +120,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         ]);
         setCards(remoteSamples);
         const initialAnalyses = remoteAnalyses
-          .filter((pa) => !METHOD_BLACKLIST.includes(pa.analysis_type) && DEFAULT_ANALYSIS_TYPES.includes(pa.analysis_type))
+          .filter((pa) => !METHOD_BLACKLIST.includes(pa.analysis_type))
           .map(mapApiAnalysis);
         setPlannedAnalyses(initialAnalyses);
         // ensure all default methods exist per sample (adds missing ones such as IR)
@@ -738,8 +738,12 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         return;
       }
       const known = analysisTypes.map((t) => t.toLowerCase());
-      if (!known.includes(name.toLowerCase())) {
-        toast({ title: "Invalid analysis type", description: "Only SARA, IR, NMR, Mass Spectrometry, or Viscosity are allowed.", variant: "destructive" });
+      if (!isAdminUser && !known.includes(name.toLowerCase())) {
+        toast({
+          title: "Invalid analysis type",
+          description: "Only SARA, IR, Mass Spectrometry, or Viscosity are allowed.",
+          variant: "destructive",
+        });
         return;
       }
 
@@ -1057,7 +1061,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         card={selectedCard}
         isOpen={isPanelOpen}
         onClose={handleClosePanel}
-        onPlanAnalysis={undefined}
+        onPlanAnalysis={isAdminUser && selectedCard ? handlePlanAnalysis(selectedCard.sampleId) : undefined}
         onAssignOperator={
           selectedCard ? (method, operator) => {
             const target = plannedAnalyses.find(

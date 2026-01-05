@@ -180,14 +180,15 @@ async def list_planned_analyses(status: str | None = None, db: Session = Depends
 
 @app.post("/planned-analyses", response_model=PlannedAnalysisOut, status_code=201)
 async def create_planned_analysis(payload: PlannedAnalysisCreate, request: Request, db: Session = Depends(get_db)):
-  default_allowed = {"SARA", "IR", "NMR", "Mass Spectrometry", "Viscosity"}
-  existing_types = {r[0] for r in db.execute(select(distinct(PlannedAnalysisModel.analysis_type))).all()}
-  allowed = default_allowed  # only these five are allowed globally
+  default_allowed = {"SARA", "IR", "Mass Spectrometry", "Viscosity"}
+  roles_header = (request.headers.get("x-roles") or "").lower()
+  role_header = (request.headers.get("x-role") or "").lower()
+  is_admin = "admin" in roles_header.split(",") or role_header == "admin"
   name = payload.analysis_type.strip()
   if not name:
     raise HTTPException(status_code=400, detail="Analysis type required")
-  if name not in allowed:
-    raise HTTPException(status_code=403, detail="Only these analysis types are allowed: SARA, IR, NMR, Mass Spectrometry, Viscosity")
+  if not is_admin and name not in default_allowed:
+    raise HTTPException(status_code=403, detail="Only these analysis types are allowed: SARA, IR, Mass Spectrometry, Viscosity")
   row = PlannedAnalysisModel(
     sample_id=payload.sample_id,
     analysis_type=name,
@@ -302,6 +303,22 @@ def to_conflict_out(row: ConflictModel):
     "updated_by": row.updated_by,
     "updated_at": row.updated_at,
   }
+
+@app.delete("/admin/purge-nondefault-analyses")
+async def purge_nondefault_analyses(request: Request, db: Session = Depends(get_db)):
+  allowed = {"sara", "ir", "mass spectrometry", "viscosity"}
+  roles_header = (request.headers.get("x-roles") or "").lower()
+  role_header = (request.headers.get("x-role") or "").lower()
+  is_admin = "admin" in roles_header.split(",") or role_header == "admin"
+  if not is_admin:
+    raise HTTPException(status_code=403, detail="Admin only")
+  deleted = (
+    db.query(PlannedAnalysisModel)
+    .filter(~PlannedAnalysisModel.analysis_type.in_(allowed))
+    .delete(synchronize_session=False)
+  )
+  db.commit()
+  return {"deleted": deleted}
 
 
 def log_audit(db: Session, *, entity_type: str, entity_id: str, action: str, performed_by: str | None, details: str | None = None):
