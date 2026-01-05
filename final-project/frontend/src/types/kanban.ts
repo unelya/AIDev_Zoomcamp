@@ -83,3 +83,8 @@ export interface CommentThread {
   text: string;
   createdAt: string;
 }
+
+export interface DeletedInfo {
+  reason: string;
+  prevStatus: Status;
+}

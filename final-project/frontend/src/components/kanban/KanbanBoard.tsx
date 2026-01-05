@@ -3,7 +3,7 @@ import { Filter, SlidersHorizontal, Undo2 } from 'lucide-react';
 import { KanbanColumn } from './KanbanColumn';
 import { DetailPanel } from './DetailPanel';
 import { getColumnData, getMockCards, columnConfigByRole } from '@/data/mockData';
-import { KanbanCard, CommentThread, NewCardPayload, PlannedAnalysisCard, Role } from '@/types/kanban';
+import { KanbanCard, CommentThread, DeletedInfo, NewCardPayload, PlannedAnalysisCard, Role } from '@/types/kanban';
 import { Button } from '@/components/ui/button';
 import { NewCardDialog } from './NewCardDialog';
 import { createActionBatch, createConflict, createPlannedAnalysis, createSample, fetchActionBatches, fetchConflicts, fetchPlannedAnalyses, fetchSamples, fetchUsers, mapApiAnalysis, resolveConflict, updatePlannedAnalysis, updateSampleFields, updateSampleStatus } from '@/lib/api';
@@ -55,6 +55,15 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     if (typeof window === 'undefined') return {};
     try {
       const raw = localStorage.getItem('labsync-comments');
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+  const [deletedByCard, setDeletedByCard] = useState<Record<string, DeletedInfo>>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const raw = localStorage.getItem('labsync-deleted');
       return raw ? JSON.parse(raw) : {};
     } catch {
       return {};
@@ -141,6 +150,11 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     localStorage.setItem('labsync-comments', JSON.stringify(commentsByCard));
   }, [commentsByCard]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem('labsync-deleted', JSON.stringify(deletedByCard));
+  }, [deletedByCard]);
+
   const filterCards = useCallback(
     (list: KanbanCard[]) => {
       const query = searchTerm?.trim().toLowerCase();
@@ -173,6 +187,12 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       if (!assignee || !userName) return false;
       return assignee.trim().toLowerCase() === userName;
     };
+    const visibleCards = role === 'admin' ? cards : cards.filter((c) => !deletedByCard[c.sampleId]);
+    const withComments = (list: KanbanCard[]) =>
+      list.map((c) => ({
+        ...c,
+        comments: commentsByCard[c.sampleId] ?? [],
+      }));
     const hasUserAssignment = (c: KanbanCard) =>
       c.methods?.some((m) => matchesUser(m.assignedTo));
     const hasIncomplete = (c: KanbanCard) =>
@@ -182,8 +202,11 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
 
     if (role === 'lab_operator') {
       const bySample = new Map<string, KanbanCard>();
-      cards.forEach((sample) => {
+      withComments(visibleCards).forEach((sample) => {
         const initialStatus = sample.status === 'review' ? 'progress' : sample.status;
+        if (role !== 'admin' && deletedByCard[sample.sampleId]) {
+          return;
+        }
         bySample.set(sample.sampleId, {
           ...sample,
           analysisType: 'Sample',
@@ -255,7 +278,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       const adminCards: KanbanCard[] = [];
       // Lab needs attention (mirror lab view with current filters)
       const labMap = new Map<string, KanbanCard>();
-      cards.forEach((sample) => {
+      withComments(cards).forEach((sample) => {
         const initialStatus = sample.status === 'review' ? 'progress' : sample.status;
         labMap.set(sample.sampleId, {
           ...sample,
@@ -281,7 +304,12 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         card.statusLabel = columnConfigByRole.lab_operator.find((c) => c.id === aggStatus)?.title ?? card.statusLabel;
         card.allMethodsDone = allDone;
       });
-      let labCards = [...labMap.values()].filter((c) => c.methods && c.methods.length > 0);
+      let labCards = [...labMap.values()].filter((c) => (deletedByCard[c.sampleId] ? true : c.methods && c.methods.length > 0));
+      labCards = labCards.map((c) =>
+        deletedByCard[c.sampleId]
+          ? { ...c, status: 'new', statusLabel: columnConfigByRole.admin.find((c) => c.id === 'new')?.title ?? 'Deleted' }
+          : c,
+      );
       if (assignedOnly) {
         if (!userName) {
           labCards = [];
@@ -301,6 +329,14 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       const labDone = labColumns.find((col) => col.id === 'done')?.cards ?? [];
       labNeeds.forEach((c) => adminCards.push({ ...c, status: 'review', statusLabel: 'Needs attention' }));
       labDone.forEach((c) => adminCards.push({ ...c, status: 'done', statusLabel: 'Stored' }));
+      const labDeleted = labCards.filter((c) => deletedByCard[c.sampleId]);
+      labDeleted.forEach((c) =>
+        adminCards.push({
+          ...c,
+          status: 'new',
+          statusLabel: columnConfigByRole.admin.find((col) => col.id === 'new')?.title ?? 'Deleted',
+        }),
+      );
 
       // admin "Resolved" currently unused; leave empty
 
@@ -371,8 +407,8 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       }));
       return getColumnData(filterCards([...batchCards, ...conflictCards]), role);
     }
-    return getColumnData(filterCards(cards), role);
-  }, [cards, plannedAnalyses, actionBatches, conflicts, role, filterCards, methodFilter, assignedOnly, incompleteOnly, commentsByCard, user?.fullName]);
+    return getColumnData(filterCards(withComments(visibleCards)), role);
+  }, [cards, plannedAnalyses, actionBatches, conflicts, role, filterCards, methodFilter, assignedOnly, incompleteOnly, commentsByCard, user?.fullName, deletedByCard]);
   const handleCardClick = (card: KanbanCard) => {
     // ensure methods are attached for the detail panel even if this card came from a role/column that does not render them
     const methodsFromAnalyses =
@@ -626,6 +662,49 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         };
         setCards((prev) => [...prev, fallback]);
       });
+  };
+
+  const handleDeleteCard = (card: KanbanCard) => {
+    if (user?.role !== 'admin') return;
+    if (card.analysisType !== 'Sample') return;
+    const reason = window.prompt('Reason for deleting this card?');
+    if (!reason) return;
+    const deletedLabel = columnConfigByRole.admin.find((c) => c.id === 'new')?.title ?? 'Deleted';
+    setDeletedByCard((prev) => ({ ...prev, [card.sampleId]: { reason, prevStatus: card.status } }));
+    setCards((prev) =>
+      prev.map((c) =>
+        c.sampleId === card.sampleId
+          ? { ...c, status: 'new', statusLabel: deletedLabel }
+          : c,
+      ),
+    );
+    if (selectedCard?.sampleId === card.sampleId) {
+      setSelectedCard({ ...selectedCard, status: 'new', statusLabel: deletedLabel });
+    }
+  };
+
+  const handleRestoreCard = (card: KanbanCard) => {
+    if (user?.role !== 'admin') return;
+    const info = deletedByCard[card.sampleId];
+    const prevStatus = info?.prevStatus ?? 'progress';
+    const restoredLabel =
+      columnConfigByRole.admin.find((c) => c.id === prevStatus)?.title ??
+      columnConfigByRole.lab_operator.find((c) => c.id === prevStatus)?.title ??
+      card.statusLabel;
+    setDeletedByCard((prev) => {
+      const { [card.sampleId]: _, ...rest } = prev;
+      return rest;
+    });
+    setCards((prev) =>
+      prev.map((c) =>
+        c.sampleId === card.sampleId
+          ? { ...c, status: prevStatus, statusLabel: restoredLabel }
+          : c,
+      ),
+    );
+    if (selectedCard?.sampleId === card.sampleId) {
+      setSelectedCard({ ...selectedCard, status: prevStatus, statusLabel: restoredLabel });
+    }
   };
 
   const handlePlanAnalysis = (sampleId: string) => async (data: { analysisType: string; assignedTo?: string }) => {
@@ -906,6 +985,9 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
                 ? {
                     onResolve: (card) => handleSampleFieldUpdate(card.sampleId, { status: 'done' }),
                     onReturn: (card) => handleSampleFieldUpdate(card.sampleId, { status: 'progress' }),
+                    onDelete: handleDeleteCard,
+                    onRestore: handleRestoreCard,
+                    isDeleted: (card) => Boolean(deletedByCard[card.sampleId]),
                   }
                 : undefined
             }

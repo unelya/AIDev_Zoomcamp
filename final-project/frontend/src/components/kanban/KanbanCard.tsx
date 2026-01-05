@@ -12,6 +12,9 @@ interface KanbanCardProps {
   adminActions?: {
     onResolve: () => void;
     onReturn: () => void;
+    onDelete?: () => void;
+    onRestore?: () => void;
+    isDeleted?: boolean;
   };
 }
 
@@ -35,6 +38,12 @@ export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adm
     card.status === 'progress' &&
     (card.allMethodsDone ||
       (card.methods && card.methods.length > 0 && card.methods.every((m) => m.status === 'completed')));
+  const hasAdminActions =
+    adminActions &&
+    (adminActions.onDelete ||
+      adminActions.onRestore ||
+      adminActions.onResolve ||
+      adminActions.onReturn);
 
   return (
     <div
@@ -113,26 +122,52 @@ export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adm
         <span className="text-[10px] px-2 py-1 rounded bg-muted text-muted-foreground">
           Sample status: {card.sampleStatus}
         </span>
-        {adminActions && (
+        {hasAdminActions && (
           <div className="ml-auto flex gap-2">
-            <button
-              className="text-[10px] px-2 py-1 rounded bg-emerald-900 text-emerald-100 hover:bg-emerald-800 transition-colors"
-              onClick={(e) => {
-                e.stopPropagation();
-                adminActions.onResolve();
-              }}
-            >
-              Mark as resolved
-            </button>
-            <button
-              className="text-[10px] px-2 py-1 rounded bg-amber-900 text-amber-100 hover:bg-amber-800 transition-colors"
-              onClick={(e) => {
-                e.stopPropagation();
-                adminActions.onReturn();
-              }}
-            >
-              Return for analysis
-            </button>
+            <div className="flex gap-2">
+              {!adminActions.isDeleted && (
+                <>
+                  <button
+                    className="text-[10px] px-2 py-1 rounded bg-destructive text-destructive-foreground hover:opacity-90 transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      adminActions.onDelete?.();
+                    }}
+                  >
+                    Delete
+                  </button>
+                  <button
+                    className="text-[10px] px-2 py-1 rounded bg-emerald-900 text-emerald-100 hover:bg-emerald-800 transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      adminActions.onResolve();
+                    }}
+                  >
+                    Mark as resolved
+                  </button>
+                  <button
+                    className="text-[10px] px-2 py-1 rounded bg-amber-900 text-amber-100 hover:bg-amber-800 transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      adminActions.onReturn();
+                    }}
+                  >
+                    Return for analysis
+                  </button>
+                </>
+              )}
+              {adminActions.isDeleted && (
+                <button
+                  className="text-[10px] px-2 py-1 rounded bg-emerald-900 text-emerald-100 hover:bg-emerald-800 transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    adminActions.onRestore?.();
+                  }}
+                >
+                  Restore
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>

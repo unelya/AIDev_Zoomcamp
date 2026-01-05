@@ -14,6 +14,9 @@ interface KanbanColumnProps {
   adminActions?: {
     onResolve: (card: CardType) => void;
     onReturn: (card: CardType) => void;
+    onDelete?: (card: CardType) => void;
+    onRestore?: (card: CardType) => void;
+    isDeleted?: (card: CardType) => boolean;
   };
 }
 
@@ -60,10 +63,13 @@ export function KanbanColumn({ column, onCardClick, onDropCard, showAdd = false,
             onToggleMethod={onToggleMethod}
             readOnlyMethods={lockNeedsAttention && card.status === 'review'}
             adminActions={
-              adminActions && column.id === 'review'
+              adminActions && card.analysisType === 'Sample'
                 ? {
                     onResolve: () => adminActions.onResolve(card),
                     onReturn: () => adminActions.onReturn(card),
+                    onDelete: adminActions.onDelete ? () => adminActions.onDelete!(card) : undefined,
+                    onRestore: adminActions.onRestore ? () => adminActions.onRestore!(card) : undefined,
+                    isDeleted: adminActions.isDeleted ? adminActions.isDeleted(card) : false,
                   }
                 : undefined
             }
