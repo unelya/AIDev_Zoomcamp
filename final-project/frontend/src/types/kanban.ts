@@ -36,6 +36,7 @@ export interface KanbanCard {
   methods?: { id: number; name: string; status: PlannedAnalysis['status']; assignedTo?: string | null }[];
   allMethodsDone?: boolean;
   comments?: CommentThread[];
+  deletedReason?: string;
 }
 
 export interface NewCardPayload {

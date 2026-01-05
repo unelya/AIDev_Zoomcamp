@@ -301,6 +301,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
             methods: [],
             comments: commentsByCard[sample.sampleId] ?? [],
             allMethodsDone: false,
+            deletedReason: delInfo.reason,
           });
           return;
         }
@@ -700,12 +701,12 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     setCards((prev) =>
       prev.map((c) =>
         c.sampleId === card.sampleId
-          ? { ...c, status: 'new', statusLabel: deletedLabel }
+          ? { ...c, status: 'new', statusLabel: deletedLabel, deletedReason: reason }
           : c,
       ),
     );
     if (selectedCard?.sampleId === card.sampleId) {
-      setSelectedCard({ ...selectedCard, status: 'new', statusLabel: deletedLabel });
+      setSelectedCard({ ...selectedCard, status: 'new', statusLabel: deletedLabel, deletedReason: reason });
     }
   };
 
@@ -724,12 +725,12 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     setCards((prev) =>
       prev.map((c) =>
         c.sampleId === card.sampleId
-          ? { ...c, status: prevStatus, statusLabel: restoredLabel }
+          ? { ...c, status: prevStatus, statusLabel: restoredLabel, deletedReason: undefined }
           : c,
       ),
     );
     if (selectedCard?.sampleId === card.sampleId) {
-      setSelectedCard({ ...selectedCard, status: prevStatus, statusLabel: restoredLabel });
+      setSelectedCard({ ...selectedCard, status: prevStatus, statusLabel: restoredLabel, deletedReason: undefined });
     }
   };
 

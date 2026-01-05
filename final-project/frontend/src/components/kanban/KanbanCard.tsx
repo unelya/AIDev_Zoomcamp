@@ -96,6 +96,11 @@ export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adm
           <span className="text-foreground font-semibold">Well {card.wellId}</span>
           <span className="text-muted-foreground">Horizon {card.horizon}</span>
         </div>
+        {card.deletedReason && card.statusLabel?.toLowerCase().includes('deleted') && (
+          <div className="text-[11px] text-destructive leading-snug">
+            Reason: {card.deletedReason}
+          </div>
+        )}
         {card.methods && card.methods.length > 0 && (
           <div className="space-y-1">
             {sortMethods(card.methods).map((m) => (
