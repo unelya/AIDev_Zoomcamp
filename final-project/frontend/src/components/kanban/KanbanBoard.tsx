@@ -53,6 +53,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
   const [storageValue, setStorageValue] = useState('');
   const [deletePrompt, setDeletePrompt] = useState<{ open: boolean; card: KanbanCard | null }>({ open: false, card: null });
   const [deleteReason, setDeleteReason] = useState('');
+  const isAdminUser = user?.role === 'admin';
   const [labOperators, setLabOperators] = useState<{ id: number; name: string }[]>([]);
   const [commentsByCard, setCommentsByCard] = useState<Record<string, CommentThread[]>>(() => {
     if (typeof window === 'undefined') return {};
@@ -190,7 +191,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       if (!assignee || !userName) return false;
       return assignee.trim().toLowerCase() === userName;
     };
-    const visibleCards = role === 'admin' ? cards : cards.filter((c) => !deletedByCard[c.sampleId]);
+    const visibleCards = role === 'admin' || isAdminUser ? cards : cards.filter((c) => !deletedByCard[c.sampleId]);
     const withComments = (list: KanbanCard[]) =>
       list.map((c) => ({
         ...c,
@@ -983,10 +984,12 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
             onToggleMethod={role === 'lab_operator' || role === 'admin' ? toggleMethodStatus : undefined}
             lockNeedsAttention={lockNeedsAttentionCards}
             adminActions={
-              role === 'admin'
+              isAdminUser
                 ? {
-                    onResolve: (card) => handleSampleFieldUpdate(card.sampleId, { status: 'done' }),
-                    onReturn: (card) => handleSampleFieldUpdate(card.sampleId, { status: 'progress' }),
+                    onResolve: (card) =>
+                      role === 'admin' ? handleSampleFieldUpdate(card.sampleId, { status: 'done' }) : undefined,
+                    onReturn: (card) =>
+                      role === 'admin' ? handleSampleFieldUpdate(card.sampleId, { status: 'progress' }) : undefined,
                     onDelete: (card) => {
                       setDeletePrompt({ open: true, card });
                       setDeleteReason('');
