@@ -19,14 +19,16 @@ interface KanbanCardProps {
 }
 
 export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adminActions }: KanbanCardProps) {
-  const METHOD_ORDER = ['SARA', 'IR', 'NMR', 'Mass Spectrometry', 'Viscosity'];
+  const METHOD_ORDER = ['SARA', 'IR', 'Mass Spectrometry', 'Viscosity'];
+  const methodRank = (name: string) => {
+    const idx = METHOD_ORDER.findIndex((m) => m.toLowerCase() === name.toLowerCase());
+    return idx >= 0 ? idx : METHOD_ORDER.length + 100 + name.toLowerCase().charCodeAt(0);
+  };
   const sortMethods = (methods: NonNullable<CardType['methods']>) =>
     [...methods].sort((a, b) => {
-      const ia = METHOD_ORDER.indexOf(a.name);
-      const ib = METHOD_ORDER.indexOf(b.name);
-      if (ia === -1 && ib === -1) return a.name.localeCompare(b.name);
-      if (ia === -1) return 1;
-      if (ib === -1) return -1;
+      const ia = methodRank(a.name);
+      const ib = methodRank(b.name);
+      if (ia === ib) return a.name.localeCompare(b.name);
       return ia - ib;
     });
 
