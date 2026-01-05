@@ -101,6 +101,11 @@ export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adm
             Reason: {card.deletedReason}
           </div>
         )}
+        {card.issueReason && (
+          <div className="text-[11px] text-muted-foreground leading-snug">
+            Issue: {card.issueReason}
+          </div>
+        )}
         {card.methods && card.methods.length > 0 && (
           <div className="space-y-1">
             {sortMethods(card.methods).map((m) => (

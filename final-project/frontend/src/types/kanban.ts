@@ -37,6 +37,7 @@ export interface KanbanCard {
   allMethodsDone?: boolean;
   comments?: CommentThread[];
   deletedReason?: string;
+  issueReason?: string;
 }
 
 export interface NewCardPayload {

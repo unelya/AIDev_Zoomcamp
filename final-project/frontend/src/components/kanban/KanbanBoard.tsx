@@ -54,6 +54,8 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
   const [deletePrompt, setDeletePrompt] = useState<{ open: boolean; card: KanbanCard | null }>({ open: false, card: null });
   const [deleteReason, setDeleteReason] = useState('');
   const isAdminUser = user?.role === 'admin';
+  const [issuePrompt, setIssuePrompt] = useState<{ open: boolean; card: KanbanCard | null }>({ open: false, card: null });
+  const [issueReason, setIssueReason] = useState('');
   const [labOperators, setLabOperators] = useState<{ id: number; name: string }[]>([]);
   const [commentsByCard, setCommentsByCard] = useState<Record<string, CommentThread[]>>(() => {
     if (typeof window === 'undefined') return {};
@@ -452,6 +454,15 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       }
     }
 
+    if (role === 'warehouse_worker' && columnId === 'done') {
+      const target = cards.find((c) => c.id === cardId);
+      if (target) {
+        setIssuePrompt({ open: true, card: target });
+        setIssueReason('');
+        return;
+      }
+    }
+
     // Admin: prevent moving stored samples back to Needs attention/Conflicts equivalents
     if (role === 'admin') {
       const target = cards.find((c) => c.id === cardId || c.sampleId === cardId);
@@ -638,6 +649,28 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     if (!storagePrompt.sampleId || !storageValue.trim()) return;
     handleSampleFieldUpdate(storagePrompt.sampleId, { storage_location: storageValue.trim(), status: 'review' });
     setStoragePrompt({ open: false, sampleId: null });
+  };
+
+  const confirmIssueReason = () => {
+    if (!issuePrompt.card || !issueReason.trim()) return;
+    const targetId = issuePrompt.card.id;
+    setCards((prev) =>
+      prev.map((c) =>
+        c.id === targetId
+          ? {
+              ...c,
+              status: 'done',
+              statusLabel: columnConfigByRole[role]?.find((col) => col.id === 'done')?.title ?? c.statusLabel,
+              issueReason: issueReason.trim(),
+            }
+          : c,
+      ),
+    );
+    if (selectedCard?.id === targetId) {
+      setSelectedCard({ ...selectedCard, status: 'done', statusLabel: columnConfigByRole[role]?.find((col) => col.id === 'done')?.title ?? selectedCard.statusLabel, issueReason: issueReason.trim() });
+    }
+    setIssuePrompt({ open: false, card: null });
+    setIssueReason('');
   };
 
   const handleAddComment = (sampleId: string, author: string, text: string) => {
@@ -1180,6 +1213,29 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
               disabled={!deleteReason.trim()}
             >
               Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={issuePrompt.open} onOpenChange={(open) => setIssuePrompt({ open, card: open ? issuePrompt.card : null })}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Move to Issues</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">Provide a reason for sending this sample to Issues.</p>
+          <Textarea
+            autoFocus
+            placeholder="Reason for issue"
+            value={issueReason}
+            onChange={(e) => setIssueReason(e.target.value)}
+            className="min-h-[96px]"
+          />
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setIssuePrompt({ open: false, card: null })}>
+              Cancel
+            </Button>
+            <Button onClick={confirmIssueReason} disabled={!issueReason.trim()}>
+              Move to Issues
             </Button>
           </DialogFooter>
         </DialogContent>
