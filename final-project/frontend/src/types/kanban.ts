@@ -35,6 +35,7 @@ export interface KanbanCard {
   conflictResolutionNote?: string | null;
   methods?: { id: number; name: string; status: PlannedAnalysis['status']; assignedTo?: string | null }[];
   allMethodsDone?: boolean;
+  comments?: CommentThread[];
 }
 
 export interface NewCardPayload {
@@ -75,3 +76,10 @@ export interface KanbanColumn {
 }
 
 export type Role = 'warehouse_worker' | 'lab_operator' | 'action_supervision' | 'admin';
+
+export interface CommentThread {
+  id: string;
+  author: string;
+  text: string;
+  createdAt: string;
+}

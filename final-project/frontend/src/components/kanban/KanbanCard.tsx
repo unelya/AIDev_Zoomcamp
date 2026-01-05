@@ -1,4 +1,4 @@
-import { Calendar, FlaskConical, MapPin, User } from 'lucide-react';
+import { Calendar, FlaskConical, MapPin, MessageSquare, User } from 'lucide-react';
 import { KanbanCard as CardType } from '@/types/kanban';
 import { StatusBadge } from './StatusBadge';
 import { cn } from '@/lib/utils';
@@ -52,7 +52,15 @@ export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adm
           <span className="text-[11px] font-mono text-primary">{card.sampleId}</span>
           <p className="text-sm font-semibold text-foreground leading-tight">{card.analysisType}</p>
         </div>
-        <StatusBadge status={card.status} label={card.statusLabel} />
+        <div className="flex items-center gap-2">
+          {card.comments && card.comments.length > 0 && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <MessageSquare className="w-3 h-3" />
+              <span>{card.comments.length}</span>
+            </div>
+          )}
+          <StatusBadge status={card.status} label={card.statusLabel} />
+        </div>
       </div>
 
       <div className="space-y-2 text-xs text-muted-foreground">

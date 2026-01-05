@@ -3,7 +3,7 @@ import { Filter, SlidersHorizontal, Undo2 } from 'lucide-react';
 import { KanbanColumn } from './KanbanColumn';
 import { DetailPanel } from './DetailPanel';
 import { getColumnData, getMockCards, columnConfigByRole } from '@/data/mockData';
-import { KanbanCard, NewCardPayload, PlannedAnalysisCard, Role } from '@/types/kanban';
+import { KanbanCard, CommentThread, NewCardPayload, PlannedAnalysisCard, Role } from '@/types/kanban';
 import { Button } from '@/components/ui/button';
 import { NewCardDialog } from './NewCardDialog';
 import { createActionBatch, createConflict, createPlannedAnalysis, createSample, fetchActionBatches, fetchConflicts, fetchPlannedAnalyses, fetchSamples, fetchUsers, mapApiAnalysis, resolveConflict, updatePlannedAnalysis, updateSampleFields, updateSampleStatus } from '@/lib/api';
@@ -51,6 +51,15 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
   const [storagePrompt, setStoragePrompt] = useState<{ open: boolean; sampleId: string | null }>({ open: false, sampleId: null });
   const [storageValue, setStorageValue] = useState('');
   const [labOperators, setLabOperators] = useState<{ id: number; name: string }[]>([]);
+  const [commentsByCard, setCommentsByCard] = useState<Record<string, CommentThread[]>>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const raw = localStorage.getItem('labsync-comments');
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
 
   useEffect(() => {
     // keep detail panel in sync with card state and latest methods
@@ -127,6 +136,11 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     load();
   }, []);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem('labsync-comments', JSON.stringify(commentsByCard));
+  }, [commentsByCard]);
+
   const filterCards = useCallback(
     (list: KanbanCard[]) => {
       const query = searchTerm?.trim().toLowerCase();
@@ -176,6 +190,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
           status: initialStatus,
           statusLabel: columnConfigByRole[role]?.find((c) => c.id === initialStatus)?.title ?? 'Planned',
           methods: [],
+          comments: commentsByCard[sample.sampleId] ?? [],
           allMethodsDone: false,
         });
       });
@@ -248,6 +263,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
           status: initialStatus,
           statusLabel: columnConfigByRole.lab_operator.find((c) => c.id === initialStatus)?.title ?? 'Planned',
           methods: [],
+          comments: commentsByCard[sample.sampleId] ?? [],
           allMethodsDone: false,
         });
       });
@@ -356,7 +372,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       return getColumnData(filterCards([...batchCards, ...conflictCards]), role);
     }
     return getColumnData(filterCards(cards), role);
-  }, [cards, plannedAnalyses, actionBatches, conflicts, role, filterCards, methodFilter, assignedOnly, incompleteOnly, user?.fullName]);
+  }, [cards, plannedAnalyses, actionBatches, conflicts, role, filterCards, methodFilter, assignedOnly, incompleteOnly, commentsByCard, user?.fullName]);
   const handleCardClick = (card: KanbanCard) => {
     // ensure methods are attached for the detail panel even if this card came from a role/column that does not render them
     const methodsFromAnalyses =
@@ -366,7 +382,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
           .map((pa) => ({ id: pa.id, name: pa.analysisType, status: pa.status, assignedTo: pa.assignedTo })),
       ) || [];
     const mergedMethods = card.methods?.length ? mergeMethods(card.methods) : methodsFromAnalyses;
-    setSelectedCard({ ...card, methods: mergedMethods });
+    setSelectedCard({ ...card, methods: mergedMethods, comments: commentsByCard[card.sampleId] ?? [] });
     setIsPanelOpen(true);
   };
   
@@ -558,6 +574,28 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     if (!storagePrompt.sampleId || !storageValue.trim()) return;
     handleSampleFieldUpdate(storagePrompt.sampleId, { storage_location: storageValue.trim(), status: 'review' });
     setStoragePrompt({ open: false, sampleId: null });
+  };
+
+  const handleAddComment = (sampleId: string, author: string, text: string) => {
+    const newComment: CommentThread = {
+      id: `${Date.now()}`,
+      author,
+      text,
+      createdAt: new Date().toISOString(),
+    };
+    setCommentsByCard((prev) => {
+      const existing = prev[sampleId] ?? [];
+      const nextMap = { ...prev, [sampleId]: [...existing, newComment] };
+      if (selectedCard?.sampleId === sampleId) {
+        setSelectedCard({ ...selectedCard, comments: nextMap[sampleId] });
+      }
+      setCards((prev) =>
+        prev.map((c) =>
+          c.sampleId === sampleId ? { ...c, comments: nextMap[sampleId] } : c,
+        ),
+      );
+      return nextMap;
+    });
   };
 
   const handleCreateCard = (payload: NewCardPayload) => {
@@ -929,13 +967,16 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         adminActions={
           role === 'admin' && selectedCard?.status === 'review'
             ? {
-                onResolve: () => handleSampleFieldUpdate(selectedCard.sampleId, { status: 'done' }),
-                onReturn: () => handleSampleFieldUpdate(selectedCard.sampleId, { status: 'progress' }),
-              }
-            : undefined
+          onResolve: () => handleSampleFieldUpdate(selectedCard.sampleId, { status: 'done' }),
+          onReturn: () => handleSampleFieldUpdate(selectedCard.sampleId, { status: 'progress' }),
         }
+      : undefined
+    }
         availableMethods={DEFAULT_ANALYSIS_TYPES}
         operatorOptions={labOperators}
+        comments={selectedCard?.comments ?? []}
+        onAddComment={handleAddComment}
+        currentUserName={user?.fullName || user?.username}
       />
       <Dialog open={storagePrompt.open} onOpenChange={(open) => setStoragePrompt({ open, sampleId: open ? storagePrompt.sampleId : null })}>
         <DialogContent className="sm:max-w-md">

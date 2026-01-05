@@ -1,16 +1,17 @@
 import { X, Calendar, User, MapPin, FlaskConical } from 'lucide-react';
-import { KanbanCard } from '@/types/kanban';
+import { KanbanCard, CommentThread } from '@/types/kanban';
 import { StatusBadge } from './StatusBadge';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarCmp } from '@/components/ui/calendar';
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Textarea } from '@/components/ui/textarea';
 import { Users } from 'lucide-react';
 
 interface DetailPanelProps {
@@ -30,9 +31,12 @@ interface DetailPanelProps {
   };
   availableMethods?: string[];
   operatorOptions?: { id: number; name: string }[];
+  comments?: CommentThread[];
+  onAddComment?: (sampleId: string, author: string, text: string) => void;
+  currentUserName?: string;
 }
 
-export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onAssignOperator, onResolveConflict, onUpdateSample, onUpdateAnalysis, onToggleMethod, readOnlyMethods, adminActions, availableMethods = ['SARA', 'IR', 'NMR', 'Mass Spectrometry', 'Viscosity'], operatorOptions = [] }: DetailPanelProps) {
+export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onAssignOperator, onResolveConflict, onUpdateSample, onUpdateAnalysis, onToggleMethod, readOnlyMethods, adminActions, availableMethods = ['SARA', 'IR', 'NMR', 'Mass Spectrometry', 'Viscosity'], operatorOptions = [], comments = [], onAddComment, currentUserName }: DetailPanelProps) {
   if (!card) return null;
   const METHOD_ORDER = ['SARA', 'IR', 'NMR', 'Mass Spectrometry', 'Viscosity'];
   const sortMethods = (methods: NonNullable<KanbanCard['methods']>) =>
@@ -50,6 +54,14 @@ export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onAssignOpe
   const [assignOperator, setAssignOperator] = useState('');
   const [resolution, setResolution] = useState('');
   const [planError, setPlanError] = useState('');
+  const [commentText, setCommentText] = useState('');
+  const [commentAuthor, setCommentAuthor] = useState(currentUserName ?? '');
+
+  useEffect(() => {
+    if (currentUserName) {
+      setCommentAuthor(currentUserName);
+    }
+  }, [currentUserName]);
   
   return (
     <>
@@ -212,6 +224,50 @@ export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onAssignOpe
                 </div>
             </div>
           )}
+
+          {/* Comments */}
+          <div className="space-y-2 mt-4">
+            <div className="flex items-center justify-between">
+              <label className="text-xs text-muted-foreground uppercase tracking-wide">Comments</label>
+              {comments.length > 0 && <span className="text-xs text-muted-foreground">{comments.length}</span>}
+            </div>
+            <div className="space-y-3 max-h-48 overflow-y-auto pr-1">
+            {comments.length === 0 && <p className="text-sm text-muted-foreground">No comments yet.</p>}
+            {comments.map((c) => (
+              <div key={c.id} className="rounded border border-border bg-muted/40 p-2 space-y-1">
+                <div className="text-xs text-muted-foreground flex items-center gap-2">
+                  <Users className="w-3 h-3" />
+                    <span className="font-semibold text-foreground">{c.author}</span>
+                    <span>·</span>
+                    <span>{new Date(c.createdAt).toLocaleString()}</span>
+                  </div>
+                  <p className="text-sm text-foreground whitespace-pre-wrap break-words">{c.text}</p>
+                </div>
+              ))}
+            </div>
+            {onAddComment && (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">Comment as <span className="text-foreground font-semibold">{commentAuthor || 'Unknown'}</span></p>
+                <Textarea
+                  placeholder="Write a comment..."
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  className="min-h-[80px]"
+                />
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    const author = (currentUserName || commentAuthor || '').trim();
+                    if (!commentText.trim() || !author) return;
+                    onAddComment(card.sampleId, author, commentText.trim());
+                    setCommentText('');
+                  }}
+                >
+                  Add comment
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
         
         {/* Footer Actions */}
