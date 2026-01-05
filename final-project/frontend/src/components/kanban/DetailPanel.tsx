@@ -435,11 +435,11 @@ function EditableField({
           setDraft(value);
         }
       }}
-      className="h-9"
+      className="h-9 field-muted"
     />
   ) : (
     <p
-      className="text-sm text-foreground cursor-text rounded px-1 py-0.5 hover:bg-muted/50 transition-colors"
+      className="text-sm text-foreground cursor-text rounded px-1 py-0.5 bg-muted/60 hover:bg-muted/70 transition-colors"
       onClick={() => {
         if (!readOnly) {
           setEditing(true);
@@ -483,7 +483,7 @@ function DateEditable({
         <Button
           variant="ghost"
           size="sm"
-          className="justify-start px-2 h-9 w-full text-left font-normal hover:bg-muted/50"
+          className="justify-start px-2 h-9 w-full text-left font-normal bg-muted/60 hover:bg-muted/70"
           disabled={readOnly}
         >
           {label}

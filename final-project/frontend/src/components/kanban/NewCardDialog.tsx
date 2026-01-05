@@ -73,16 +73,16 @@ export function NewCardDialog({ onCreate, open, onOpenChange }: NewCardDialogPro
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="space-y-1">
             <Label htmlFor="sampleId">Sample ID</Label>
-            <Input id="sampleId" value={form.sampleId} onChange={onChange('sampleId')} required />
+            <Input id="sampleId" value={form.sampleId} onChange={onChange('sampleId')} required className="field-muted" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label htmlFor="wellId">Well ID</Label>
-              <Input id="wellId" value={form.wellId} onChange={onChange('wellId')} required />
+              <Input id="wellId" value={form.wellId} onChange={onChange('wellId')} required className="field-muted" />
             </div>
             <div className="space-y-1">
               <Label htmlFor="horizon">Horizon</Label>
-              <Input id="horizon" value={form.horizon} onChange={onChange('horizon')} required />
+              <Input id="horizon" value={form.horizon} onChange={onChange('horizon')} required className="field-muted" />
             </div>
           </div>
           <div className="space-y-1">
@@ -91,7 +91,7 @@ export function NewCardDialog({ onCreate, open, onOpenChange }: NewCardDialogPro
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
-                  className="w-full justify-start text-left font-normal"
+                  className="w-full justify-start text-left font-normal bg-muted/60 hover:bg-muted/70"
                   type="button"
                 >
                   <Calendar className="mr-2 h-4 w-4" />
@@ -114,7 +114,7 @@ export function NewCardDialog({ onCreate, open, onOpenChange }: NewCardDialogPro
           </div>
           <div className="space-y-1">
             <Label htmlFor="storageLocation">Storage Location</Label>
-            <Input id="storageLocation" value={form.storageLocation} onChange={onChange('storageLocation')} />
+            <Input id="storageLocation" value={form.storageLocation} onChange={onChange('storageLocation')} className="field-muted" />
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
           <DialogFooter className="flex gap-2">

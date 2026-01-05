@@ -148,6 +148,16 @@
     @apply hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5;
   }
 
+  /* Muted fields for editable inputs */
+  .field-muted {
+    @apply bg-muted text-foreground rounded border border-border/70 px-2 py-1 transition-colors;
+  }
+
+  .field-muted:focus,
+  .field-muted:focus-visible {
+    @apply outline-none ring-2 ring-ring/40 border-ring/60 bg-muted/80;
+  }
+
   .status-badge {
     @apply px-2 py-0.5 rounded text-xs font-medium uppercase tracking-wide;
   }
