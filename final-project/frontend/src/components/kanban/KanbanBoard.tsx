@@ -191,7 +191,8 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       if (!assignee || !userName) return false;
       return assignee.trim().toLowerCase() === userName;
     };
-    const visibleCards = role === 'admin' || isAdminUser ? cards : cards.filter((c) => !deletedByCard[c.sampleId]);
+    // Only Admin board can see deleted cards; all other boards hide them
+    const visibleCards = role === 'admin' ? cards : cards.filter((c) => !deletedByCard[c.sampleId]);
     const withComments = (list: KanbanCard[]) =>
       list.map((c) => ({
         ...c,
@@ -286,9 +287,23 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     if (role === 'admin') {
       // Compose admin view: Needs attention (lab review), Conflicts (action conflicts), Resolved empty, Deleted empty
       const adminCards: KanbanCard[] = [];
+      const deletedCards: KanbanCard[] = [];
       // Lab needs attention (mirror lab view with current filters)
       const labMap = new Map<string, KanbanCard>();
       withComments(cards).forEach((sample) => {
+        const delInfo = deletedByCard[sample.sampleId];
+        if (delInfo) {
+          deletedCards.push({
+            ...sample,
+            analysisType: 'Sample',
+            status: 'new',
+            statusLabel: columnConfigByRole.admin.find((c) => c.id === 'new')?.title ?? 'Deleted',
+            methods: [],
+            comments: commentsByCard[sample.sampleId] ?? [],
+            allMethodsDone: false,
+          });
+          return;
+        }
         const initialStatus = sample.status;
         labMap.set(sample.sampleId, {
           ...sample,
@@ -314,12 +329,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         card.statusLabel = columnConfigByRole.lab_operator.find((c) => c.id === aggStatus)?.title ?? card.statusLabel;
         card.allMethodsDone = allDone;
       });
-      let labCards = [...labMap.values()].filter((c) => (deletedByCard[c.sampleId] ? true : c.methods && c.methods.length > 0));
-      labCards = labCards.map((c) =>
-        deletedByCard[c.sampleId]
-          ? { ...c, status: 'new', statusLabel: columnConfigByRole.admin.find((c) => c.id === 'new')?.title ?? 'Deleted' }
-          : c,
-      );
+      let labCards = [...labMap.values()].filter((c) => c.methods && c.methods.length > 0);
       if (assignedOnly) {
         if (!userName) {
           labCards = [];
@@ -339,14 +349,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       const labDone = labColumns.find((col) => col.id === 'done')?.cards ?? [];
       labNeeds.forEach((c) => adminCards.push({ ...c, status: 'review', statusLabel: 'Needs attention' }));
       labDone.forEach((c) => adminCards.push({ ...c, status: 'done', statusLabel: 'Stored' }));
-      const labDeleted = labCards.filter((c) => deletedByCard[c.sampleId]);
-      labDeleted.forEach((c) =>
-        adminCards.push({
-          ...c,
-          status: 'new',
-          statusLabel: columnConfigByRole.admin.find((col) => col.id === 'new')?.title ?? 'Deleted',
-        }),
-      );
+      deletedCards.forEach((c) => adminCards.push(c));
 
       // admin "Resolved" currently unused; leave empty
 
