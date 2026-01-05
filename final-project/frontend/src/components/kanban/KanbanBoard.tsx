@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 
 const STORAGE_KEY = 'labsync-kanban-cards';
-const DEFAULT_ANALYSIS_TYPES = ['SARA', 'IR', 'NMR', 'Mass Spectrometry', 'Viscosity'];
+const DEFAULT_ANALYSIS_TYPES = ['SARA', 'IR', 'Mass Spectrometry', 'Viscosity'];
 const METHOD_BLACKLIST = ['fsf', 'dadq'];
 
 const roleCopy: Record<Role, string> = {
@@ -415,7 +415,8 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         conflictNew: c.new_payload,
         conflictResolutionNote: c.resolution_note,
       }));
-      return getColumnData(filterCards([...batchCards, ...conflictCards]), role);
+      const cardsWithComments = withComments([...batchCards, ...conflictCards]);
+      return getColumnData(filterCards(cardsWithComments), role);
     }
     return getColumnData(filterCards(withComments(visibleCards)), role);
   }, [cards, plannedAnalyses, actionBatches, conflicts, role, filterCards, methodFilter, assignedOnly, incompleteOnly, commentsByCard, user?.fullName, deletedByCard]);
