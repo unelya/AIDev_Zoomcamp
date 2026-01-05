@@ -207,7 +207,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     if (role === 'lab_operator') {
       const bySample = new Map<string, KanbanCard>();
       withComments(visibleCards).forEach((sample) => {
-        const initialStatus = sample.status === 'review' ? 'progress' : sample.status;
+        const initialStatus = sample.status;
         if (role !== 'admin' && deletedByCard[sample.sampleId]) {
           return;
         }
@@ -226,6 +226,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         if (METHOD_BLACKLIST.includes(pa.analysisType)) return;
         const card = bySample.get(pa.sampleId);
         if (!card) return;
+        const wasReview = card.status === 'review';
         const nextMethods = mergeMethods([
           ...(card.methods ?? []),
           { id: pa.id, name: pa.analysisType, status: pa.status, assignedTo: pa.assignedTo },
@@ -247,6 +248,11 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
             ? 'review'
             : 'planned';
         card.allMethodsDone = allDone;
+        // If the underlying sample was explicitly moved to Needs attention, keep it there
+        if (wasReview) {
+          card.status = 'review';
+          card.statusLabel = columnConfigByRole[role]?.find((c) => c.id === 'review')?.title ?? 'Needs attention';
+        }
       });
       // remove cards that have no methods (e.g., all filtered out)
       let cardsWithMethods = [...bySample.values()].filter((c) => c.methods && c.methods.length > 0);
@@ -283,7 +289,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       // Lab needs attention (mirror lab view with current filters)
       const labMap = new Map<string, KanbanCard>();
       withComments(cards).forEach((sample) => {
-        const initialStatus = sample.status === 'review' ? 'progress' : sample.status;
+        const initialStatus = sample.status;
         labMap.set(sample.sampleId, {
           ...sample,
           analysisType: 'Sample',
@@ -437,6 +443,19 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       if (target && !target.storageLocation) {
         setStoragePrompt({ open: true, sampleId: target.sampleId });
         setStorageValue(target.storageLocation ?? '');
+        return;
+      }
+    }
+
+    // Admin: prevent moving stored samples back to Needs attention/Conflicts equivalents
+    if (role === 'admin') {
+      const target = cards.find((c) => c.id === cardId || c.sampleId === cardId);
+      if (target && target.analysisType === 'Sample' && target.status === 'done' && (columnId === 'review' || columnId === 'progress')) {
+        toast({
+          title: 'Cannot move stored item',
+          description: 'Stored samples stay stored; they cannot be moved to Needs attention or Conflicts.',
+          variant: 'default',
+        });
         return;
       }
     }
@@ -752,6 +771,24 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     }
   };
 
+  const handleQuickConflict = async () => {
+    const ts = new Date().toISOString();
+    try {
+      const created = await createConflict({
+        oldPayload: `action=legacy,ts=${ts}`,
+        newPayload: `action=updated,ts=${ts}`,
+      });
+      setConflicts((prev) => [...prev, created]);
+      toast({ title: "Conflict created", description: `Conflict ${created.id} added` });
+    } catch (err) {
+      toast({
+        title: "Failed to create conflict",
+        description: err instanceof Error ? err.message : "Backend unreachable",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleResolveConflict = (conflictId: number) => async (note?: string) => {
     try {
       const updated = await resolveConflict(conflictId, note);
@@ -958,6 +995,11 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
             <Undo2 className="w-4 h-4" />
             Undo
           </Button>
+          {(role === 'action_supervision' || role === 'admin') && (
+            <Button variant="default" size="sm" className="gap-2" onClick={handleQuickConflict}>
+              Add conflict
+            </Button>
+          )}
           {role === 'warehouse_worker' && (
             <NewCardDialog onCreate={handleCreateCard} open={newDialogOpen} onOpenChange={setNewDialogOpen} />
           )}
@@ -1196,8 +1238,12 @@ function aggregateStatus(
   fallback: KanbanCard['status'],
 ): { aggStatus: KanbanCard['status']; allDone: boolean } {
   if (methods.length === 0) return { aggStatus: fallback, allDone: false };
+  const baseAllDone = methods.every((m) => m.status === 'completed');
+  // Preserve explicit review/done moves
+  if (fallback === 'review') return { aggStatus: 'review', allDone: baseAllDone };
+  if (fallback === 'done' && baseAllDone) return { aggStatus: 'done', allDone: baseAllDone };
   const hasReview = methods.some((m) => m.status === 'review' || m.status === 'failed');
-  const allDone = methods.every((m) => m.status === 'completed');
+  const allDone = baseAllDone;
   const hasProgress = methods.some((m) => m.status === 'in_progress');
   if (hasReview) return { aggStatus: 'review', allDone };
   if (allDone) {
