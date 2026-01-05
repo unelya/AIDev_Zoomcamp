@@ -14,6 +14,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useAuth } from '@/hooks/use-auth';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 
 const STORAGE_KEY = 'labsync-kanban-cards';
 const DEFAULT_ANALYSIS_TYPES = ['SARA', 'IR', 'NMR', 'Mass Spectrometry', 'Viscosity'];
@@ -50,6 +51,8 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
   >([]);
   const [storagePrompt, setStoragePrompt] = useState<{ open: boolean; sampleId: string | null }>({ open: false, sampleId: null });
   const [storageValue, setStorageValue] = useState('');
+  const [deletePrompt, setDeletePrompt] = useState<{ open: boolean; card: KanbanCard | null }>({ open: false, card: null });
+  const [deleteReason, setDeleteReason] = useState('');
   const [labOperators, setLabOperators] = useState<{ id: number; name: string }[]>([]);
   const [commentsByCard, setCommentsByCard] = useState<Record<string, CommentThread[]>>(() => {
     if (typeof window === 'undefined') return {};
@@ -664,11 +667,10 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       });
   };
 
-  const handleDeleteCard = (card: KanbanCard) => {
+  const handleDeleteCard = (card: KanbanCard, reason: string) => {
     if (user?.role !== 'admin') return;
     if (card.analysisType !== 'Sample') return;
-    const reason = window.prompt('Reason for deleting this card?');
-    if (!reason) return;
+    if (!reason.trim()) return;
     const deletedLabel = columnConfigByRole.admin.find((c) => c.id === 'new')?.title ?? 'Deleted';
     setDeletedByCard((prev) => ({ ...prev, [card.sampleId]: { reason, prevStatus: card.status } }));
     setCards((prev) =>
@@ -985,7 +987,10 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
                 ? {
                     onResolve: (card) => handleSampleFieldUpdate(card.sampleId, { status: 'done' }),
                     onReturn: (card) => handleSampleFieldUpdate(card.sampleId, { status: 'progress' }),
-                    onDelete: handleDeleteCard,
+                    onDelete: (card) => {
+                      setDeletePrompt({ open: true, card });
+                      setDeleteReason('');
+                    },
                     onRestore: handleRestoreCard,
                     isDeleted: (card) => Boolean(deletedByCard[card.sampleId]),
                   }
@@ -1083,6 +1088,41 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
             </Button>
             <Button onClick={confirmStorage} disabled={!storageValue.trim()}>
               Save & Store
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={deletePrompt.open} onOpenChange={(open) => setDeletePrompt({ open, card: open ? deletePrompt.card : null })}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete card</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Please provide a reason for deleting this card. It will move to the Admin “Deleted” column and can be restored later.
+          </p>
+          <Textarea
+            autoFocus
+            placeholder="Reason for deletion"
+            value={deleteReason}
+            onChange={(e) => setDeleteReason(e.target.value)}
+            className="min-h-[96px]"
+          />
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setDeletePrompt({ open: false, card: null })}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (deletePrompt.card && deleteReason.trim()) {
+                  handleDeleteCard(deletePrompt.card, deleteReason.trim());
+                  setDeletePrompt({ open: false, card: null });
+                  setDeleteReason('');
+                }
+              }}
+              disabled={!deleteReason.trim()}
+            >
+              Delete
             </Button>
           </DialogFooter>
         </DialogContent>
