@@ -148,15 +148,23 @@
     @apply hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5;
   }
 
-  /* Muted fields for editable inputs */
-  .field-muted {
-    @apply bg-muted text-foreground rounded border border-border/70 px-2 py-1 transition-colors;
-  }
+/* Muted fields for editable inputs */
+.field-muted {
+  background-color: hsl(var(--muted)) !important;
+  color: hsl(var(--foreground)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: var(--radius);
+  padding: 0.5rem 0.6rem;
+  transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
 
-  .field-muted:focus,
-  .field-muted:focus-visible {
-    @apply outline-none ring-2 ring-ring/40 border-ring/60 bg-muted/80;
-  }
+.field-muted:focus,
+.field-muted:focus-visible {
+  outline: none;
+  background-color: hsl(var(--muted)) !important;
+  border-color: hsl(var(--ring)) !important;
+  box-shadow: 0 0 0 2px hsla(var(--ring), 0.28);
+}
 
   .status-badge {
     @apply px-2 py-0.5 rounded text-xs font-medium uppercase tracking-wide;

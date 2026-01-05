@@ -91,7 +91,7 @@ export function NewCardDialog({ onCreate, open, onOpenChange }: NewCardDialogPro
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
-                  className="w-full justify-start text-left font-normal bg-muted/60 hover:bg-muted/70"
+                  className="w-full justify-start text-left font-normal field-muted"
                   type="button"
                 >
                   <Calendar className="mr-2 h-4 w-4" />
