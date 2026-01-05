@@ -102,7 +102,7 @@ export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adm
           </div>
         )}
         {card.issueReason && (
-          <div className="text-[11px] text-muted-foreground leading-snug">
+          <div className="text-[11px] text-destructive leading-snug">
             Issue: {card.issueReason}
           </div>
         )}
