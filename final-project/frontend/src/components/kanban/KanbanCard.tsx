@@ -126,11 +126,8 @@ export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adm
         )}
       </div>
 
-      <div className="mt-2 flex items-center gap-2">
-        <span className="text-[10px] px-2 py-1 rounded bg-muted text-muted-foreground">
-          Sample status: {card.sampleStatus}
-        </span>
-        {hasAdminActions && (
+      {hasAdminActions && (
+        <div className="mt-2 flex items-center gap-2">
           <div className="ml-auto flex gap-2">
             <div className="flex gap-2">
               {!adminActions.isDeleted && (
@@ -183,8 +180,8 @@ export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adm
               )}
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
