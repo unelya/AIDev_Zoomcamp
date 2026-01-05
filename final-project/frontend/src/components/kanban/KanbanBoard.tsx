@@ -169,10 +169,12 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     if (role === 'lab_operator') {
       const bySample = new Map<string, KanbanCard>();
       cards.forEach((sample) => {
+        const initialStatus = sample.status === 'review' ? 'progress' : sample.status;
         bySample.set(sample.sampleId, {
           ...sample,
           analysisType: 'Sample',
-          statusLabel: columnConfigByRole[role]?.find((c) => c.id === sample.status)?.title ?? 'Planned',
+          status: initialStatus,
+          statusLabel: columnConfigByRole[role]?.find((c) => c.id === initialStatus)?.title ?? 'Planned',
           methods: [],
           allMethodsDone: false,
         });
@@ -239,10 +241,12 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       // Lab needs attention (mirror lab view with current filters)
       const labMap = new Map<string, KanbanCard>();
       cards.forEach((sample) => {
+        const initialStatus = sample.status === 'review' ? 'progress' : sample.status;
         labMap.set(sample.sampleId, {
           ...sample,
           analysisType: 'Sample',
-          statusLabel: columnConfigByRole.lab_operator.find((c) => c.id === sample.status)?.title ?? 'Planned',
+          status: initialStatus,
+          statusLabel: columnConfigByRole.lab_operator.find((c) => c.id === initialStatus)?.title ?? 'Planned',
           methods: [],
           allMethodsDone: false,
         });
