@@ -11,9 +11,10 @@ interface KanbanColumnProps {
   onAdd?: () => void;
   onToggleMethod?: (methodId: number, done: boolean) => void;
   lockNeedsAttention?: boolean;
+  showStatusActions?: boolean;
   adminActions?: {
-    onResolve: (card: CardType) => void;
-    onReturn: (card: CardType) => void;
+    onResolve?: (card: CardType) => void;
+    onReturn?: (card: CardType) => void;
     onDelete?: (card: CardType) => void;
     onRestore?: (card: CardType) => void;
     isDeleted?: (card: CardType) => boolean;
@@ -27,7 +28,7 @@ const columnColors = {
   done: 'border-t-status-done',
 };
 
-export function KanbanColumn({ column, onCardClick, onDropCard, showAdd = false, onAdd, onToggleMethod, lockNeedsAttention = false, adminActions }: KanbanColumnProps) {
+export function KanbanColumn({ column, onCardClick, onDropCard, showAdd = false, onAdd, onToggleMethod, lockNeedsAttention = false, adminActions, showStatusActions = false }: KanbanColumnProps) {
   const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     const cardId = event.dataTransfer.getData('text/plain');
@@ -62,6 +63,7 @@ export function KanbanColumn({ column, onCardClick, onDropCard, showAdd = false,
             onClick={() => onCardClick(card)}
             onToggleMethod={onToggleMethod}
             readOnlyMethods={lockNeedsAttention && card.status === 'review'}
+            showStatusActions={showStatusActions}
             adminActions={
               adminActions && card.analysisType === 'Sample'
                 ? {

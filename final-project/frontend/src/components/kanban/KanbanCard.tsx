@@ -9,16 +9,17 @@ interface KanbanCardProps {
   onClick: () => void;
   onToggleMethod?: (methodId: number, done: boolean) => void;
   readOnlyMethods?: boolean;
+  showStatusActions?: boolean;
   adminActions?: {
-    onResolve: () => void;
-    onReturn: () => void;
+    onResolve?: () => void;
+    onReturn?: () => void;
     onDelete?: () => void;
     onRestore?: () => void;
     isDeleted?: boolean;
   };
 }
 
-export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adminActions }: KanbanCardProps) {
+export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adminActions, showStatusActions = false }: KanbanCardProps) {
   const METHOD_ORDER = ['SARA', 'IR', 'Mass Spectrometry', 'Viscosity'];
   const methodRank = (name: string) => {
     const idx = METHOD_ORDER.findIndex((m) => m.toLowerCase() === name.toLowerCase());
@@ -129,33 +130,39 @@ export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adm
             <div className="flex gap-2">
               {!adminActions.isDeleted && (
                 <>
-                  <button
-                    className="text-[10px] px-2 py-1 rounded bg-destructive text-destructive-foreground hover:opacity-90 transition-colors"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      adminActions.onDelete?.();
-                    }}
-                  >
-                    Delete
-                  </button>
-                  <button
-                    className="text-[10px] px-2 py-1 rounded bg-emerald-900 text-emerald-100 hover:bg-emerald-800 transition-colors"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      adminActions.onResolve();
-                    }}
-                  >
-                    Mark as resolved
-                  </button>
-                  <button
-                    className="text-[10px] px-2 py-1 rounded bg-amber-900 text-amber-100 hover:bg-amber-800 transition-colors"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      adminActions.onReturn();
-                    }}
-                  >
-                    Return for analysis
-                  </button>
+                  {adminActions.onDelete && (
+                    <button
+                      className="text-[10px] px-2 py-1 rounded bg-destructive text-destructive-foreground hover:opacity-90 transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        adminActions.onDelete?.();
+                      }}
+                    >
+                      Delete
+                    </button>
+                  )}
+                  {showStatusActions && adminActions.onResolve && (
+                    <button
+                      className="text-[10px] px-2 py-1 rounded bg-emerald-900 text-emerald-100 hover:bg-emerald-800 transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        adminActions.onResolve?.();
+                      }}
+                    >
+                      Mark as resolved
+                    </button>
+                  )}
+                  {showStatusActions && adminActions.onReturn && (
+                    <button
+                      className="text-[10px] px-2 py-1 rounded bg-amber-900 text-amber-100 hover:bg-amber-800 transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        adminActions.onReturn?.();
+                      }}
+                    >
+                      Return for analysis
+                    </button>
+                  )}
                 </>
               )}
               {adminActions.isDeleted && (

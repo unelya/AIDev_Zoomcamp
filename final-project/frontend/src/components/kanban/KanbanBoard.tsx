@@ -1030,19 +1030,22 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
             onAdd={() => setNewDialogOpen(true)}
             onToggleMethod={role === 'lab_operator' || role === 'admin' ? toggleMethodStatus : undefined}
             lockNeedsAttention={lockNeedsAttentionCards}
+            showStatusActions={role === 'admin'}
             adminActions={
               isAdminUser
                 ? {
-                    onResolve: (card) =>
-                      role === 'admin' ? handleSampleFieldUpdate(card.sampleId, { status: 'done' }) : undefined,
-                    onReturn: (card) =>
-                      role === 'admin' ? handleSampleFieldUpdate(card.sampleId, { status: 'progress' }) : undefined,
                     onDelete: (card) => {
                       setDeletePrompt({ open: true, card });
                       setDeleteReason('');
                     },
                     onRestore: handleRestoreCard,
                     isDeleted: (card) => Boolean(deletedByCard[card.sampleId]),
+                    ...(role === 'admin'
+                      ? {
+                          onResolve: (card: KanbanCard) => handleSampleFieldUpdate(card.sampleId, { status: 'done' }),
+                          onReturn: (card: KanbanCard) => handleSampleFieldUpdate(card.sampleId, { status: 'progress' }),
+                        }
+                      : {}),
                   }
                 : undefined
             }
