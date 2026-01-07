@@ -123,9 +123,10 @@ export const columnConfigByRole: Record<Role, { id: Status; title: string }[]> =
     { id: 'done', title: 'Stored' },
   ],
   admin: [
+    { id: 'done', title: 'Issues', filter: (card) => Boolean(card.issueReason?.trim()) },
     { id: 'review', title: 'Needs attention' },
     { id: 'progress', title: 'Conflicts' },
-    { id: 'done', title: 'Stored' },
+    { id: 'done', title: 'Stored', filter: (card) => !card.issueReason && !card.deletedReason },
     { id: 'new', title: 'Deleted' },
   ],
 };
