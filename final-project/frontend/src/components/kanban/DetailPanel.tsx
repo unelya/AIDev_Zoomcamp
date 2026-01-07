@@ -189,12 +189,6 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
               </div>
               <div className="space-y-1">
                 <label className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-                  <User className="w-3 h-3" /> Sample Status
-                </label>
-                <p className="text-sm text-foreground">{card.sampleStatus}</p>
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1">
                   <MapPin className="w-3 h-3" /> Storage
                 </label>
                 <EditableField
