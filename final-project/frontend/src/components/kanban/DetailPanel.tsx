@@ -106,7 +106,6 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
             <div>
               <p className="text-xs font-mono text-primary mb-1">{card.sampleId}</p>
               <h2 className="text-lg font-semibold text-foreground">{card.analysisType}</h2>
-              <p className="text-sm text-muted-foreground">Planned analysis</p>
             </div>
             <button
               onClick={onClose}
