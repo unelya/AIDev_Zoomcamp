@@ -105,7 +105,11 @@ export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onAssignOpe
             {/* Status */}
             <div className="flex items-center gap-3">
               <StatusBadge status={card.status} label={card.statusLabel} />
-              <div className="text-sm text-muted-foreground">Analysis status: {card.analysisStatus}</div>
+              {card.issueReason && card.statusLabel?.toLowerCase().includes('issues') ? (
+                <div className="text-sm text-destructive">Issue: {card.issueReason}</div>
+              ) : (
+                <div className="text-sm text-muted-foreground">Analysis status: {card.analysisStatus}</div>
+              )}
             </div>
             {adminActions && card.status === 'review' && (
               <div className="flex gap-2">
