@@ -1,4 +1,4 @@
-import { X, Calendar, User, MapPin, FlaskConical } from 'lucide-react';
+import { X, Calendar, User, MapPin, FlaskConical, ClipboardList, CircleDot } from 'lucide-react';
 import { KanbanCard, CommentThread, Role } from '@/types/kanban';
 import { StatusBadge } from './StatusBadge';
 import { cn } from '@/lib/utils';
@@ -120,7 +120,9 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
             {/* Status */}
             <div className="space-y-2">
               <div className="flex items-center gap-3">
-                <span className="text-sm text-muted-foreground">Sample status:</span>
+                <span className="text-sm text-muted-foreground flex items-center gap-1">
+                  <ClipboardList className="w-3 h-3" /> Sample status:
+                </span>
                 {role === 'warehouse_worker' ? (
                   <StatusBadge status={card.status} label={card.statusLabel} />
                 ) : (
@@ -131,7 +133,9 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
                 )}
               </div>
               <div className="flex items-center gap-3">
-                <span className="text-sm text-muted-foreground">Analysis status:</span>
+                <span className="text-sm text-muted-foreground flex items-center gap-1">
+                  <FlaskConical className="w-3 h-3" /> Analysis status:
+                </span>
                 {role === 'lab_operator' ? (
                   <StatusBadge status={analysisBadge.status} label={analysisBadge.label} />
                 ) : (
@@ -155,7 +159,9 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
             {/* Metadata Grid */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="text-xs text-muted-foreground uppercase tracking-wide">Assigned To</label>
+                <label className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                  <User className="w-3 h-3" /> Assigned To
+                </label>
                 <EditableField
                   value={card.assignedTo ?? 'Unassigned'}
                   placeholder="Add assignee"
@@ -192,7 +198,9 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs text-muted-foreground uppercase tracking-wide">Well</label>
+                <label className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                  <CircleDot className="w-3 h-3" /> Well
+                </label>
                 <div className="flex gap-2">
                   <EditableField
                     value={card.wellId}
