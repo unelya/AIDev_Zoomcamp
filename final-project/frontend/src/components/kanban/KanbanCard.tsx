@@ -10,6 +10,7 @@ interface KanbanCardProps {
   onToggleMethod?: (methodId: number, done: boolean) => void;
   readOnlyMethods?: boolean;
   showStatusActions?: boolean;
+  statusBadgeMode?: 'sample' | 'analysis';
   adminActions?: {
     onResolve?: () => void;
     onReturn?: () => void;
@@ -19,7 +20,7 @@ interface KanbanCardProps {
   };
 }
 
-export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adminActions, showStatusActions = false }: KanbanCardProps) {
+export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adminActions, showStatusActions = false, statusBadgeMode = 'sample' }: KanbanCardProps) {
   const METHOD_ORDER = ['SARA', 'IR', 'Mass Spectrometry', 'Viscosity'];
   const methodRank = (name: string) => {
     const idx = METHOD_ORDER.findIndex((m) => m.toLowerCase() === name.toLowerCase());
@@ -32,6 +33,23 @@ export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adm
       if (ia === ib) return a.name.localeCompare(b.name);
       return ia - ib;
     });
+  const analysisBadge = (() => {
+    const normalized = card.analysisStatus?.toLowerCase() ?? 'planned';
+    switch (normalized) {
+      case 'in_progress':
+        return { status: 'progress', label: 'In progress' };
+      case 'review':
+        return { status: 'review', label: 'Needs attention' };
+      case 'completed':
+        return { status: 'done', label: 'Completed' };
+      case 'failed':
+        return { status: 'review', label: 'Failed' };
+      default:
+        return { status: 'new', label: 'Planned' };
+    }
+  })();
+  const badgeStatus = statusBadgeMode === 'analysis' ? analysisBadge.status : card.status;
+  const badgeLabel = statusBadgeMode === 'analysis' ? analysisBadge.label : card.statusLabel;
 
   const handleDragStart = (event: React.DragEvent<HTMLDivElement>) => {
     event.dataTransfer.setData('text/plain', card.id);
@@ -71,14 +89,14 @@ export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adm
               <span>{card.comments.length}</span>
             </div>
           )}
-          <StatusBadge status={card.status} label={card.statusLabel} />
+          <StatusBadge status={badgeStatus} label={badgeLabel} />
         </div>
       </div>
 
       <div className="space-y-2 text-xs text-muted-foreground">
         <div className="flex items-center gap-2">
           <FlaskConical className="w-3 h-3 text-primary" />
-          <span className="text-foreground font-medium">{card.analysisStatus}</span>
+          <span className="text-foreground font-medium">Analysis: {analysisBadge.label}</span>
           {card.assignedTo && (
             <span className="flex items-center gap-1">
               <User className="w-3 h-3" />

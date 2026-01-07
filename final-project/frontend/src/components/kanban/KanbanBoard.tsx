@@ -426,6 +426,8 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     }
     return getColumnData(filterCards(withComments(visibleCards)), role);
   }, [cards, plannedAnalyses, actionBatches, conflicts, role, filterCards, methodFilter, assignedOnly, incompleteOnly, commentsByCard, user?.fullName, deletedByCard]);
+
+  const statusBadgeMode = role === 'lab_operator' ? 'analysis' : 'sample';
   const handleCardClick = (card: KanbanCard) => {
     // ensure methods are attached for the detail panel even if this card came from a role/column that does not render them
     const methodsFromAnalyses =
@@ -1068,6 +1070,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
             onToggleMethod={role === 'lab_operator' || role === 'admin' ? toggleMethodStatus : undefined}
             lockNeedsAttention={lockNeedsAttentionCards}
             showStatusActions={role === 'admin'}
+            statusBadgeMode={statusBadgeMode}
             adminActions={
               isAdminUser
                 ? {
@@ -1101,6 +1104,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         card={selectedCard}
         isOpen={isPanelOpen}
         onClose={handleClosePanel}
+        role={role}
         onPlanAnalysis={isAdminUser && selectedCard ? handlePlanAnalysis(selectedCard.sampleId) : undefined}
         onAssignOperator={
           selectedCard ? (method, operator) => {

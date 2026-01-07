@@ -1,5 +1,5 @@
 import { X, Calendar, User, MapPin, FlaskConical } from 'lucide-react';
-import { KanbanCard, CommentThread } from '@/types/kanban';
+import { KanbanCard, CommentThread, Role } from '@/types/kanban';
 import { StatusBadge } from './StatusBadge';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,7 @@ interface DetailPanelProps {
   card: KanbanCard | null;
   isOpen: boolean;
   onClose: () => void;
+  role?: Role;
   onPlanAnalysis?: (data: { analysisType: string; assignedTo?: string }) => void;
   onAssignOperator?: (method: string, operator?: string) => void;
   onResolveConflict?: (note?: string) => void;
@@ -36,13 +37,28 @@ interface DetailPanelProps {
   currentUserName?: string;
 }
 
-export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onAssignOperator, onResolveConflict, onUpdateSample, onUpdateAnalysis, onToggleMethod, readOnlyMethods, adminActions, availableMethods = ['SARA', 'IR', 'Mass Spectrometry', 'Viscosity'], operatorOptions = [], comments = [], onAddComment, currentUserName }: DetailPanelProps) {
+export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPlanAnalysis, onAssignOperator, onResolveConflict, onUpdateSample, onUpdateAnalysis, onToggleMethod, readOnlyMethods, adminActions, availableMethods = ['SARA', 'IR', 'Mass Spectrometry', 'Viscosity'], operatorOptions = [], comments = [], onAddComment, currentUserName }: DetailPanelProps) {
   if (!card) return null;
   const METHOD_ORDER = ['SARA', 'IR', 'Mass Spectrometry', 'Viscosity'];
   const methodRank = (name: string) => {
     const idx = METHOD_ORDER.findIndex((m) => m.toLowerCase() === name.toLowerCase());
     return idx >= 0 ? idx : METHOD_ORDER.length + 100 + name.toLowerCase().charCodeAt(0);
   };
+  const analysisBadge = (() => {
+    const normalized = card.analysisStatus?.toLowerCase() ?? 'planned';
+    switch (normalized) {
+      case 'in_progress':
+        return { status: 'progress', label: 'In progress' };
+      case 'review':
+        return { status: 'review', label: 'Needs attention' };
+      case 'completed':
+        return { status: 'done', label: 'Completed' };
+      case 'failed':
+        return { status: 'review', label: 'Failed' };
+      default:
+        return { status: 'new', label: 'Planned' };
+    }
+  })();
   const sortMethods = (methods: NonNullable<KanbanCard['methods']>) =>
     [...methods].sort((a, b) => {
       const ia = methodRank(a.name);
@@ -103,13 +119,26 @@ export function DetailPanel({ card, isOpen, onClose, onPlanAnalysis, onAssignOpe
           {/* Content */}
           <div className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin">
             {/* Status */}
-            <div className="flex items-center gap-3">
-              <StatusBadge status={card.status} label={card.statusLabel} />
-              {card.issueReason && card.statusLabel?.toLowerCase().includes('issues') ? (
-                <div className="text-sm text-destructive">Issue: {card.issueReason}</div>
-              ) : (
-                <div className="text-sm text-muted-foreground">Analysis status: {card.analysisStatus}</div>
-              )}
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-muted-foreground">Sample status:</span>
+                {role === 'warehouse_worker' ? (
+                  <StatusBadge status={card.status} label={card.statusLabel} />
+                ) : (
+                  <span className="text-sm text-foreground">{card.statusLabel}</span>
+                )}
+                {card.issueReason && card.statusLabel?.toLowerCase().includes('issues') && (
+                  <span className="text-sm text-destructive">Issue: {card.issueReason}</span>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-muted-foreground">Analysis status:</span>
+                {role === 'lab_operator' ? (
+                  <StatusBadge status={analysisBadge.status} label={analysisBadge.label} />
+                ) : (
+                  <span className="text-sm text-foreground">{analysisBadge.label}</span>
+                )}
+              </div>
             </div>
             {adminActions && card.status === 'review' && (
               <div className="flex gap-2">
