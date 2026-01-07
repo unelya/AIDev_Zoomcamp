@@ -59,6 +59,16 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
         return { status: 'new', label: 'Planned' };
     }
   })();
+  const warehouseSampleLabelMap: Record<string, string> = {
+    new: 'Planned',
+    progress: 'Awaiting arrival',
+    review: 'Stored',
+    done: 'Issues',
+  };
+  const sampleLabel =
+    role === 'warehouse_worker'
+      ? warehouseSampleLabelMap[card.status] ?? card.statusLabel
+      : card.statusLabel;
   const sortMethods = (methods: NonNullable<KanbanCard['methods']>) =>
     [...methods].sort((a, b) => {
       const ia = methodRank(a.name);
@@ -124,7 +134,7 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
                   <ClipboardList className="w-3 h-3" /> Sample status:
                 </span>
                 {role === 'warehouse_worker' ? (
-                  <StatusBadge status={card.status} label={card.statusLabel} />
+                  <StatusBadge status={card.status} label={sampleLabel} />
                 ) : (
                   <span className="text-sm text-foreground">{card.statusLabel}</span>
                 )}
