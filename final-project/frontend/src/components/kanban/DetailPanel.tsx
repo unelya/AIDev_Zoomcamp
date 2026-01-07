@@ -156,12 +156,6 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
             {/* Metadata Grid */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-                  <FlaskConical className="w-3 h-3" /> Analysis Type
-                </label>
-                <p className="text-sm text-foreground">{card.analysisType}</p>
-              </div>
-              <div className="space-y-1">
                 <label className="text-xs text-muted-foreground uppercase tracking-wide">Assigned To</label>
                 <EditableField
                   value={card.assignedTo ?? 'Unassigned'}
