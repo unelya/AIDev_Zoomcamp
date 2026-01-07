@@ -48,8 +48,15 @@ export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adm
         return { status: 'new', label: 'Planned' };
     }
   })();
+  const warehouseSampleLabelMap: Record<string, string> = {
+    new: 'Planned',
+    progress: 'Awaiting arrival',
+    review: 'Stored',
+    done: 'Issues',
+  };
+  const sampleLabel = statusBadgeMode === 'sample' ? (warehouseSampleLabelMap[card.status] ?? card.statusLabel) : card.statusLabel;
   const badgeStatus = statusBadgeMode === 'analysis' ? analysisBadge.status : card.status;
-  const badgeLabel = statusBadgeMode === 'analysis' ? analysisBadge.label : card.statusLabel;
+  const badgeLabel = statusBadgeMode === 'analysis' ? analysisBadge.label : sampleLabel;
 
   const handleDragStart = (event: React.DragEvent<HTMLDivElement>) => {
     event.dataTransfer.setData('text/plain', card.id);
