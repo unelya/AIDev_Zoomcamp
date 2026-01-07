@@ -1,4 +1,4 @@
-import { Calendar, FlaskConical, MapPin, MessageSquare, User } from 'lucide-react';
+import { Calendar, ClipboardList, CircleDot, FlaskConical, MapPin, MessageSquare, User } from 'lucide-react';
 import { KanbanCard as CardType } from '@/types/kanban';
 import { StatusBadge } from './StatusBadge';
 import { cn } from '@/lib/utils';
@@ -89,7 +89,10 @@ export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adm
               <span>{card.comments.length}</span>
             </div>
           )}
-          <StatusBadge status={badgeStatus} label={badgeLabel} />
+          <span className="flex items-center gap-1">
+            <ClipboardList className="w-3 h-3 text-primary" />
+            <StatusBadge status={badgeStatus} label={badgeLabel} />
+          </span>
         </div>
       </div>
 
@@ -111,7 +114,10 @@ export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adm
         <div className="flex items-center gap-2">
           <Calendar className="w-3 h-3" />
           <span>Sampling {card.samplingDate}</span>
-          <span className="text-foreground font-semibold">Well {card.wellId}</span>
+          <span className="flex items-center gap-1 text-foreground font-semibold">
+            <CircleDot className="w-3 h-3 text-primary" />
+            Well {card.wellId}
+          </span>
           <span className="text-muted-foreground">Horizon {card.horizon}</span>
         </div>
         {card.deletedReason && card.statusLabel?.toLowerCase().includes('deleted') && (
