@@ -98,6 +98,10 @@ class Sample(BaseModel):
   assigned_to: str | None = None
 
 
+class SamplePurgeRequest(BaseModel):
+  sample_ids: list[str]
+
+
 @app.get("/samples")
 async def list_samples(status: str | None = None, db: Session = Depends(get_db)):
   stmt = select(SampleModel)
@@ -155,6 +159,28 @@ async def update_sample(sample_id: str, payload: dict, request: Request, db: Ses
     actor = request.headers.get("x-user")
     log_audit(db, entity_type="sample", entity_id=sample_id, action="status_change", performed_by=actor, details=f"{old_status}->{payload['status']}")
   return to_sample_out(row)
+
+
+@app.delete("/admin/samples")
+async def delete_samples(payload: SamplePurgeRequest, request: Request, db: Session = Depends(get_db)):
+  roles_header = (request.headers.get("x-roles") or "").lower()
+  role_header = (request.headers.get("x-role") or "").lower()
+  is_admin = "admin" in roles_header.split(",") or role_header == "admin"
+  if not is_admin:
+    raise HTTPException(status_code=403, detail="Admin only")
+  sample_ids = [sid.strip() for sid in payload.sample_ids if sid.strip()]
+  if not sample_ids:
+    raise HTTPException(status_code=400, detail="Sample IDs required")
+  deleted = (
+    db.query(SampleModel)
+    .filter(SampleModel.sample_id.in_(sample_ids))
+    .delete(synchronize_session=False)
+  )
+  db.commit()
+  actor = request.headers.get("x-user")
+  for sid in sample_ids:
+    log_audit(db, entity_type="sample", entity_id=sid, action="delete", performed_by=actor)
+  return {"deleted": deleted}
 
 
 def to_sample_out(row: SampleModel):

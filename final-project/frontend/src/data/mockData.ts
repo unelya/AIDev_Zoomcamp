@@ -104,7 +104,7 @@ const statusMap: Record<PlannedAnalysis['status'], { column: Status; label: stri
   failed: { column: 'review', label: 'Failed' },
 };
 
-export const columnConfigByRole: Record<Role, { id: Status; title: string }[]> = {
+export const columnConfigByRole: Record<Role, { id: Status; title: string; filter?: (card: KanbanCard) => boolean }[]> = {
   warehouse_worker: [
     { id: 'new', title: 'Planned' },
     { id: 'progress', title: 'Awaiting arrival' },
@@ -165,7 +165,13 @@ export const getColumnData = (cards: KanbanCard[] = getMockCards(), role: Role =
     title: col.title,
     cards: cards.filter((card) => {
       const mappedStatus = statusRemapByRole[role]?.[card.status] ?? card.status;
-      return allowedStatuses.has(mappedStatus) && mappedStatus === col.id;
+      if (!allowedStatuses.has(mappedStatus) || mappedStatus !== col.id) {
+        return false;
+      }
+      if (col.filter) {
+        return col.filter(card);
+      }
+      return true;
     }),
   }));
 };

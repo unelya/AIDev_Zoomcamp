@@ -211,6 +211,39 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       c.methods?.some((m) => m.status !== 'completed');
     const hasUserIncomplete = (c: KanbanCard) =>
       c.methods?.some((m) => matchesUser(m.assignedTo) && m.status !== 'completed');
+    const analysisStatusBySampleId = new Map<string, PlannedAnalysisCard['status']>();
+    const analysesBySampleId = new Map<string, PlannedAnalysisCard[]>();
+    plannedAnalyses
+      .filter((pa) => !METHOD_BLACKLIST.includes(pa.analysisType))
+      .forEach((pa) => {
+        const list = analysesBySampleId.get(pa.sampleId) ?? [];
+        list.push(pa);
+        analysesBySampleId.set(pa.sampleId, list);
+      });
+    const toLabAnalysisStatus = (aggStatus: KanbanCard['status'], allDone: boolean) => {
+      if (aggStatus === 'progress' && allDone) return 'completed';
+      if (aggStatus === 'progress') return 'in_progress';
+      if (aggStatus === 'review') return 'review';
+      if (aggStatus === 'done') return 'completed';
+      return 'planned';
+    };
+    cards.forEach((sample) => {
+      const methods =
+        mergeMethods(
+          (analysesBySampleId.get(sample.sampleId) ?? []).map((pa) => ({
+            id: pa.id,
+            name: pa.analysisType,
+            status: pa.status,
+            assignedTo: pa.assignedTo,
+          })),
+        ) ?? [];
+      if (methods.length === 0) {
+        analysisStatusBySampleId.set(sample.sampleId, sample.analysisStatus);
+        return;
+      }
+      const { aggStatus, allDone } = aggregateStatus(methods, sample.status);
+      analysisStatusBySampleId.set(sample.sampleId, toLabAnalysisStatus(aggStatus, allDone));
+    });
 
     if (role === 'lab_operator') {
       const bySample = new Map<string, KanbanCard>();
@@ -254,6 +287,8 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
             ? 'in_progress'
             : aggStatus === 'review'
             ? 'review'
+            : aggStatus === 'done'
+            ? 'completed'
             : 'planned';
         card.allMethodsDone = allDone;
         // If the underlying sample was explicitly moved to Needs attention, keep it there
@@ -295,6 +330,24 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       // Compose admin view: Needs attention (lab review), Conflicts (action conflicts), Resolved empty, Deleted empty
       const adminCards: KanbanCard[] = [];
       const deletedCards: KanbanCard[] = [];
+      const getAdminStatusLabel = (card: KanbanCard, status: KanbanCard['status']) => {
+        if (status === 'new') {
+          return columnConfigByRole.admin.find((c) => c.id === 'new')?.title ?? 'Deleted';
+        }
+        if (status === 'review') {
+          return columnConfigByRole.admin.find((c) => c.id === 'review')?.title ?? 'Needs attention';
+        }
+        if (status === 'progress') {
+          return columnConfigByRole.admin.find((c) => c.id === 'progress')?.title ?? 'Conflicts';
+        }
+        if (status === 'done') {
+          if (card.issueReason?.trim()) {
+            return columnConfigByRole.admin.find((c) => c.id === 'done' && c.title === 'Issues')?.title ?? 'Issues';
+          }
+          return columnConfigByRole.admin.find((c) => c.id === 'done' && c.title === 'Stored')?.title ?? 'Stored';
+        }
+        return card.statusLabel;
+      };
       // Lab needs attention (mirror lab view with current filters)
       const labMap = new Map<string, KanbanCard>();
       withComments(cards).forEach((sample) => {
@@ -305,10 +358,24 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
             analysisType: 'Sample',
             status: 'new',
             statusLabel: columnConfigByRole.admin.find((c) => c.id === 'new')?.title ?? 'Deleted',
+            analysisStatus: analysisStatusBySampleId.get(sample.sampleId) ?? sample.analysisStatus,
             methods: [],
             comments: commentsByCard[sample.sampleId] ?? [],
             allMethodsDone: false,
             deletedReason: delInfo.reason,
+          });
+          return;
+        }
+        if (sample.status === 'done') {
+          adminCards.push({
+            ...sample,
+            analysisType: 'Sample',
+            status: 'done',
+            statusLabel: getAdminStatusLabel(sample, 'done'),
+            analysisStatus: analysisStatusBySampleId.get(sample.sampleId) ?? sample.analysisStatus,
+            methods: [],
+            comments: commentsByCard[sample.sampleId] ?? [],
+            allMethodsDone: false,
           });
           return;
         }
@@ -318,6 +385,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
           analysisType: 'Sample',
           status: initialStatus,
           statusLabel: columnConfigByRole.lab_operator.find((c) => c.id === initialStatus)?.title ?? 'Planned',
+          analysisStatus: analysisStatusBySampleId.get(sample.sampleId) ?? sample.analysisStatus,
           methods: [],
           comments: commentsByCard[sample.sampleId] ?? [],
           allMethodsDone: false,
@@ -354,9 +422,11 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
           : labCards.filter((c) => c.methods?.some((m) => methodFilter.includes(m.name)));
       const labColumns = getColumnData(filterCards(labCards), 'lab_operator');
       const labNeeds = labColumns.find((col) => col.id === 'review')?.cards ?? [];
-      const labDone = labColumns.find((col) => col.id === 'done')?.cards ?? [];
-      labNeeds.forEach((c) => adminCards.push({ ...c, status: 'review', statusLabel: 'Needs attention' }));
-      labDone.forEach((c) => adminCards.push({ ...c, status: 'done', statusLabel: 'Stored' }));
+      labNeeds
+        .filter((c) => c.status !== 'done')
+        .forEach((c) =>
+          adminCards.push({ ...c, status: 'review', statusLabel: getAdminStatusLabel(c, 'review') }),
+        );
       deletedCards.forEach((c) => adminCards.push(c));
 
       // admin "Resolved" currently unused; leave empty
@@ -406,7 +476,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         storageLocation: '—',
         analysisType: 'Batch',
         assignedTo: 'Action supervisor',
-        analysisStatus: 'planned',
+        analysisStatus: analysisStatusBySampleId.get(b.title) ?? 'planned',
         sampleStatus: 'received',
       }));
       const conflictCards: KanbanCard[] = conflicts.map((c) => ({
@@ -420,7 +490,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         storageLocation: '—',
         analysisType: 'Conflict',
         assignedTo: 'Action supervisor',
-        analysisStatus: 'review',
+        analysisStatus: analysisStatusBySampleId.get(`Conflict ${c.id}`) ?? 'review',
         sampleStatus: 'received',
         conflictOld: c.old_payload,
         conflictNew: c.new_payload,
