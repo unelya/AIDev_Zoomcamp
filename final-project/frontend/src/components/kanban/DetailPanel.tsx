@@ -59,6 +59,13 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
         return { status: 'new', label: 'Planned' };
     }
   })();
+  const conflictStatusMap: Record<KanbanCard['status'], { status: KanbanCard['status']; label: string }> = {
+    new: { status: 'new', label: 'Uploaded batch' },
+    progress: { status: 'progress', label: 'Conflicts' },
+    review: { status: 'progress', label: 'Conflicts' },
+    done: { status: 'done', label: 'Stored' },
+  };
+  const conflictStatus = conflictStatusMap[card.status];
   const warehouseSampleLabelMap: Record<string, string> = {
     new: 'Planned',
     progress: 'Awaiting arrival',
@@ -162,6 +169,14 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
                   <span className="text-sm text-foreground">{analysisBadge.label}</span>
                 )}
               </div>
+              {role === 'admin' && (
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-muted-foreground flex items-center gap-1">
+                    <CircleDot className="w-3 h-3" /> Conflict status:
+                  </span>
+                  <span className="text-sm text-foreground">{conflictStatus.label}</span>
+                </div>
+              )}
             </div>
             {adminActions && card.status === 'review' && (
               <div className="flex gap-2">

@@ -12,6 +12,8 @@ interface KanbanCardProps {
   showStatusActions?: boolean;
   statusBadgeMode?: 'sample' | 'analysis' | 'column';
   statusLineMode?: 'analysis' | 'sample' | 'both';
+  showConflictStatus?: boolean;
+  conflictStatusLabel?: string;
   adminActions?: {
     onResolve?: () => void;
     onReturn?: () => void;
@@ -21,7 +23,7 @@ interface KanbanCardProps {
   };
 }
 
-export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adminActions, showStatusActions = false, statusBadgeMode = 'sample', statusLineMode = 'analysis' }: KanbanCardProps) {
+export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adminActions, showStatusActions = false, statusBadgeMode = 'sample', statusLineMode = 'analysis', showConflictStatus = false, conflictStatusLabel = 'Conflict status' }: KanbanCardProps) {
   const METHOD_ORDER = ['SARA', 'IR', 'Mass Spectrometry', 'Viscosity'];
   const methodRank = (name: string) => {
     const idx = METHOD_ORDER.findIndex((m) => m.toLowerCase() === name.toLowerCase());
@@ -69,6 +71,13 @@ export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adm
   const statusLineLabel = statusLineMode === 'sample' ? 'Sample' : 'Analysis';
   const statusLineValue = statusLineMode === 'sample' ? warehouseSampleLabel : analysisBadge.label;
   const showBothStatusLines = statusLineMode === 'both';
+  const conflictStatusMap: Record<CardType['status'], { status: CardType['status']; label: string }> = {
+    new: { status: 'new', label: 'Uploaded batch' },
+    progress: { status: 'progress', label: 'Conflicts' },
+    review: { status: 'progress', label: 'Conflicts' },
+    done: { status: 'done', label: 'Stored' },
+  };
+  const conflictStatus = conflictStatusMap[card.status];
 
   const handleDragStart = (event: React.DragEvent<HTMLDivElement>) => {
     event.dataTransfer.setData('text/plain', card.id);
@@ -115,9 +124,9 @@ export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adm
         </div>
       </div>
 
-      <div className="space-y-2 text-xs text-muted-foreground">
-        <div className="space-y-1">
-          {showBothStatusLines ? (
+        <div className="space-y-2 text-xs text-muted-foreground">
+          <div className="space-y-1">
+            {showBothStatusLines ? (
             <>
               <div className="flex items-center gap-2">
                 <ClipboardList className="w-3 h-3 text-primary" />
@@ -134,23 +143,29 @@ export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adm
                 <span className="text-foreground font-medium">Analysis: {analysisBadge.label}</span>
               </div>
             </>
-          ) : (
-            <div className="flex items-center gap-2">
-              {statusLineMode === 'sample' ? (
-                <ClipboardList className="w-3 h-3 text-primary" />
-              ) : (
-                <FlaskConical className="w-3 h-3 text-primary" />
-              )}
-              <span className="text-foreground font-medium">{statusLineLabel}: {statusLineValue}</span>
-              {card.assignedTo && (
-                <span className="flex items-center gap-1">
-                  <User className="w-3 h-3" />
-                  <span>{card.assignedTo}</span>
-                </span>
-              )}
-            </div>
-          )}
-        </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                {statusLineMode === 'sample' ? (
+                  <ClipboardList className="w-3 h-3 text-primary" />
+                ) : (
+                  <FlaskConical className="w-3 h-3 text-primary" />
+                )}
+                <span className="text-foreground font-medium">{statusLineLabel}: {statusLineValue}</span>
+                {card.assignedTo && (
+                  <span className="flex items-center gap-1">
+                    <User className="w-3 h-3" />
+                    <span>{card.assignedTo}</span>
+                  </span>
+                )}
+              </div>
+            )}
+            {showConflictStatus && (
+              <div className="flex items-center gap-2">
+                <CircleDot className="w-3 h-3 text-primary" />
+                <span className="text-foreground font-medium">{conflictStatusLabel}: {conflictStatus.label}</span>
+              </div>
+            )}
+          </div>
         <div className="flex items-center gap-2">
           <MapPin className="w-3 h-3 text-primary" />
           <span className="text-foreground font-medium">{card.storageLocation}</span>

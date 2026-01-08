@@ -439,6 +439,8 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       ? 'column'
       : 'sample';
   const statusLineMode = role === 'lab_operator' ? 'sample' : role === 'action_supervision' || role === 'admin' ? 'both' : 'analysis';
+  const showConflictStatus = role === 'admin' || role === 'action_supervision';
+  const conflictStatusLabel = showConflictStatus ? 'Conflict' : 'Conflict status';
   const handleCardClick = (card: KanbanCard) => {
     // ensure methods are attached for the detail panel even if this card came from a role/column that does not render them
     const methodsFromAnalyses =
@@ -1111,6 +1113,8 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
             showStatusActions={role === 'admin'}
             statusBadgeMode={statusBadgeMode}
             statusLineMode={statusLineMode}
+            showConflictStatus={showConflictStatus}
+            conflictStatusLabel={conflictStatusLabel}
             adminActions={
               isAdminUser
                 ? {
