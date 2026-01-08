@@ -432,7 +432,12 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     return getColumnData(filterCards(withComments(visibleCards)), role);
   }, [cards, plannedAnalyses, actionBatches, conflicts, role, filterCards, methodFilter, assignedOnly, incompleteOnly, commentsByCard, user?.fullName, deletedByCard]);
 
-  const statusBadgeMode = role === 'lab_operator' ? 'analysis' : role === 'action_supervision' ? 'column' : 'sample';
+  const statusBadgeMode =
+    role === 'lab_operator'
+      ? 'analysis'
+      : role === 'action_supervision' || role === 'admin'
+      ? 'column'
+      : 'sample';
   const handleCardClick = (card: KanbanCard) => {
     // ensure methods are attached for the detail panel even if this card came from a role/column that does not render them
     const methodsFromAnalyses =

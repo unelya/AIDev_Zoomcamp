@@ -75,7 +75,7 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
   const formatStorageLocation = (parts: { fridge: string; bin: string; place: string }) =>
     `Fridge ${parts.fridge.trim()} · Bin ${parts.bin.trim()} · Place ${parts.place.trim()}`;
   const isValidStorageLocation = (value: string) => storageFormatRegex.test(value.trim());
-  const isWarehouseStatusView = role === 'warehouse_worker' || role === 'action_supervision';
+  const isWarehouseStatusView = role === 'warehouse_worker' || role === 'action_supervision' || role === 'admin';
   const sampleLabel = isWarehouseStatusView
     ? warehouseSampleLabelMap[card.status] ?? card.statusLabel
     : card.statusLabel;
