@@ -20,6 +20,7 @@ export function NewCardDialog({ onCreate, open, onOpenChange }: NewCardDialogPro
   const isControlled = open !== undefined;
   const dialogOpen = isControlled ? open : internalOpen;
   const today = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
+  const toDigits = (value: string) => value.replace(/\D/g, '');
   const [form, setForm] = useState<NewCardPayload>({
     sampleId: '',
     wellId: '',
@@ -46,7 +47,8 @@ export function NewCardDialog({ onCreate, open, onOpenChange }: NewCardDialogPro
   };
 
   const onChange = (field: keyof NewCardPayload) => (event: React.ChangeEvent<HTMLInputElement>) => {
-    setForm((prev) => ({ ...prev, [field]: event.target.value }));
+    const nextValue = field === 'wellId' ? toDigits(event.target.value) : event.target.value;
+    setForm((prev) => ({ ...prev, [field]: nextValue }));
     setError('');
   };
 
@@ -78,7 +80,15 @@ export function NewCardDialog({ onCreate, open, onOpenChange }: NewCardDialogPro
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label htmlFor="wellId">Well ID</Label>
-              <Input id="wellId" value={form.wellId} onChange={onChange('wellId')} required className="field-muted" />
+              <Input
+                id="wellId"
+                value={form.wellId}
+                onChange={onChange('wellId')}
+                required
+                inputMode="numeric"
+                pattern="[0-9]*"
+                className="field-muted"
+              />
             </div>
             <div className="space-y-1">
               <Label htmlFor="horizon">Horizon</Label>

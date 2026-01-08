@@ -884,9 +884,16 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
   const lockNeedsAttentionCards = role === 'lab_operator' && user?.role !== 'admin';
 
   const handleSampleFieldUpdate = async (sampleId: string, updates: Record<string, string>) => {
+    const nextUpdates = { ...updates };
+    if (typeof nextUpdates.well_id === 'string') {
+      nextUpdates.well_id = nextUpdates.well_id.replace(/\D/g, '');
+      if (!nextUpdates.well_id) {
+        delete nextUpdates.well_id;
+      }
+    }
     const prevCard = cards.find((c) => c.sampleId === sampleId);
     const shouldStore =
-      role === 'warehouse_worker' && updates.storage_location && updates.storage_location.trim().length > 0;
+      role === 'warehouse_worker' && nextUpdates.storage_location && nextUpdates.storage_location.trim().length > 0;
     const targetStatus = shouldStore ? 'review' : undefined;
     const statusLabel =
       targetStatus && columnConfigByRole[role]?.find((c) => c.id === targetStatus)?.title;
@@ -914,7 +921,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         card.sampleId === sampleId
           ? {
               ...card,
-              ...mapSampleUpdates(card, updates),
+              ...mapSampleUpdates(card, nextUpdates),
               ...(targetStatus
                 ? { status: targetStatus, statusLabel: statusLabel ?? card.statusLabel }
                 : {}),
@@ -927,7 +934,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         prev
           ? {
               ...prev,
-              ...mapSampleUpdates(prev, updates),
+              ...mapSampleUpdates(prev, nextUpdates),
               ...(targetStatus
                 ? { status: targetStatus, statusLabel: statusLabel ?? prev.statusLabel }
                 : {}),
@@ -936,8 +943,8 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       );
     }
     try {
-      await updateSampleFields(sampleId, targetStatus ? { ...updates, status: targetStatus } : updates);
-      if (role === 'warehouse_worker' && (targetStatus === 'review' || updates.status === 'review')) {
+      await updateSampleFields(sampleId, targetStatus ? { ...nextUpdates, status: targetStatus } : nextUpdates);
+      if (role === 'warehouse_worker' && (targetStatus === 'review' || nextUpdates.status === 'review')) {
         ensureAnalyses(sampleId, plannedAnalyses, setPlannedAnalyses, analysisTypes);
       }
     } catch (err) {

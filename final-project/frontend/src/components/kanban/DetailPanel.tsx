@@ -65,6 +65,7 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
     review: 'Stored',
     done: 'Issues',
   };
+  const toDigits = (value: string) => value.replace(/\D/g, '');
   const sampleLabel =
     role === 'warehouse_worker'
       ? warehouseSampleLabelMap[card.status] ?? card.statusLabel
@@ -213,9 +214,15 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
                 </label>
                 <div className="flex gap-2">
                   <EditableField
-                    value={card.wellId}
+                    value={toDigits(card.wellId)}
                     placeholder="Well"
-                    onSave={(val) => onUpdateSample?.({ well_id: val || card.wellId })}
+                    onSave={(val) => {
+                      const digits = toDigits(val);
+                      if (!digits) {
+                        return;
+                      }
+                      onUpdateSample?.({ well_id: digits });
+                    }}
                     readOnly={!onUpdateSample}
                   />
                   <span className="text-sm text-muted-foreground">·</span>

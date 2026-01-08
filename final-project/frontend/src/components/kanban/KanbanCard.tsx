@@ -54,6 +54,8 @@ export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adm
     review: 'Stored',
     done: 'Issues',
   };
+  const toDigits = (value: string) => value.replace(/\D/g, '');
+  const wellValue = toDigits(card.wellId);
   const sampleLabel = statusBadgeMode === 'sample' ? (warehouseSampleLabelMap[card.status] ?? card.statusLabel) : card.statusLabel;
   const badgeStatus = statusBadgeMode === 'analysis' ? analysisBadge.status : card.status;
   const badgeLabel = statusBadgeMode === 'analysis' ? analysisBadge.label : sampleLabel;
@@ -123,7 +125,7 @@ export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adm
           <span>Sampling {card.samplingDate}</span>
           <span className="flex items-center gap-1 text-foreground font-semibold">
             <CircleDot className="w-3 h-3 text-primary" />
-            Well {card.wellId}
+            Well {wellValue}
           </span>
           <span className="text-muted-foreground">Horizon {card.horizon}</span>
         </div>
