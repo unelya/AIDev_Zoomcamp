@@ -10,7 +10,7 @@ interface KanbanCardProps {
   onToggleMethod?: (methodId: number, done: boolean) => void;
   readOnlyMethods?: boolean;
   showStatusActions?: boolean;
-  statusBadgeMode?: 'sample' | 'analysis';
+  statusBadgeMode?: 'sample' | 'analysis' | 'column';
   adminActions?: {
     onResolve?: () => void;
     onReturn?: () => void;
@@ -58,7 +58,12 @@ export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adm
   const wellValue = toDigits(card.wellId);
   const sampleLabel = statusBadgeMode === 'sample' ? (warehouseSampleLabelMap[card.status] ?? card.statusLabel) : card.statusLabel;
   const badgeStatus = statusBadgeMode === 'analysis' ? analysisBadge.status : card.status;
-  const badgeLabel = statusBadgeMode === 'analysis' ? analysisBadge.label : sampleLabel;
+  const badgeLabel =
+    statusBadgeMode === 'analysis'
+      ? analysisBadge.label
+      : statusBadgeMode === 'column'
+      ? card.statusLabel
+      : sampleLabel;
 
   const handleDragStart = (event: React.DragEvent<HTMLDivElement>) => {
     event.dataTransfer.setData('text/plain', card.id);
