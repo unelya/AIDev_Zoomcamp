@@ -75,7 +75,7 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
   const formatStorageLocation = (parts: { fridge: string; bin: string; place: string }) =>
     `Fridge ${parts.fridge.trim()} · Bin ${parts.bin.trim()} · Place ${parts.place.trim()}`;
   const isValidStorageLocation = (value: string) => storageFormatRegex.test(value.trim());
-  const isWarehouseStatusView = role === 'warehouse_worker' || role === 'action_supervision' || role === 'admin';
+  const isWarehouseStatusView = true;
   const sampleLabel = isWarehouseStatusView
     ? warehouseSampleLabelMap[card.status] ?? card.statusLabel
     : card.statusLabel;
@@ -147,11 +147,7 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
                 <span className="text-sm text-muted-foreground flex items-center gap-1">
                   <ClipboardList className="w-3 h-3" /> Sample status:
                 </span>
-                {isWarehouseStatusView ? (
-                  <StatusBadge status={card.status} label={sampleLabel} />
-                ) : (
-                  <span className="text-sm text-foreground">{card.statusLabel}</span>
-                )}
+                <span className="text-sm text-foreground">{sampleLabel}</span>
                 {card.issueReason && sampleLabel.toLowerCase().includes('issues') && (
                   <span className="text-sm text-destructive">Issue: {card.issueReason}</span>
                 )}

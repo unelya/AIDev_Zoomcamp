@@ -11,6 +11,7 @@ interface KanbanCardProps {
   readOnlyMethods?: boolean;
   showStatusActions?: boolean;
   statusBadgeMode?: 'sample' | 'analysis' | 'column';
+  statusLineMode?: 'analysis' | 'sample' | 'both';
   adminActions?: {
     onResolve?: () => void;
     onReturn?: () => void;
@@ -20,7 +21,7 @@ interface KanbanCardProps {
   };
 }
 
-export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adminActions, showStatusActions = false, statusBadgeMode = 'sample' }: KanbanCardProps) {
+export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adminActions, showStatusActions = false, statusBadgeMode = 'sample', statusLineMode = 'analysis' }: KanbanCardProps) {
   const METHOD_ORDER = ['SARA', 'IR', 'Mass Spectrometry', 'Viscosity'];
   const methodRank = (name: string) => {
     const idx = METHOD_ORDER.findIndex((m) => m.toLowerCase() === name.toLowerCase());
@@ -56,7 +57,8 @@ export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adm
   };
   const toDigits = (value: string) => value.replace(/\D/g, '');
   const wellValue = toDigits(card.wellId);
-  const sampleLabel = statusBadgeMode === 'sample' ? (warehouseSampleLabelMap[card.status] ?? card.statusLabel) : card.statusLabel;
+  const warehouseSampleLabel = warehouseSampleLabelMap[card.status] ?? card.statusLabel;
+  const sampleLabel = statusBadgeMode === 'sample' ? warehouseSampleLabel : card.statusLabel;
   const badgeStatus = statusBadgeMode === 'analysis' ? analysisBadge.status : card.status;
   const badgeLabel =
     statusBadgeMode === 'analysis'
@@ -64,6 +66,9 @@ export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adm
       : statusBadgeMode === 'column'
       ? card.statusLabel
       : sampleLabel;
+  const statusLineLabel = statusLineMode === 'sample' ? 'Sample' : 'Analysis';
+  const statusLineValue = statusLineMode === 'sample' ? warehouseSampleLabel : analysisBadge.label;
+  const showBothStatusLines = statusLineMode === 'both';
 
   const handleDragStart = (event: React.DragEvent<HTMLDivElement>) => {
     event.dataTransfer.setData('text/plain', card.id);
@@ -111,14 +116,39 @@ export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adm
       </div>
 
       <div className="space-y-2 text-xs text-muted-foreground">
-        <div className="flex items-center gap-2">
-          <FlaskConical className="w-3 h-3 text-primary" />
-          <span className="text-foreground font-medium">Analysis: {analysisBadge.label}</span>
-          {card.assignedTo && (
-            <span className="flex items-center gap-1">
-              <User className="w-3 h-3" />
-              <span>{card.assignedTo}</span>
-            </span>
+        <div className="space-y-1">
+          {showBothStatusLines ? (
+            <>
+              <div className="flex items-center gap-2">
+                <ClipboardList className="w-3 h-3 text-primary" />
+                <span className="text-foreground font-medium">Sample: {warehouseSampleLabel}</span>
+                {card.assignedTo && (
+                  <span className="flex items-center gap-1">
+                    <User className="w-3 h-3" />
+                    <span>{card.assignedTo}</span>
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <FlaskConical className="w-3 h-3 text-primary" />
+                <span className="text-foreground font-medium">Analysis: {analysisBadge.label}</span>
+              </div>
+            </>
+          ) : (
+            <div className="flex items-center gap-2">
+              {statusLineMode === 'sample' ? (
+                <ClipboardList className="w-3 h-3 text-primary" />
+              ) : (
+                <FlaskConical className="w-3 h-3 text-primary" />
+              )}
+              <span className="text-foreground font-medium">{statusLineLabel}: {statusLineValue}</span>
+              {card.assignedTo && (
+                <span className="flex items-center gap-1">
+                  <User className="w-3 h-3" />
+                  <span>{card.assignedTo}</span>
+                </span>
+              )}
+            </div>
           )}
         </div>
         <div className="flex items-center gap-2">
