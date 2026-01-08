@@ -214,58 +214,51 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
                 <label className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1">
                   <MapPin className="w-3 h-3" /> Storage
                 </label>
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="space-y-1">
-                    <Input
-                      value={storageParts.fridge}
-                      onChange={(e) => setStorageParts((prev) => ({ ...prev, fridge: e.target.value }))}
-                      onBlur={() => {
-                        if (!onUpdateSample) return;
-                        if (!storageParts.fridge || !storageParts.bin || !storageParts.place) return;
-                        const formatted = formatStorageLocation(storageParts);
-                        if (!isValidStorageLocation(formatted)) return;
-                        onUpdateSample({ storage_location: formatted });
-                      }}
-                      placeholder="A1"
-                      className="h-9 field-muted"
-                      disabled={!onUpdateSample}
-                    />
-                    <p className="text-xs text-muted-foreground">Fridge</p>
-                  </div>
-                  <div className="space-y-1">
-                    <Input
-                      value={storageParts.bin}
-                      onChange={(e) => setStorageParts((prev) => ({ ...prev, bin: e.target.value }))}
-                      onBlur={() => {
-                        if (!onUpdateSample) return;
-                        if (!storageParts.fridge || !storageParts.bin || !storageParts.place) return;
-                        const formatted = formatStorageLocation(storageParts);
-                        if (!isValidStorageLocation(formatted)) return;
-                        onUpdateSample({ storage_location: formatted });
-                      }}
-                      placeholder="B2"
-                      className="h-9 field-muted"
-                      disabled={!onUpdateSample}
-                    />
-                    <p className="text-xs text-muted-foreground">Bin</p>
-                  </div>
-                  <div className="space-y-1">
-                    <Input
-                      value={storageParts.place}
-                      onChange={(e) => setStorageParts((prev) => ({ ...prev, place: e.target.value }))}
-                      onBlur={() => {
-                        if (!onUpdateSample) return;
-                        if (!storageParts.fridge || !storageParts.bin || !storageParts.place) return;
-                        const formatted = formatStorageLocation(storageParts);
-                        if (!isValidStorageLocation(formatted)) return;
-                        onUpdateSample({ storage_location: formatted });
-                      }}
-                      placeholder="C3"
-                      className="h-9 field-muted"
-                      disabled={!onUpdateSample}
-                    />
-                    <p className="text-xs text-muted-foreground">Place</p>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={storageParts.fridge}
+                    onChange={(e) => setStorageParts((prev) => ({ ...prev, fridge: e.target.value }))}
+                    onBlur={() => {
+                      if (!onUpdateSample) return;
+                      if (!storageParts.fridge || !storageParts.bin || !storageParts.place) return;
+                      const formatted = formatStorageLocation(storageParts);
+                      if (!isValidStorageLocation(formatted)) return;
+                      onUpdateSample({ storage_location: formatted });
+                    }}
+                    placeholder="A1"
+                    className="h-9 bg-muted/60 hover:bg-muted/70"
+                    disabled={!onUpdateSample}
+                  />
+                  <span className="text-sm text-muted-foreground">·</span>
+                  <Input
+                    value={storageParts.bin}
+                    onChange={(e) => setStorageParts((prev) => ({ ...prev, bin: e.target.value }))}
+                    onBlur={() => {
+                      if (!onUpdateSample) return;
+                      if (!storageParts.fridge || !storageParts.bin || !storageParts.place) return;
+                      const formatted = formatStorageLocation(storageParts);
+                      if (!isValidStorageLocation(formatted)) return;
+                      onUpdateSample({ storage_location: formatted });
+                    }}
+                    placeholder="B2"
+                    className="h-9 bg-muted/60 hover:bg-muted/70"
+                    disabled={!onUpdateSample}
+                  />
+                  <span className="text-sm text-muted-foreground">·</span>
+                  <Input
+                    value={storageParts.place}
+                    onChange={(e) => setStorageParts((prev) => ({ ...prev, place: e.target.value }))}
+                    onBlur={() => {
+                      if (!onUpdateSample) return;
+                      if (!storageParts.fridge || !storageParts.bin || !storageParts.place) return;
+                      const formatted = formatStorageLocation(storageParts);
+                      if (!isValidStorageLocation(formatted)) return;
+                      onUpdateSample({ storage_location: formatted });
+                    }}
+                    placeholder="C3"
+                    className="h-9 bg-muted/60 hover:bg-muted/70"
+                    disabled={!onUpdateSample}
+                  />
                 </div>
               </div>
               <div className="space-y-1">
@@ -544,7 +537,7 @@ function EditableField({
     />
   ) : (
     <p
-      className="text-sm text-foreground cursor-text rounded px-1 py-0.5 bg-muted/60 hover:bg-muted/70 transition-colors"
+      className="h-9 text-sm text-foreground cursor-text rounded px-2 flex items-center bg-muted/60 hover:bg-muted/70 transition-colors"
       onClick={() => {
         if (!readOnly) {
           setEditing(true);
