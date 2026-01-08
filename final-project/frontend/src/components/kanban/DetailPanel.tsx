@@ -66,6 +66,15 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
     done: 'Issues',
   };
   const toDigits = (value: string) => value.replace(/\D/g, '');
+  const storageFormatRegex = /^Fridge\s+[A-Za-z0-9]+\s*·\s*Bin\s+[A-Za-z0-9]+\s*·\s*Place\s+[A-Za-z0-9]+$/;
+  const parseStorageLocation = (value: string) => {
+    const match = value.match(/^Fridge\s+([^·]+)\s*·\s*Bin\s+([^·]+)\s*·\s*Place\s+(.+)$/);
+    if (!match) return { fridge: '', bin: '', place: '' };
+    return { fridge: match[1].trim(), bin: match[2].trim(), place: match[3].trim() };
+  };
+  const formatStorageLocation = (parts: { fridge: string; bin: string; place: string }) =>
+    `Fridge ${parts.fridge.trim()} · Bin ${parts.bin.trim()} · Place ${parts.place.trim()}`;
+  const isValidStorageLocation = (value: string) => storageFormatRegex.test(value.trim());
   const sampleLabel =
     role === 'warehouse_worker'
       ? warehouseSampleLabelMap[card.status] ?? card.statusLabel
@@ -85,6 +94,7 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
   const [planError, setPlanError] = useState('');
   const [commentText, setCommentText] = useState('');
   const [commentAuthor, setCommentAuthor] = useState(currentUserName ?? '');
+  const [storageParts, setStorageParts] = useState(() => parseStorageLocation(card.storageLocation || ''));
   const isAdmin = Boolean(onPlanAnalysis);
 
   useEffect(() => {
@@ -92,6 +102,9 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
       setCommentAuthor(currentUserName);
     }
   }, [currentUserName]);
+  useEffect(() => {
+    setStorageParts(parseStorageLocation(card.storageLocation || ''));
+  }, [card.storageLocation]);
   
   return (
     <>
@@ -201,12 +214,59 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
                 <label className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1">
                   <MapPin className="w-3 h-3" /> Storage
                 </label>
-                <EditableField
-                  value={card.storageLocation}
-                  placeholder="Add location"
-                  onSave={(val) => onUpdateSample?.({ storage_location: val || card.storageLocation })}
-                  readOnly={!onUpdateSample}
-                />
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="space-y-1">
+                    <Input
+                      value={storageParts.fridge}
+                      onChange={(e) => setStorageParts((prev) => ({ ...prev, fridge: e.target.value }))}
+                      onBlur={() => {
+                        if (!onUpdateSample) return;
+                        if (!storageParts.fridge || !storageParts.bin || !storageParts.place) return;
+                        const formatted = formatStorageLocation(storageParts);
+                        if (!isValidStorageLocation(formatted)) return;
+                        onUpdateSample({ storage_location: formatted });
+                      }}
+                      placeholder="A1"
+                      className="h-9 field-muted"
+                      disabled={!onUpdateSample}
+                    />
+                    <p className="text-xs text-muted-foreground">Fridge</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Input
+                      value={storageParts.bin}
+                      onChange={(e) => setStorageParts((prev) => ({ ...prev, bin: e.target.value }))}
+                      onBlur={() => {
+                        if (!onUpdateSample) return;
+                        if (!storageParts.fridge || !storageParts.bin || !storageParts.place) return;
+                        const formatted = formatStorageLocation(storageParts);
+                        if (!isValidStorageLocation(formatted)) return;
+                        onUpdateSample({ storage_location: formatted });
+                      }}
+                      placeholder="B2"
+                      className="h-9 field-muted"
+                      disabled={!onUpdateSample}
+                    />
+                    <p className="text-xs text-muted-foreground">Bin</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Input
+                      value={storageParts.place}
+                      onChange={(e) => setStorageParts((prev) => ({ ...prev, place: e.target.value }))}
+                      onBlur={() => {
+                        if (!onUpdateSample) return;
+                        if (!storageParts.fridge || !storageParts.bin || !storageParts.place) return;
+                        const formatted = formatStorageLocation(storageParts);
+                        if (!isValidStorageLocation(formatted)) return;
+                        onUpdateSample({ storage_location: formatted });
+                      }}
+                      placeholder="C3"
+                      className="h-9 field-muted"
+                      disabled={!onUpdateSample}
+                    />
+                    <p className="text-xs text-muted-foreground">Place</p>
+                  </div>
+                </div>
               </div>
               <div className="space-y-1">
                 <label className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1">

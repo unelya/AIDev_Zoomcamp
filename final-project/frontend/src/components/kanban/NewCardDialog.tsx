@@ -21,6 +21,10 @@ export function NewCardDialog({ onCreate, open, onOpenChange }: NewCardDialogPro
   const dialogOpen = isControlled ? open : internalOpen;
   const today = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
   const toDigits = (value: string) => value.replace(/\D/g, '');
+  const storageFormatRegex = /^Fridge\s+[A-Za-z0-9]+\s*·\s*Bin\s+[A-Za-z0-9]+\s*·\s*Place\s+[A-Za-z0-9]+$/;
+  const isValidStorageLocation = (value: string) => storageFormatRegex.test(value.trim());
+  const formatStorageLocation = (parts: { fridge: string; bin: string; place: string }) =>
+    `Fridge ${parts.fridge.trim()} · Bin ${parts.bin.trim()} · Place ${parts.place.trim()}`;
   const [form, setForm] = useState<NewCardPayload>({
     sampleId: '',
     wellId: '',
@@ -28,12 +32,14 @@ export function NewCardDialog({ onCreate, open, onOpenChange }: NewCardDialogPro
     samplingDate: today,
     storageLocation: '',
   });
+  const [storageParts, setStorageParts] = useState({ fridge: '', bin: '', place: '' });
   const [error, setError] = useState('');
   const [dateOpen, setDateOpen] = useState(false);
 
   useEffect(() => {
     if (!dialogOpen) {
       setForm({ sampleId: '', wellId: '', horizon: '', samplingDate: today, storageLocation: '' });
+      setStorageParts({ fridge: '', bin: '', place: '' });
       setError('');
       setDateOpen(false);
     }
@@ -58,7 +64,19 @@ export function NewCardDialog({ onCreate, open, onOpenChange }: NewCardDialogPro
       setError('All required fields must be filled');
       return;
     }
-    onCreate(form);
+    let storageLocation = '';
+    if (storageParts.fridge || storageParts.bin || storageParts.place) {
+      if (!storageParts.fridge || !storageParts.bin || !storageParts.place) {
+        setError('Fill Fridge, Bin, and Place');
+        return;
+      }
+      storageLocation = formatStorageLocation(storageParts);
+      if (!isValidStorageLocation(storageLocation)) {
+        setError('Storage location must be "Fridge {A1} · Bin {B2} · Place {C3}"');
+        return;
+      }
+    }
+    onCreate({ ...form, storageLocation });
     setOpen(false);
   };
 
@@ -123,8 +141,36 @@ export function NewCardDialog({ onCreate, open, onOpenChange }: NewCardDialogPro
             </Popover>
           </div>
           <div className="space-y-1">
-            <Label htmlFor="storageLocation">Storage Location</Label>
-            <Input id="storageLocation" value={form.storageLocation} onChange={onChange('storageLocation')} className="field-muted" />
+            <Label>Storage Location</Label>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="space-y-1">
+                <Input
+                  value={storageParts.fridge}
+                  onChange={(e) => setStorageParts((prev) => ({ ...prev, fridge: e.target.value }))}
+                  placeholder="A1"
+                  className="field-muted"
+                />
+                <p className="text-xs text-muted-foreground">Fridge</p>
+              </div>
+              <div className="space-y-1">
+                <Input
+                  value={storageParts.bin}
+                  onChange={(e) => setStorageParts((prev) => ({ ...prev, bin: e.target.value }))}
+                  placeholder="B2"
+                  className="field-muted"
+                />
+                <p className="text-xs text-muted-foreground">Bin</p>
+              </div>
+              <div className="space-y-1">
+                <Input
+                  value={storageParts.place}
+                  onChange={(e) => setStorageParts((prev) => ({ ...prev, place: e.target.value }))}
+                  placeholder="C3"
+                  className="field-muted"
+                />
+                <p className="text-xs text-muted-foreground">Place</p>
+              </div>
+            </div>
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
           <DialogFooter className="flex gap-2">

@@ -50,7 +50,8 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     )[]
   >([]);
   const [storagePrompt, setStoragePrompt] = useState<{ open: boolean; sampleId: string | null }>({ open: false, sampleId: null });
-  const [storageValue, setStorageValue] = useState('');
+  const [storageValue, setStorageValue] = useState({ fridge: '', bin: '', place: '' });
+  const [storageError, setStorageError] = useState('');
   const [deletePrompt, setDeletePrompt] = useState<{ open: boolean; card: KanbanCard | null }>({ open: false, card: null });
   const [deleteReason, setDeleteReason] = useState('');
   const isAdminUser = user?.role === 'admin';
@@ -66,6 +67,10 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       return {};
     }
   });
+  const storageFormatRegex = /^Fridge\s+[A-Za-z0-9]+\s*·\s*Bin\s+[A-Za-z0-9]+\s*·\s*Place\s+[A-Za-z0-9]+$/;
+  const isValidStorageLocation = (value: string) => storageFormatRegex.test(value.trim());
+  const formatStorageLocation = (parts: { fridge: string; bin: string; place: string }) =>
+    `Fridge ${parts.fridge.trim()} · Bin ${parts.bin.trim()} · Place ${parts.place.trim()}`;
   const [deletedByCard, setDeletedByCard] = useState<Record<string, DeletedInfo>>(() => {
     if (typeof window === 'undefined') return {};
     try {
@@ -648,9 +653,20 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
   };
 
   const confirmStorage = () => {
-    if (!storagePrompt.sampleId || !storageValue.trim()) return;
-    handleSampleFieldUpdate(storagePrompt.sampleId, { storage_location: storageValue.trim(), status: 'review' });
+    if (!storagePrompt.sampleId) return;
+    if (!storageValue.fridge.trim() || !storageValue.bin.trim() || !storageValue.place.trim()) {
+      setStorageError('Fill Fridge, Bin, and Place');
+      return;
+    }
+    const formatted = formatStorageLocation(storageValue);
+    if (!isValidStorageLocation(formatted)) {
+      setStorageError('Use: Fridge {A1} · Bin {B2} · Place {C3}');
+      return;
+    }
+    handleSampleFieldUpdate(storagePrompt.sampleId, { storage_location: formatted, status: 'review' });
     setStoragePrompt({ open: false, sampleId: null });
+    setStorageValue({ fridge: '', bin: '', place: '' });
+    setStorageError('');
   };
 
   const confirmIssueReason = () => {
@@ -889,6 +905,16 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       nextUpdates.well_id = nextUpdates.well_id.replace(/\D/g, '');
       if (!nextUpdates.well_id) {
         delete nextUpdates.well_id;
+      }
+    }
+    if (typeof nextUpdates.storage_location === 'string' && nextUpdates.storage_location.trim().length > 0) {
+      if (!isValidStorageLocation(nextUpdates.storage_location)) {
+        toast({
+          title: 'Invalid storage location',
+          description: 'Use: Fridge {A1} · Bin {B2} · Place {C3}',
+          variant: 'destructive',
+        });
+        return;
       }
     }
     const prevCard = cards.find((c) => c.sampleId === sampleId);
@@ -1166,28 +1192,71 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         onAddComment={handleAddComment}
         currentUserName={user?.fullName || user?.username}
       />
-      <Dialog open={storagePrompt.open} onOpenChange={(open) => setStoragePrompt({ open, sampleId: open ? storagePrompt.sampleId : null })}>
+      <Dialog
+        open={storagePrompt.open}
+        onOpenChange={(open) => {
+          setStoragePrompt({ open, sampleId: open ? storagePrompt.sampleId : null });
+          if (!open) {
+            setStorageValue({ fridge: '', bin: '', place: '' });
+            setStorageError('');
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Storage location</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">Storage location is required to store this sample.</p>
-          <Input
-            autoFocus
-            placeholder="e.g. Rack A · Bin 2"
-            value={storageValue}
-            onChange={(e) => setStorageValue(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                confirmStorage();
-              }
-            }}
-          />
+          <div className="grid grid-cols-3 gap-2">
+            <div className="space-y-1">
+              <Input
+                autoFocus
+                placeholder="A1"
+                value={storageValue.fridge}
+                onChange={(e) => {
+                  setStorageValue((prev) => ({ ...prev, fridge: e.target.value }));
+                  setStorageError('');
+                }}
+              />
+              <p className="text-xs text-muted-foreground">Fridge</p>
+            </div>
+            <div className="space-y-1">
+              <Input
+                placeholder="B2"
+                value={storageValue.bin}
+                onChange={(e) => {
+                  setStorageValue((prev) => ({ ...prev, bin: e.target.value }));
+                  setStorageError('');
+                }}
+              />
+              <p className="text-xs text-muted-foreground">Bin</p>
+            </div>
+            <div className="space-y-1">
+              <Input
+                placeholder="C3"
+                value={storageValue.place}
+                onChange={(e) => {
+                  setStorageValue((prev) => ({ ...prev, place: e.target.value }));
+                  setStorageError('');
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    confirmStorage();
+                  }
+                }}
+              />
+              <p className="text-xs text-muted-foreground">Place</p>
+            </div>
+          </div>
+          {storageError && <p className="text-sm text-destructive">{storageError}</p>}
           <DialogFooter className="gap-2">
             <Button variant="ghost" onClick={() => setStoragePrompt({ open: false, sampleId: null })}>
               Cancel
             </Button>
-            <Button onClick={confirmStorage} disabled={!storageValue.trim()}>
+            <Button
+              onClick={confirmStorage}
+              disabled={!storageValue.fridge.trim() || !storageValue.bin.trim() || !storageValue.place.trim()}
+            >
               Save & Store
             </Button>
           </DialogFooter>
