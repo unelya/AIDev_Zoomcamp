@@ -647,6 +647,14 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     }
     const conflict = conflicts.find((c) => `conflict-${c.id}` === cardId);
     if (conflict) {
+      if (role === 'action_supervision' && columnId === 'new') {
+        toast({
+          title: 'Invalid move',
+          description: 'Conflict items cannot be moved to Uploaded batch.',
+          variant: 'default',
+        });
+        return;
+      }
       setConflicts((prev) =>
         prev.map((c) => (c.id === conflict.id ? { ...c, status: 'resolved', resolution_note: c.resolution_note } : c)),
       );
@@ -1014,6 +1022,20 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       const targetCard = cards.find((c) => c.id === sampleIdFromMethod);
       if (targetCard?.status === 'review' && user?.role !== 'admin') {
         return;
+      }
+      if (done) {
+        const labCard = columns.flatMap((c) => c.cards).find((c) => c.id === sampleIdFromMethod);
+        const currentStatus = labStatusOverrides[sampleIdFromMethod] ?? labCard?.status;
+        if (currentStatus === 'new') {
+          setLabStatusOverrides((prev) => ({ ...prev, [sampleIdFromMethod]: 'progress' }));
+          if (selectedCard?.id === sampleIdFromMethod) {
+            setSelectedCard({
+              ...selectedCard,
+              status: 'progress',
+              statusLabel: columnConfigByRole.lab_operator.find((c) => c.id === 'progress')?.title ?? selectedCard.statusLabel,
+            });
+          }
+        }
       }
     }
     const nextStatus = done ? 'completed' : 'planned';
