@@ -713,9 +713,13 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
           .map((pa) => ({ id: pa.id, name: pa.analysisType, status: pa.status, assignedTo: pa.assignedTo })),
       ) || [];
     const mergedMethods = card.methods?.length ? mergeMethods(card.methods) : methodsFromAnalyses;
-    const issueHistory = issueReasons[card.sampleId] ?? [];
+    let issueHistory = issueReasons[card.sampleId] ?? [];
+    const fallbackLabReason = labNeedsAttentionReasons[card.sampleId];
+    if (issueHistory.length === 0 && fallbackLabReason) {
+      issueHistory = [fallbackLabReason];
+    }
     const issueReason =
-      card.issueReason ?? issueHistory[issueHistory.length - 1] ?? labNeedsAttentionReasons[card.sampleId];
+      card.issueReason ?? issueHistory[issueHistory.length - 1] ?? fallbackLabReason;
     const returnNotes = adminReturnNotes[card.sampleId] ?? [];
     const returnNote = card.returnNote ?? returnNotes[returnNotes.length - 1];
     setSelectedCard({
@@ -1688,6 +1692,10 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
                 if (!targetId || !reason) return;
                 setLabNeedsPrompt({ open: false, cardId: null });
                 setLabNeedsAttentionReasons((prev) => ({ ...prev, [targetId]: reason }));
+                setIssueReasons((prev) => ({
+                  ...prev,
+                  [targetId]: [...(prev[targetId] ?? []), reason],
+                }));
                 setLabStatusOverrides((prev) => ({ ...prev, [targetId]: 'review' }));
                 setLabReturnHighlights((prev) => {
                   if (!prev[targetId]) return prev;
