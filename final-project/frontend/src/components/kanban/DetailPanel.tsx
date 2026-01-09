@@ -155,9 +155,6 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
                   <ClipboardList className="w-3 h-3" /> Sample status:
                 </span>
                 <span className="text-sm text-foreground">{sampleLabel}</span>
-                {card.issueReason && sampleLabel.toLowerCase().includes('issues') && (
-                  <span className="text-sm text-destructive">Issue: {card.issueReason}</span>
-                )}
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-sm text-muted-foreground flex items-center gap-1">
@@ -169,6 +166,16 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
                   <span className="text-sm text-foreground">{analysisBadge.label}</span>
                 )}
               </div>
+              {(card.issueReason || card.returnNote) && (
+                <div className="space-y-1">
+                  {card.issueReason && (
+                    <div className="text-sm text-muted-foreground">Issue: {card.issueReason}</div>
+                  )}
+                  {card.returnNote && (
+                    <div className="text-sm text-muted-foreground">Return note: {card.returnNote}</div>
+                  )}
+                </div>
+              )}
               {role === 'admin' && (
                 <div className="flex items-center gap-3">
                   <span className="text-sm text-muted-foreground flex items-center gap-1">

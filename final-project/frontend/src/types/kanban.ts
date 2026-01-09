@@ -40,6 +40,7 @@ export interface KanbanCard {
   issueReason?: string;
   returnedFromAdmin?: boolean;
   returnedToWarehouse?: boolean;
+  returnNote?: string;
 }
 
 export interface NewCardPayload {

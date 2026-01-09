@@ -22,6 +22,8 @@ const METHOD_BLACKLIST = ['fsf', 'dadq'];
 const LAB_OVERRIDES_KEY = 'labsync-lab-overrides';
 const LAB_RETURN_KEY = 'labsync-lab-returned';
 const WAREHOUSE_RETURN_KEY = 'labsync-warehouse-returned';
+const ADMIN_RETURN_KEY = 'labsync-admin-return-notes';
+const ISSUE_REASON_KEY = 'labsync-issue-reasons';
 const SHOW_LAB_COMPLETED_MOCK = true;
 
 const roleCopy: Record<Role, string> = {
@@ -94,6 +96,24 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     if (typeof window === 'undefined') return {};
     try {
       const raw = localStorage.getItem(WAREHOUSE_RETURN_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+  const [adminReturnNotes, setAdminReturnNotes] = useState<Record<string, string>>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const raw = localStorage.getItem(ADMIN_RETURN_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+  const [issueReasons, setIssueReasons] = useState<Record<string, string>>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const raw = localStorage.getItem(ISSUE_REASON_KEY);
       return raw ? JSON.parse(raw) : {};
     } catch {
       return {};
@@ -212,11 +232,21 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     if (typeof window === 'undefined') return;
     localStorage.setItem(WAREHOUSE_RETURN_KEY, JSON.stringify(warehouseReturnHighlights));
   }, [warehouseReturnHighlights]);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(ADMIN_RETURN_KEY, JSON.stringify(adminReturnNotes));
+  }, [adminReturnNotes]);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(ISSUE_REASON_KEY, JSON.stringify(issueReasons));
+  }, [issueReasons]);
 
   const setLabReturnState = (sampleId: string, status: KanbanCard['status']) => {
     setLabStatusOverrides((prev) => ({ ...prev, [sampleId]: status }));
     setLabReturnHighlights((prev) => ({ ...prev, [sampleId]: true }));
   };
+  const [adminReturnPrompt, setAdminReturnPrompt] = useState<{ open: boolean; card: KanbanCard | null }>({ open: false, card: null });
+  const [adminReturnNote, setAdminReturnNote] = useState('');
 
   const filterCards = useCallback(
     (list: KanbanCard[]) => {
@@ -310,6 +340,8 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         }
         bySample.set(sample.sampleId, {
           ...sample,
+          returnNote: adminReturnNotes[sample.sampleId],
+          issueReason: issueReasons[sample.sampleId],
           analysisType: 'Sample',
           status: initialStatus,
           statusLabel: columnConfigByRole[role]?.find((c) => c.id === initialStatus)?.title ?? 'Planned',
@@ -359,12 +391,15 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
           card.analysisStatus = toAnalysisStatus(overrideStatus);
         }
         if (card.status === 'review') {
-          const reason = labNeedsAttentionReasons[card.sampleId];
+          const reason = labNeedsAttentionReasons[card.sampleId] ?? issueReasons[card.sampleId];
           if (reason) {
             card.issueReason = reason;
           }
         }
         card.returnedFromAdmin = Boolean(labReturnHighlights[card.sampleId]);
+        if (adminReturnNotes[card.sampleId]) {
+          card.returnNote = adminReturnNotes[card.sampleId];
+        }
       });
       // remove cards that have no methods (e.g., all filtered out)
       let cardsWithMethods = [...bySample.values()].filter((c) => c.methods && c.methods.length > 0);
@@ -441,10 +476,16 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       // Lab needs attention (mirror lab view with current filters)
       const labMap = new Map<string, KanbanCard>();
       withComments(cards).forEach((sample) => {
+        const adminIssueReason =
+          issueReasons[sample.sampleId] ??
+          sample.issueReason ??
+          labNeedsAttentionReasons[sample.sampleId];
         const delInfo = deletedByCard[sample.sampleId];
         if (delInfo) {
           deletedCards.push({
             ...sample,
+            returnNote: adminReturnNotes[sample.sampleId],
+            issueReason: adminIssueReason,
             analysisType: 'Sample',
             status: 'new',
             statusLabel: columnConfigByRole.admin.find((c) => c.id === 'new')?.title ?? 'Deleted',
@@ -459,6 +500,8 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         if (sample.status === 'done') {
           adminCards.push({
             ...sample,
+            returnNote: adminReturnNotes[sample.sampleId],
+            issueReason: adminIssueReason,
             analysisType: 'Sample',
             status: 'done',
             statusLabel: getAdminStatusLabel(sample, 'done'),
@@ -476,6 +519,8 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         const initialStatus: KanbanCard['status'] = 'new';
         labMap.set(sample.sampleId, {
           ...sample,
+          returnNote: adminReturnNotes[sample.sampleId],
+          issueReason: adminIssueReason,
           analysisType: 'Sample',
           status: initialStatus,
           statusLabel: columnConfigByRole.lab_operator.find((c) => c.id === initialStatus)?.title ?? 'Planned',
@@ -498,6 +543,9 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         card.status = aggStatus;
         card.statusLabel = columnConfigByRole.lab_operator.find((c) => c.id === aggStatus)?.title ?? card.statusLabel;
         card.allMethodsDone = allDone;
+        if (adminReturnNotes[card.sampleId]) {
+          card.returnNote = adminReturnNotes[card.sampleId];
+        }
         const overrideStatus = labStatusOverrides[card.sampleId];
         if (overrideStatus) {
           card.status = overrideStatus;
@@ -505,7 +553,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
           card.analysisStatus = toAnalysisStatus(overrideStatus);
         }
         if (card.status === 'review') {
-          const reason = labNeedsAttentionReasons[card.sampleId];
+          const reason = labNeedsAttentionReasons[card.sampleId] ?? issueReasons[card.sampleId];
           if (reason) {
             card.issueReason = reason;
           }
@@ -590,11 +638,12 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       const decorated = withComments(visibleCards).map((card) => ({
         ...card,
         returnedToWarehouse: Boolean(warehouseReturnHighlights[card.sampleId]),
+        issueReason: issueReasons[card.sampleId] ?? card.issueReason,
       }));
       return getColumnData(filterCards(decorated), role);
     }
     return getColumnData(filterCards(withComments(visibleCards)), role);
-  }, [cards, plannedAnalyses, actionBatches, conflicts, role, filterCards, methodFilter, assignedOnly, incompleteOnly, commentsByCard, user?.fullName, deletedByCard, labStatusOverrides, labNeedsAttentionReasons, labReturnHighlights, warehouseReturnHighlights]);
+  }, [cards, plannedAnalyses, actionBatches, conflicts, role, filterCards, methodFilter, assignedOnly, incompleteOnly, commentsByCard, user?.fullName, deletedByCard, labStatusOverrides, labNeedsAttentionReasons, labReturnHighlights, warehouseReturnHighlights, adminReturnNotes, issueReasons]);
 
   const statusBadgeMode =
     role === 'lab_operator'
@@ -614,7 +663,15 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
           .map((pa) => ({ id: pa.id, name: pa.analysisType, status: pa.status, assignedTo: pa.assignedTo })),
       ) || [];
     const mergedMethods = card.methods?.length ? mergeMethods(card.methods) : methodsFromAnalyses;
-    setSelectedCard({ ...card, methods: mergedMethods, comments: commentsByCard[card.sampleId] ?? [] });
+    const issueReason = card.issueReason ?? issueReasons[card.sampleId] ?? labNeedsAttentionReasons[card.sampleId];
+    const returnNote = card.returnNote ?? adminReturnNotes[card.sampleId];
+    setSelectedCard({
+      ...card,
+      methods: mergedMethods,
+      comments: commentsByCard[card.sampleId] ?? [],
+      issueReason,
+      returnNote,
+    });
     setIsPanelOpen(true);
   };
   
@@ -930,6 +987,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
           : c,
       ),
     );
+    setIssueReasons((prev) => ({ ...prev, [issuePrompt.card.sampleId]: issueReason.trim() }));
     if (selectedCard?.id === targetId) {
       setSelectedCard({ ...selectedCard, status: 'done', statusLabel: columnConfigByRole[role]?.find((col) => col.id === 'done')?.title ?? selectedCard.statusLabel, issueReason: issueReason.trim() });
     }
@@ -1400,15 +1458,8 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
                       ? {
                           onResolve: (card: KanbanCard) => handleSampleFieldUpdate(card.sampleId, { status: 'done' }),
                           onReturn: (card: KanbanCard) => {
-                            if (card.status === 'done') {
-                              const warehouseStatus =
-                                card.storageLocation && card.storageLocation.trim() ? 'review' : 'progress';
-                              handleSampleFieldUpdate(card.sampleId, { status: warehouseStatus });
-                              setWarehouseReturnHighlights((prev) => ({ ...prev, [card.sampleId]: true }));
-                            }
-                            const methods = plannedAnalyses.filter((pa) => pa.sampleId === card.sampleId);
-                            const hasDone = methods.some((m) => m.status === 'completed');
-                            setLabReturnState(card.sampleId, hasDone ? 'progress' : 'new');
+                            setAdminReturnPrompt({ open: true, card });
+                            setAdminReturnNote(adminReturnNotes[card.sampleId] ?? '');
                           },
                         }
                       : {}),
@@ -1686,6 +1737,51 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
             </Button>
             <Button onClick={confirmIssueReason} disabled={!issueReason.trim()}>
               Move to Issues
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={adminReturnPrompt.open} onOpenChange={(open) => setAdminReturnPrompt({ open, card: open ? adminReturnPrompt.card : null })}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Return for analysis</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">What was done? This note will appear on the admin card.</p>
+          <Textarea
+            autoFocus
+            placeholder="Explanation"
+            value={adminReturnNote}
+            onChange={(e) => setAdminReturnNote(e.target.value)}
+            className="min-h-[96px]"
+          />
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setAdminReturnPrompt({ open: false, card: null })}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                const target = adminReturnPrompt.card;
+                const note = adminReturnNote.trim();
+                if (!target || !note) return;
+                setAdminReturnNotes((prev) => ({ ...prev, [target.sampleId]: note }));
+                setAdminReturnPrompt({ open: false, card: null });
+                setAdminReturnNote('');
+                if (target.status === 'done') {
+                  const warehouseStatus =
+                    target.storageLocation && target.storageLocation.trim() ? 'review' : 'progress';
+                  handleSampleFieldUpdate(target.sampleId, { status: warehouseStatus });
+                  setWarehouseReturnHighlights((prev) => ({ ...prev, [target.sampleId]: true }));
+                }
+                const methods = plannedAnalyses.filter((pa) => pa.sampleId === target.sampleId);
+                const hasDone = methods.some((m) => m.status === 'completed');
+                setLabReturnState(target.sampleId, hasDone ? 'progress' : 'new');
+                if (selectedCard?.sampleId === target.sampleId) {
+                  setSelectedCard({ ...selectedCard, returnNote: note });
+                }
+              }}
+              disabled={!adminReturnNote.trim()}
+            >
+              Return for analysis
             </Button>
           </DialogFooter>
         </DialogContent>
