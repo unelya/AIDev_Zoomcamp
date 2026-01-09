@@ -52,6 +52,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
   const [storagePrompt, setStoragePrompt] = useState<{ open: boolean; sampleId: string | null }>({ open: false, sampleId: null });
   const [storageValue, setStorageValue] = useState({ fridge: '', bin: '', place: '' });
   const [storageError, setStorageError] = useState('');
+  const [arrivalPrompt, setArrivalPrompt] = useState<{ open: boolean; card: KanbanCard | null }>({ open: false, card: null });
   const [deletePrompt, setDeletePrompt] = useState<{ open: boolean; card: KanbanCard | null }>({ open: false, card: null });
   const [deleteReason, setDeleteReason] = useState('');
   const isAdminUser = user?.role === 'admin';
@@ -67,6 +68,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       return {};
     }
   });
+  const [labStatusOverrides, setLabStatusOverrides] = useState<Record<string, KanbanCard['status']>>({});
   const storageFormatRegex = /^Fridge\s+[A-Za-z0-9]+\s*·\s*Bin\s+[A-Za-z0-9]+\s*·\s*Place\s+[A-Za-z0-9]+$/;
   const isValidStorageLocation = (value: string) => storageFormatRegex.test(value.trim());
   const formatStorageLocation = (parts: { fridge: string; bin: string; place: string }) =>
@@ -248,7 +250,10 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     if (role === 'lab_operator') {
       const bySample = new Map<string, KanbanCard>();
       withComments(visibleCards).forEach((sample) => {
-        const initialStatus = sample.status;
+        if (sample.status !== 'review') {
+          return;
+        }
+        const initialStatus = 'new';
         if (role !== 'admin' && deletedByCard[sample.sampleId]) {
           return;
         }
@@ -295,6 +300,12 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         if (wasReview) {
           card.status = 'review';
           card.statusLabel = columnConfigByRole[role]?.find((c) => c.id === 'review')?.title ?? 'Needs attention';
+        }
+        const overrideStatus = labStatusOverrides[card.sampleId];
+        if (overrideStatus) {
+          card.status = overrideStatus;
+          card.statusLabel = columnConfigByRole[role]?.find((c) => c.id === overrideStatus)?.title ?? card.statusLabel;
+          card.analysisStatus = toAnalysisStatus(overrideStatus);
         }
       });
       // remove cards that have no methods (e.g., all filtered out)
@@ -473,7 +484,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       return getColumnData(filterCards(cardsWithComments), role);
     }
     return getColumnData(filterCards(withComments(visibleCards)), role);
-  }, [cards, plannedAnalyses, actionBatches, conflicts, role, filterCards, methodFilter, assignedOnly, incompleteOnly, commentsByCard, user?.fullName, deletedByCard]);
+  }, [cards, plannedAnalyses, actionBatches, conflicts, role, filterCards, methodFilter, assignedOnly, incompleteOnly, commentsByCard, user?.fullName, deletedByCard, labStatusOverrides]);
 
   const statusBadgeMode =
     role === 'lab_operator'
@@ -502,12 +513,70 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     setTimeout(() => setSelectedCard(null), 300);
   };
 
+  const applySampleStatusChange = (cardId: string, columnId: KanbanCard['status']) => {
+    const prevCard = cards.find((c) => c.id === cardId);
+    if (prevCard) {
+      setUndoStack((prev) => [
+        ...prev.slice(-19),
+        { kind: 'sample', sampleId: prevCard.sampleId, prev: { status: prevCard.status, statusLabel: prevCard.statusLabel } },
+      ]);
+    }
+    setCards((prev) =>
+      prev.map((card) =>
+        card.id === cardId
+          ? {
+              ...card,
+              status: columnId,
+              statusLabel: columns.find((c) => c.id === columnId)?.title ?? card.statusLabel,
+            }
+          : card,
+      ),
+    );
+    updateSampleStatus(cardId, columnId)
+      .then((updated) => {
+        if (role === 'warehouse_worker' && columnId === 'review') {
+          ensureAnalyses(updated.sampleId, plannedAnalyses, setPlannedAnalyses, analysisTypes);
+        }
+      })
+      .catch((err) =>
+        toast({
+          title: "Failed to update sample",
+          description: err instanceof Error ? err.message : "Backend unreachable",
+          variant: "destructive",
+        }),
+      );
+  };
+
   const handleDropToColumn = (columnId: KanbanCard['status']) => (cardId: string) => {
+    if (role === 'warehouse_worker') {
+      const target = cards.find((c) => c.id === cardId);
+      if (target?.status === 'done') {
+        toast({
+          title: 'Locked in Issues',
+          description: 'Samples in Issues cannot be moved by Warehouse.',
+          variant: 'default',
+        });
+        return;
+      }
+      if (target?.status === 'review' && columnId !== 'done') {
+        toast({
+          title: 'Stored is final',
+          description: 'Stored samples can only move to Issues.',
+          variant: 'default',
+        });
+        return;
+      }
+    }
     if (role === 'warehouse_worker' && columnId === 'review') {
       const target = cards.find((c) => c.id === cardId);
+      if (target?.status === 'new') {
+        setArrivalPrompt({ open: true, card: target });
+        return;
+      }
       if (target && !target.storageLocation) {
         setStoragePrompt({ open: true, sampleId: target.sampleId });
-        setStorageValue(target.storageLocation ?? '');
+        setStorageValue({ fridge: '', bin: '', place: '' });
+        setStorageError('');
         return;
       }
     }
@@ -551,78 +620,20 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       return;
     }
 
-    // Lab operator: aggregated sample cards; block forbidden moves, never change method statuses via drag
+    // Lab operator: allow board-only moves without touching warehouse status
     if (role === 'lab_operator') {
-      const sampleAnalyses = plannedAnalyses.filter((pa) => pa.sampleId === cardId);
-      const allDone = sampleAnalyses.length > 0 && sampleAnalyses.every((pa) => pa.status === 'completed');
-      const currentCard = cards.find((c) => c.id === cardId);
-      // allow moving into review; block moving out of review for lab-only users (no admin)
-      if (currentCard?.status === 'review' && columnId !== 'review' && user?.role !== 'admin') {
-        toast({
-          title: "Locked in Needs attention",
-          description: "This card must stay in Needs attention until an admin clears it.",
-          variant: "default",
+      setLabStatusOverrides((prev) => ({ ...prev, [cardId]: columnId }));
+      if (selectedCard?.id === cardId) {
+        setSelectedCard({
+          ...selectedCard,
+          status: columnId,
+          statusLabel: columns.find((c) => c.id === columnId)?.title ?? selectedCard.statusLabel,
         });
-        return;
       }
-      if (columnId === 'done') {
-        toast({
-          title: "Cannot move to Completed",
-          description: "Completion will be handled automatically when ready.",
-          variant: "default",
-        });
-        return;
-      }
-      if (columnId === 'new') {
-        toast({
-          title: "Cannot move to Planned",
-          description: "In-progress items stay active; send to Needs attention if required.",
-          variant: "default",
-        });
-        return;
-      }
-      if (allDone && (columnId === 'done' || columnId === 'new')) {
-        toast({
-          title: "Auto-complete only",
-          description: "All methods are done; move only to Needs attention if required.",
-          variant: "default",
-        });
-        return;
-      }
-      // Do not adjust method statuses on drag; only move the sample card
+      return;
     }
 
-    const prevCard = cards.find((c) => c.id === cardId);
-    if (prevCard) {
-      setUndoStack((prev) => [
-        ...prev.slice(-19),
-        { kind: 'sample', sampleId: prevCard.sampleId, prev: { status: prevCard.status, statusLabel: prevCard.statusLabel } },
-      ]);
-    }
-    setCards((prev) =>
-      prev.map((card) =>
-        card.id === cardId
-          ? {
-              ...card,
-              status: columnId,
-              statusLabel: columns.find((c) => c.id === columnId)?.title ?? card.statusLabel,
-            }
-          : card,
-      ),
-    );
-    updateSampleStatus(cardId, columnId)
-      .then((updated) => {
-        if (role === 'warehouse_worker' && columnId === 'review') {
-        ensureAnalyses(updated.sampleId, plannedAnalyses, setPlannedAnalyses, analysisTypes);
-        }
-      })
-      .catch((err) =>
-        toast({
-          title: "Failed to update sample",
-          description: err instanceof Error ? err.message : "Backend unreachable",
-          variant: "destructive",
-        }),
-      );
+    applySampleStatusChange(cardId, columnId);
   };
 
   const handleSave = async () => {
@@ -1312,6 +1323,35 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
               disabled={!storageValue.fridge.trim() || !storageValue.bin.trim() || !storageValue.place.trim()}
             >
               Save & Store
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={arrivalPrompt.open} onOpenChange={(open) => setArrivalPrompt({ open, card: open ? arrivalPrompt.card : null })}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Did the sample arrive?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">Confirm arrival before moving the sample to Stored.</p>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setArrivalPrompt({ open: false, card: null })}>
+              No
+            </Button>
+            <Button
+              onClick={() => {
+                const target = arrivalPrompt.card;
+                setArrivalPrompt({ open: false, card: null });
+                if (!target) return;
+                if (target.storageLocation && target.storageLocation.trim()) {
+                  applySampleStatusChange(target.sampleId, 'review');
+                  return;
+                }
+                setStorageValue({ fridge: '', bin: '', place: '' });
+                setStorageError('');
+                setStoragePrompt({ open: true, sampleId: target.sampleId });
+              }}
+            >
+              Yes
             </Button>
           </DialogFooter>
         </DialogContent>
