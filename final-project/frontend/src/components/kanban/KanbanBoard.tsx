@@ -980,6 +980,14 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       const target =
         columns.flatMap((c) => c.cards).find((c) => c.id === cardId || c.sampleId === cardId) ??
         cards.find((c) => c.id === cardId || c.sampleId === cardId);
+      if (target && target.analysisType === 'Sample' && ((target.status === 'done' && columnId === 'review') || (target.status === 'review' && columnId === 'done'))) {
+        toast({
+          title: 'Invalid move',
+          description: 'Issues and Needs attention cannot be swapped directly.',
+          variant: 'default',
+        });
+        return;
+      }
       if (target && target.analysisType === 'Sample' && (target.status === 'done' || target.status === 'review') && columnId === 'done') {
         handleAdminStoreNotResolved(target);
         return;
