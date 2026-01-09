@@ -12,6 +12,7 @@ interface KanbanCardProps {
   showStatusActions?: boolean;
   statusBadgeMode?: 'sample' | 'analysis' | 'column';
   statusLineMode?: 'analysis' | 'sample' | 'both';
+  analysisLabelMode?: 'analysis' | 'column';
   showConflictStatus?: boolean;
   conflictStatusLabel?: string;
   adminActions?: {
@@ -23,7 +24,7 @@ interface KanbanCardProps {
   };
 }
 
-export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adminActions, showStatusActions = false, statusBadgeMode = 'sample', statusLineMode = 'analysis', showConflictStatus = false, conflictStatusLabel = 'Conflict status' }: KanbanCardProps) {
+export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adminActions, showStatusActions = false, statusBadgeMode = 'sample', statusLineMode = 'analysis', analysisLabelMode = 'analysis', showConflictStatus = false, conflictStatusLabel = 'Conflict status' }: KanbanCardProps) {
   const METHOD_ORDER = ['SARA', 'IR', 'Mass Spectrometry', 'Viscosity'];
   const methodRank = (name: string) => {
     const idx = METHOD_ORDER.findIndex((m) => m.toLowerCase() === name.toLowerCase());
@@ -37,6 +38,9 @@ export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adm
       return ia - ib;
     });
   const analysisBadge = (() => {
+    if (analysisLabelMode === 'column') {
+      return { status: card.status, label: card.statusLabel };
+    }
     const normalized = card.analysisStatus?.toLowerCase() ?? 'planned';
     switch (normalized) {
       case 'in_progress':

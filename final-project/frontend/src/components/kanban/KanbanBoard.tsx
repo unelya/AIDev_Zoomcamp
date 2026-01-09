@@ -168,13 +168,18 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         ...(updatedCard ?? {}),
         methods: methodsFromAnalyses.length > 0 ? methodsFromAnalyses : selectedCard.methods,
       };
+      if (role === 'lab_operator' && selectedCard.analysisType === 'Sample') {
+        merged.status = selectedCard.status;
+        merged.statusLabel = selectedCard.statusLabel;
+        merged.analysisStatus = selectedCard.analysisStatus;
+      }
       if (merged.methods) {
         const { allDone } = aggregateStatus(merged.methods, merged.status);
         merged.allMethodsDone = allDone;
       }
       setSelectedCard(merged);
     }
-  }, [cards, plannedAnalyses, selectedCard]);
+  }, [cards, plannedAnalyses, role, selectedCard]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -431,6 +436,9 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
           card.returnNote = notes[notes.length - 1];
           card.returnNotes = notes;
         }
+        card.statusLabel =
+          columnConfigByRole.lab_operator.find((c) => c.id === card.status)?.title ?? card.statusLabel;
+        card.analysisStatus = toAnalysisStatus(card.status);
       });
       // remove cards that have no methods (e.g., all filtered out)
       let cardsWithMethods = [...bySample.values()].filter((c) => c.methods && c.methods.length > 0);
@@ -702,6 +710,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       ? 'column'
       : 'sample';
   const statusLineMode = role === 'lab_operator' ? 'sample' : role === 'action_supervision' || role === 'admin' ? 'both' : 'analysis';
+  const analysisLabelMode = role === 'lab_operator' ? 'column' : 'analysis';
   const showConflictStatus = role === 'admin' || role === 'action_supervision';
   const conflictStatusLabel = showConflictStatus ? 'Conflict' : 'Conflict status';
   const handleCardClick = (card: KanbanCard) => {
@@ -1505,6 +1514,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
             showStatusActions={role === 'admin'}
             statusBadgeMode={statusBadgeMode}
             statusLineMode={statusLineMode}
+            analysisLabelMode={analysisLabelMode}
             showConflictStatus={showConflictStatus}
             conflictStatusLabel={conflictStatusLabel}
             adminActions={

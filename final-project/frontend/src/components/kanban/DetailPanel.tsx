@@ -45,6 +45,9 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
     return idx >= 0 ? idx : METHOD_ORDER.length + 100 + name.toLowerCase().charCodeAt(0);
   };
   const analysisBadge = (() => {
+    if (role === 'lab_operator') {
+      return { status: card.status, label: card.statusLabel || 'Planned' };
+    }
     const normalized = card.analysisStatus?.toLowerCase() ?? 'planned';
     switch (normalized) {
       case 'in_progress':

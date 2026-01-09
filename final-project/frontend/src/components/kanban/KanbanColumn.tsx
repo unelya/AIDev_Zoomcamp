@@ -14,6 +14,7 @@ interface KanbanColumnProps {
   showStatusActions?: boolean;
   statusBadgeMode?: 'sample' | 'analysis' | 'column';
   statusLineMode?: 'analysis' | 'sample' | 'both';
+  analysisLabelMode?: 'analysis' | 'column';
   showConflictStatus?: boolean;
   conflictStatusLabel?: string;
   adminActions?: {
@@ -32,7 +33,7 @@ const columnColors = {
   done: 'border-t-status-done',
 };
 
-export function KanbanColumn({ column, onCardClick, onDropCard, showAdd = false, onAdd, onToggleMethod, lockNeedsAttention = false, adminActions, showStatusActions = false, statusBadgeMode = 'sample', statusLineMode = 'analysis', showConflictStatus = false, conflictStatusLabel }: KanbanColumnProps) {
+export function KanbanColumn({ column, onCardClick, onDropCard, showAdd = false, onAdd, onToggleMethod, lockNeedsAttention = false, adminActions, showStatusActions = false, statusBadgeMode = 'sample', statusLineMode = 'analysis', analysisLabelMode = 'analysis', showConflictStatus = false, conflictStatusLabel }: KanbanColumnProps) {
   const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     const cardId = event.dataTransfer.getData('text/plain');
@@ -70,6 +71,7 @@ export function KanbanColumn({ column, onCardClick, onDropCard, showAdd = false,
             showStatusActions={showStatusActions}
             statusBadgeMode={statusBadgeMode}
             statusLineMode={statusLineMode}
+            analysisLabelMode={analysisLabelMode}
             showConflictStatus={showConflictStatus}
             conflictStatusLabel={conflictStatusLabel}
             adminActions={
