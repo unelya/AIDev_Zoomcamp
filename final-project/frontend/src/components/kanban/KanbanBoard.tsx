@@ -24,6 +24,7 @@ const LAB_RETURN_KEY = 'labsync-lab-returned';
 const WAREHOUSE_RETURN_KEY = 'labsync-warehouse-returned';
 const ADMIN_RETURN_KEY = 'labsync-admin-return-notes';
 const ISSUE_REASON_KEY = 'labsync-issue-reasons';
+const ADMIN_STORED_KEY = 'labsync-admin-stored';
 const SHOW_LAB_COMPLETED_MOCK = true;
 
 const roleCopy: Record<Role, string> = {
@@ -133,6 +134,15 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         }
       });
       return normalized;
+    } catch {
+      return {};
+    }
+  });
+  const [adminStoredByCard, setAdminStoredByCard] = useState<Record<string, boolean>>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const raw = localStorage.getItem(ADMIN_STORED_KEY);
+      return raw ? JSON.parse(raw) : {};
     } catch {
       return {};
     }
@@ -263,6 +273,10 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     if (typeof window === 'undefined') return;
     localStorage.setItem(ISSUE_REASON_KEY, JSON.stringify(issueReasons));
   }, [issueReasons]);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(ADMIN_STORED_KEY, JSON.stringify(adminStoredByCard));
+  }, [adminStoredByCard]);
 
   const setLabReturnState = (sampleId: string, status: KanbanCard['status']) => {
     setLabStatusOverrides((prev) => ({ ...prev, [sampleId]: status }));
@@ -308,7 +322,10 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       return assignee.trim().toLowerCase() === userName;
     };
     // Only Admin board can see deleted cards; all other boards hide them
-    const visibleCards = role === 'admin' ? cards : cards.filter((c) => !deletedByCard[c.sampleId]);
+    const visibleCards =
+      role === 'admin'
+        ? cards
+        : cards.filter((c) => !deletedByCard[c.sampleId] && !adminStoredByCard[c.sampleId]);
     const withComments = (list: KanbanCard[]) =>
       list.map((c) => ({
         ...c,
@@ -530,10 +547,29 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
             status: 'new',
             statusLabel: columnConfigByRole.admin.find((c) => c.id === 'new')?.title ?? 'Deleted',
             analysisStatus: analysisStatusBySampleId.get(sample.sampleId) ?? sample.analysisStatus,
+            adminStored: false,
             methods: [],
             comments: commentsByCard[sample.sampleId] ?? [],
             allMethodsDone: false,
             deletedReason: delInfo.reason,
+          });
+          return;
+        }
+        if (adminStoredByCard[sample.sampleId]) {
+          adminCards.push({
+            ...sample,
+            returnNote: adminReturnNotes[sample.sampleId]?.slice(-1)[0],
+            returnNotes: adminReturnNotes[sample.sampleId],
+            issueReason: adminIssueReason,
+            issueHistory,
+            analysisType: 'Sample',
+            status: 'done',
+            statusLabel: columnConfigByRole.admin.find((c) => c.id === 'done' && c.title === 'Stored')?.title ?? 'Stored',
+            analysisStatus: analysisStatusBySampleId.get(sample.sampleId) ?? sample.analysisStatus,
+            adminStored: true,
+            methods: [],
+            comments: commentsByCard[sample.sampleId] ?? [],
+            allMethodsDone: false,
           });
           return;
         }
@@ -548,6 +584,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
             status: 'done',
             statusLabel: getAdminStatusLabel(sample, 'done'),
             analysisStatus: analysisStatusBySampleId.get(sample.sampleId) ?? sample.analysisStatus,
+            adminStored: false,
             methods: [],
             comments: commentsByCard[sample.sampleId] ?? [],
             allMethodsDone: false,
@@ -569,6 +606,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
           status: initialStatus,
           statusLabel: columnConfigByRole.lab_operator.find((c) => c.id === initialStatus)?.title ?? 'Planned',
           analysisStatus: analysisStatusBySampleId.get(sample.sampleId) ?? sample.analysisStatus,
+          adminStored: false,
           methods: [],
           comments: commentsByCard[sample.sampleId] ?? [],
           allMethodsDone: false,
@@ -750,6 +788,13 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       returnNotes,
     });
     setIsPanelOpen(true);
+  };
+
+  const handleAdminStoreNotResolved = (card: KanbanCard) => {
+    setAdminStoredByCard((prev) => ({ ...prev, [card.sampleId]: true }));
+    if (selectedCard?.sampleId === card.sampleId) {
+      setSelectedCard({ ...selectedCard, adminStored: true });
+    }
   };
   
   const handleClosePanel = () => {
@@ -1537,7 +1582,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
                     isDeleted: (card) => Boolean(deletedByCard[card.sampleId]),
                     ...(role === 'admin'
                       ? {
-                          onResolve: (card: KanbanCard) => handleSampleFieldUpdate(card.sampleId, { status: 'done' }),
+                          onResolve: (card: KanbanCard) => handleAdminStoreNotResolved(card),
                           onReturn: (card: KanbanCard) => {
                             setAdminReturnPrompt({ open: true, card });
                             setAdminReturnNote(getLatestReturnNote(card.sampleId));

@@ -249,7 +249,7 @@ export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adm
                         adminActions.onResolve?.();
                       }}
                     >
-                      Mark as resolved
+                      Stored as not-resolved
                     </button>
                   )}
                   {showStatusActions && adminActions.onReturn && (

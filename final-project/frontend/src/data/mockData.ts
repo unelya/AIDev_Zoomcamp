@@ -123,9 +123,9 @@ export const columnConfigByRole: Record<Role, { id: Status; title: string; filte
     { id: 'done', title: 'Stored' },
   ],
   admin: [
-    { id: 'done', title: 'Issues', filter: (card) => card.status === 'done' },
+    { id: 'done', title: 'Issues', filter: (card) => card.status === 'done' && !card.adminStored },
     { id: 'review', title: 'Needs attention' },
-    { id: 'done', title: 'Stored', filter: () => false },
+    { id: 'done', title: 'Stored', filter: (card) => Boolean(card.adminStored) },
     { id: 'new', title: 'Deleted' },
   ],
 };

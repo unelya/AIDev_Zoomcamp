@@ -199,10 +199,10 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
                 </div>
               )}
             </div>
-            {adminActions && card.status === 'review' && (
+            {adminActions && !card.adminStored && (card.status === 'review' || card.status === 'done') && (
               <div className="flex gap-2">
                 <Button size="sm" variant="secondary" className="bg-emerald-900 text-emerald-100 hover:bg-emerald-800" onClick={() => adminActions.onResolve()}>
-                  Mark as resolved
+                  Stored as not-resolved
                 </Button>
                 <Button size="sm" variant="secondary" className="bg-amber-900 text-amber-100 hover:bg-amber-800" onClick={() => adminActions.onReturn()}>
                   Return for analysis
