@@ -102,7 +102,11 @@ export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adm
       className={cn(
         'kanban-card',
         'border-border/60',
-        allMethodsDone ? 'bg-emerald-900/70 border-emerald-400 shadow-[0_0_0_1px_rgba(16,185,129,0.35)]' : ''
+        allMethodsDone
+          ? 'bg-emerald-900/70 border-emerald-400 shadow-[0_0_0_1px_rgba(16,185,129,0.35)]'
+          : card.returnedFromAdmin
+          ? 'bg-sky-900/50 border-sky-400 shadow-[0_0_0_1px_rgba(56,189,248,0.35)]'
+          : ''
       )}
     >
       <div className="flex items-start justify-between gap-2 mb-2">

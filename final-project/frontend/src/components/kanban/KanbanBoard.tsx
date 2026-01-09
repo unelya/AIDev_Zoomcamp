@@ -19,6 +19,8 @@ import { Textarea } from '@/components/ui/textarea';
 const STORAGE_KEY = 'labsync-kanban-cards';
 const DEFAULT_ANALYSIS_TYPES = ['SARA', 'IR', 'Mass Spectrometry', 'Viscosity'];
 const METHOD_BLACKLIST = ['fsf', 'dadq'];
+const LAB_OVERRIDES_KEY = 'labsync-lab-overrides';
+const LAB_RETURN_KEY = 'labsync-lab-returned';
 const SHOW_LAB_COMPLETED_MOCK = true;
 
 const roleCopy: Record<Role, string> = {
@@ -69,7 +71,24 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       return {};
     }
   });
-  const [labStatusOverrides, setLabStatusOverrides] = useState<Record<string, KanbanCard['status']>>({});
+  const [labStatusOverrides, setLabStatusOverrides] = useState<Record<string, KanbanCard['status']>>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const raw = localStorage.getItem(LAB_OVERRIDES_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+  const [labReturnHighlights, setLabReturnHighlights] = useState<Record<string, boolean>>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const raw = localStorage.getItem(LAB_RETURN_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
   const [labNeedsAttentionReasons, setLabNeedsAttentionReasons] = useState<Record<string, string>>({});
   const [labNeedsPrompt, setLabNeedsPrompt] = useState<{ open: boolean; cardId: string | null }>({ open: false, cardId: null });
   const [labNeedsReason, setLabNeedsReason] = useState('');
@@ -171,6 +190,19 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     if (typeof window === 'undefined') return;
     localStorage.setItem('labsync-deleted', JSON.stringify(deletedByCard));
   }, [deletedByCard]);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(LAB_OVERRIDES_KEY, JSON.stringify(labStatusOverrides));
+  }, [labStatusOverrides]);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(LAB_RETURN_KEY, JSON.stringify(labReturnHighlights));
+  }, [labReturnHighlights]);
+
+  const setLabReturnState = (sampleId: string, status: KanbanCard['status']) => {
+    setLabStatusOverrides((prev) => ({ ...prev, [sampleId]: status }));
+    setLabReturnHighlights((prev) => ({ ...prev, [sampleId]: true }));
+  };
 
   const filterCards = useCallback(
     (list: KanbanCard[]) => {
@@ -254,7 +286,8 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     if (role === 'lab_operator') {
       const bySample = new Map<string, KanbanCard>();
       withComments(visibleCards).forEach((sample) => {
-        if (sample.status !== 'review') {
+        const hasOverride = Boolean(labStatusOverrides[sample.sampleId]) || Boolean(labReturnHighlights[sample.sampleId]);
+        if (sample.status !== 'review' && !hasOverride) {
           return;
         }
         const initialStatus = 'new';
@@ -317,6 +350,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
             card.issueReason = reason;
           }
         }
+        card.returnedFromAdmin = Boolean(labReturnHighlights[card.sampleId]);
       });
       // remove cards that have no methods (e.g., all filtered out)
       let cardsWithMethods = [...bySample.values()].filter((c) => c.methods && c.methods.length > 0);
@@ -421,7 +455,11 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
           });
           return;
         }
-        const initialStatus = sample.status;
+        const hasOverride = Boolean(labStatusOverrides[sample.sampleId]) || Boolean(labReturnHighlights[sample.sampleId]);
+        if (sample.status !== 'review' && !hasOverride) {
+          return;
+        }
+        const initialStatus: KanbanCard['status'] = 'new';
         labMap.set(sample.sampleId, {
           ...sample,
           analysisType: 'Sample',
@@ -446,6 +484,18 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         card.status = aggStatus;
         card.statusLabel = columnConfigByRole.lab_operator.find((c) => c.id === aggStatus)?.title ?? card.statusLabel;
         card.allMethodsDone = allDone;
+        const overrideStatus = labStatusOverrides[card.sampleId];
+        if (overrideStatus) {
+          card.status = overrideStatus;
+          card.statusLabel = columnConfigByRole.lab_operator.find((c) => c.id === overrideStatus)?.title ?? card.statusLabel;
+          card.analysisStatus = toAnalysisStatus(overrideStatus);
+        }
+        if (card.status === 'review') {
+          const reason = labNeedsAttentionReasons[card.sampleId];
+          if (reason) {
+            card.issueReason = reason;
+          }
+        }
       });
       let labCards = [...labMap.values()].filter((c) => c.methods && c.methods.length > 0);
       if (assignedOnly) {
@@ -467,7 +517,12 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       labNeeds
         .filter((c) => c.status !== 'done')
         .forEach((c) =>
-          adminCards.push({ ...c, status: 'review', statusLabel: getAdminStatusLabel(c, 'review') }),
+          adminCards.push({
+            ...c,
+            status: 'review',
+            statusLabel: getAdminStatusLabel(c, 'review'),
+            returnedFromAdmin: false,
+          }),
         );
       deletedCards.forEach((c) => adminCards.push(c));
 
@@ -518,7 +573,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       return getColumnData(filterCards(cardsWithComments), role);
     }
     return getColumnData(filterCards(withComments(visibleCards)), role);
-  }, [cards, plannedAnalyses, actionBatches, conflicts, role, filterCards, methodFilter, assignedOnly, incompleteOnly, commentsByCard, user?.fullName, deletedByCard, labStatusOverrides, labNeedsAttentionReasons]);
+  }, [cards, plannedAnalyses, actionBatches, conflicts, role, filterCards, methodFilter, assignedOnly, incompleteOnly, commentsByCard, user?.fullName, deletedByCard, labStatusOverrides, labNeedsAttentionReasons, labReturnHighlights]);
 
   const statusBadgeMode =
     role === 'lab_operator'
@@ -712,6 +767,12 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         return;
       }
       setLabStatusOverrides((prev) => ({ ...prev, [cardId]: columnId }));
+      setLabReturnHighlights((prev) => {
+        if (!prev[cardId]) return prev;
+        const next = { ...prev };
+        delete next[cardId];
+        return next;
+      });
       if (columnId !== 'review') {
         setLabNeedsAttentionReasons((prev) => {
           const next = { ...prev };
@@ -1028,6 +1089,11 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         const currentStatus = labStatusOverrides[sampleIdFromMethod] ?? labCard?.status;
         if (currentStatus === 'new') {
           setLabStatusOverrides((prev) => ({ ...prev, [sampleIdFromMethod]: 'progress' }));
+          setLabReturnHighlights((prev) => {
+            const next = { ...prev };
+            delete next[sampleIdFromMethod];
+            return next;
+          });
           if (selectedCard?.id === sampleIdFromMethod) {
             setSelectedCard({
               ...selectedCard,
@@ -1035,6 +1101,13 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
               statusLabel: columnConfigByRole.lab_operator.find((c) => c.id === 'progress')?.title ?? selectedCard.statusLabel,
             });
           }
+        } else {
+          setLabReturnHighlights((prev) => {
+            if (!prev[sampleIdFromMethod]) return prev;
+            const next = { ...prev };
+            delete next[sampleIdFromMethod];
+            return next;
+          });
         }
       }
     }
@@ -1291,7 +1364,12 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
                     ...(role === 'admin'
                       ? {
                           onResolve: (card: KanbanCard) => handleSampleFieldUpdate(card.sampleId, { status: 'done' }),
-                          onReturn: (card: KanbanCard) => handleSampleFieldUpdate(card.sampleId, { status: 'progress' }),
+                          onReturn: (card: KanbanCard) => {
+                            handleSampleFieldUpdate(card.sampleId, { status: 'progress' });
+                            const methods = plannedAnalyses.filter((pa) => pa.sampleId === card.sampleId);
+                            const hasDone = methods.some((m) => m.status === 'completed');
+                            setLabReturnState(card.sampleId, hasDone ? 'progress' : 'new');
+                          },
                         }
                       : {}),
                   }
@@ -1462,6 +1540,12 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
                 setLabNeedsPrompt({ open: false, cardId: null });
                 setLabNeedsAttentionReasons((prev) => ({ ...prev, [targetId]: reason }));
                 setLabStatusOverrides((prev) => ({ ...prev, [targetId]: 'review' }));
+                setLabReturnHighlights((prev) => {
+                  if (!prev[targetId]) return prev;
+                  const next = { ...prev };
+                  delete next[targetId];
+                  return next;
+                });
                 if (selectedCard?.id === targetId) {
                   setSelectedCard({
                     ...selectedCard,
