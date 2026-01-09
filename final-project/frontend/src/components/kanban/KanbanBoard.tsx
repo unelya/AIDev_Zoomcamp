@@ -101,20 +101,38 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       return {};
     }
   });
-  const [adminReturnNotes, setAdminReturnNotes] = useState<Record<string, string>>(() => {
+  const [adminReturnNotes, setAdminReturnNotes] = useState<Record<string, string[]>>(() => {
     if (typeof window === 'undefined') return {};
     try {
       const raw = localStorage.getItem(ADMIN_RETURN_KEY);
-      return raw ? JSON.parse(raw) : {};
+      const parsed = raw ? JSON.parse(raw) : {};
+      const normalized: Record<string, string[]> = {};
+      Object.entries(parsed).forEach(([key, value]) => {
+        if (Array.isArray(value)) {
+          normalized[key] = value.filter(Boolean) as string[];
+        } else if (typeof value === 'string' && value.trim()) {
+          normalized[key] = [value.trim()];
+        }
+      });
+      return normalized;
     } catch {
       return {};
     }
   });
-  const [issueReasons, setIssueReasons] = useState<Record<string, string>>(() => {
+  const [issueReasons, setIssueReasons] = useState<Record<string, string[]>>(() => {
     if (typeof window === 'undefined') return {};
     try {
       const raw = localStorage.getItem(ISSUE_REASON_KEY);
-      return raw ? JSON.parse(raw) : {};
+      const parsed = raw ? JSON.parse(raw) : {};
+      const normalized: Record<string, string[]> = {};
+      Object.entries(parsed).forEach(([key, value]) => {
+        if (Array.isArray(value)) {
+          normalized[key] = value.filter(Boolean) as string[];
+        } else if (typeof value === 'string' && value.trim()) {
+          normalized[key] = [value.trim()];
+        }
+      });
+      return normalized;
     } catch {
       return {};
     }
@@ -247,6 +265,10 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
   };
   const [adminReturnPrompt, setAdminReturnPrompt] = useState<{ open: boolean; card: KanbanCard | null }>({ open: false, card: null });
   const [adminReturnNote, setAdminReturnNote] = useState('');
+  const getLatestReturnNote = (sampleId: string) => {
+    const notes = adminReturnNotes[sampleId] ?? [];
+    return notes.length > 0 ? notes[notes.length - 1] : '';
+  };
 
   const filterCards = useCallback(
     (list: KanbanCard[]) => {
@@ -338,10 +360,14 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         if (role !== 'admin' && deletedByCard[sample.sampleId]) {
           return;
         }
+        const issueHistory = issueReasons[sample.sampleId] ?? [];
+        const returnNotes = adminReturnNotes[sample.sampleId] ?? [];
         bySample.set(sample.sampleId, {
           ...sample,
-          returnNote: adminReturnNotes[sample.sampleId],
-          issueReason: issueReasons[sample.sampleId],
+          returnNote: returnNotes[returnNotes.length - 1],
+          issueReason: issueHistory[issueHistory.length - 1],
+          issueHistory,
+          returnNotes,
           analysisType: 'Sample',
           status: initialStatus,
           statusLabel: columnConfigByRole[role]?.find((c) => c.id === initialStatus)?.title ?? 'Planned',
@@ -391,14 +417,19 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
           card.analysisStatus = toAnalysisStatus(overrideStatus);
         }
         if (card.status === 'review') {
-          const reason = labNeedsAttentionReasons[card.sampleId] ?? issueReasons[card.sampleId];
-          if (reason) {
-            card.issueReason = reason;
+          const issueHistory = issueReasons[card.sampleId] ?? [];
+          const fallback = labNeedsAttentionReasons[card.sampleId];
+          const latest = issueHistory[issueHistory.length - 1] ?? fallback;
+          if (latest) {
+            card.issueReason = latest;
+            card.issueHistory = issueHistory.length > 0 ? issueHistory : [latest];
           }
         }
         card.returnedFromAdmin = Boolean(labReturnHighlights[card.sampleId]);
-        if (adminReturnNotes[card.sampleId]) {
-          card.returnNote = adminReturnNotes[card.sampleId];
+        if (adminReturnNotes[card.sampleId]?.length) {
+          const notes = adminReturnNotes[card.sampleId];
+          card.returnNote = notes[notes.length - 1];
+          card.returnNotes = notes;
         }
       });
       // remove cards that have no methods (e.g., all filtered out)
@@ -476,16 +507,19 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       // Lab needs attention (mirror lab view with current filters)
       const labMap = new Map<string, KanbanCard>();
       withComments(cards).forEach((sample) => {
+        const issueHistory = issueReasons[sample.sampleId] ?? [];
         const adminIssueReason =
-          issueReasons[sample.sampleId] ??
+          issueHistory[issueHistory.length - 1] ??
           sample.issueReason ??
           labNeedsAttentionReasons[sample.sampleId];
         const delInfo = deletedByCard[sample.sampleId];
         if (delInfo) {
           deletedCards.push({
             ...sample,
-            returnNote: adminReturnNotes[sample.sampleId],
+            returnNote: adminReturnNotes[sample.sampleId]?.slice(-1)[0],
+            returnNotes: adminReturnNotes[sample.sampleId],
             issueReason: adminIssueReason,
+            issueHistory,
             analysisType: 'Sample',
             status: 'new',
             statusLabel: columnConfigByRole.admin.find((c) => c.id === 'new')?.title ?? 'Deleted',
@@ -500,8 +534,10 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         if (sample.status === 'done') {
           adminCards.push({
             ...sample,
-            returnNote: adminReturnNotes[sample.sampleId],
+            returnNote: adminReturnNotes[sample.sampleId]?.slice(-1)[0],
+            returnNotes: adminReturnNotes[sample.sampleId],
             issueReason: adminIssueReason,
+            issueHistory,
             analysisType: 'Sample',
             status: 'done',
             statusLabel: getAdminStatusLabel(sample, 'done'),
@@ -519,8 +555,10 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         const initialStatus: KanbanCard['status'] = 'new';
         labMap.set(sample.sampleId, {
           ...sample,
-          returnNote: adminReturnNotes[sample.sampleId],
+          returnNote: adminReturnNotes[sample.sampleId]?.slice(-1)[0],
+          returnNotes: adminReturnNotes[sample.sampleId],
           issueReason: adminIssueReason,
+          issueHistory,
           analysisType: 'Sample',
           status: initialStatus,
           statusLabel: columnConfigByRole.lab_operator.find((c) => c.id === initialStatus)?.title ?? 'Planned',
@@ -553,10 +591,18 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
           card.analysisStatus = toAnalysisStatus(overrideStatus);
         }
         if (card.status === 'review') {
-          const reason = labNeedsAttentionReasons[card.sampleId] ?? issueReasons[card.sampleId];
-          if (reason) {
-            card.issueReason = reason;
+          const issueHistory = issueReasons[card.sampleId] ?? [];
+          const fallback = labNeedsAttentionReasons[card.sampleId];
+          const latest = issueHistory[issueHistory.length - 1] ?? fallback;
+          if (latest) {
+            card.issueReason = latest;
+            card.issueHistory = issueHistory.length > 0 ? issueHistory : [latest];
           }
+        }
+        if (adminReturnNotes[card.sampleId]?.length) {
+          const notes = adminReturnNotes[card.sampleId];
+          card.returnNote = notes[notes.length - 1];
+          card.returnNotes = notes;
         }
       });
       let labCards = [...labMap.values()].filter((c) => c.methods && c.methods.length > 0);
@@ -635,11 +681,15 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       return getColumnData(filterCards(cardsWithComments), role);
     }
     if (role === 'warehouse_worker') {
-      const decorated = withComments(visibleCards).map((card) => ({
-        ...card,
-        returnedToWarehouse: Boolean(warehouseReturnHighlights[card.sampleId]),
-        issueReason: issueReasons[card.sampleId] ?? card.issueReason,
-      }));
+      const decorated = withComments(visibleCards).map((card) => {
+        const issueHistory = issueReasons[card.sampleId] ?? [];
+        return {
+          ...card,
+          returnedToWarehouse: Boolean(warehouseReturnHighlights[card.sampleId]),
+          issueReason: issueHistory[issueHistory.length - 1] ?? card.issueReason,
+          issueHistory,
+        };
+      });
       return getColumnData(filterCards(decorated), role);
     }
     return getColumnData(filterCards(withComments(visibleCards)), role);
@@ -663,14 +713,19 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
           .map((pa) => ({ id: pa.id, name: pa.analysisType, status: pa.status, assignedTo: pa.assignedTo })),
       ) || [];
     const mergedMethods = card.methods?.length ? mergeMethods(card.methods) : methodsFromAnalyses;
-    const issueReason = card.issueReason ?? issueReasons[card.sampleId] ?? labNeedsAttentionReasons[card.sampleId];
-    const returnNote = card.returnNote ?? adminReturnNotes[card.sampleId];
+    const issueHistory = issueReasons[card.sampleId] ?? [];
+    const issueReason =
+      card.issueReason ?? issueHistory[issueHistory.length - 1] ?? labNeedsAttentionReasons[card.sampleId];
+    const returnNotes = adminReturnNotes[card.sampleId] ?? [];
+    const returnNote = card.returnNote ?? returnNotes[returnNotes.length - 1];
     setSelectedCard({
       ...card,
       methods: mergedMethods,
       comments: commentsByCard[card.sampleId] ?? [],
       issueReason,
+      issueHistory,
       returnNote,
+      returnNotes,
     });
     setIsPanelOpen(true);
   };
@@ -987,7 +1042,10 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
           : c,
       ),
     );
-    setIssueReasons((prev) => ({ ...prev, [issuePrompt.card.sampleId]: issueReason.trim() }));
+    setIssueReasons((prev) => ({
+      ...prev,
+      [issuePrompt.card.sampleId]: [...(prev[issuePrompt.card.sampleId] ?? []), issueReason.trim()],
+    }));
     if (selectedCard?.id === targetId) {
       setSelectedCard({ ...selectedCard, status: 'done', statusLabel: columnConfigByRole[role]?.find((col) => col.id === 'done')?.title ?? selectedCard.statusLabel, issueReason: issueReason.trim() });
     }
@@ -1459,7 +1517,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
                           onResolve: (card: KanbanCard) => handleSampleFieldUpdate(card.sampleId, { status: 'done' }),
                           onReturn: (card: KanbanCard) => {
                             setAdminReturnPrompt({ open: true, card });
-                            setAdminReturnNote(adminReturnNotes[card.sampleId] ?? '');
+                            setAdminReturnNote(getLatestReturnNote(card.sampleId));
                           },
                         }
                       : {}),
@@ -1763,7 +1821,10 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
                 const target = adminReturnPrompt.card;
                 const note = adminReturnNote.trim();
                 if (!target || !note) return;
-                setAdminReturnNotes((prev) => ({ ...prev, [target.sampleId]: note }));
+                            setAdminReturnNotes((prev) => ({
+                              ...prev,
+                              [target.sampleId]: [...(prev[target.sampleId] ?? []), note],
+                            }));
                 setAdminReturnPrompt({ open: false, card: null });
                 setAdminReturnNote('');
                 if (target.status === 'done') {

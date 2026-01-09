@@ -41,6 +41,8 @@ export interface KanbanCard {
   returnedFromAdmin?: boolean;
   returnedToWarehouse?: boolean;
   returnNote?: string;
+  issueHistory?: string[];
+  returnNotes?: string[];
 }
 
 export interface NewCardPayload {

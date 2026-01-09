@@ -166,14 +166,19 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
                   <span className="text-sm text-foreground">{analysisBadge.label}</span>
                 )}
               </div>
-              {(card.issueReason || card.returnNote) && (
-                <div className="space-y-1">
-                  {card.issueReason && (
-                    <div className="text-sm text-muted-foreground">Issue: {card.issueReason}</div>
-                  )}
-                  {card.returnNote && (
-                    <div className="text-sm text-muted-foreground">Return note: {card.returnNote}</div>
-                  )}
+              {((card.issueHistory && card.issueHistory.length > 0) || (card.returnNotes && card.returnNotes.length > 0) || card.issueReason || card.returnNote) && (
+                <div className="space-y-1 text-sm text-muted-foreground">
+                  {Array.from({ length: Math.max(card.issueHistory?.length ?? 0, card.returnNotes?.length ?? 0, card.issueReason ? 1 : 0, card.returnNote ? 1 : 0) }).map((_, idx) => {
+                    const issue = card.issueHistory?.[idx] ?? (idx === 0 ? card.issueReason : undefined);
+                    const note = card.returnNotes?.[idx] ?? (idx === 0 ? card.returnNote : undefined);
+                    if (!issue && !note) return null;
+                    return (
+                      <div key={`${issue ?? 'issue'}-${note ?? 'note'}-${idx}`} className="flex items-center justify-between gap-3">
+                        <span className="truncate">Issue: {issue ?? '—'}</span>
+                        <span className="truncate text-right">Return note: {note ?? '—'}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
               {role === 'admin' && (
