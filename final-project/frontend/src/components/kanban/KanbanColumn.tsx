@@ -75,10 +75,10 @@ export function KanbanColumn({ column, onCardClick, onDropCard, showAdd = false,
             showConflictStatus={showConflictStatus}
             conflictStatusLabel={conflictStatusLabel}
             adminActions={
-              adminActions && card.analysisType === 'Sample' && !card.adminStored
+              adminActions && card.analysisType === 'Sample'
                 ? {
-                    onResolve: () => adminActions.onResolve(card),
-                    onReturn: () => adminActions.onReturn(card),
+                    onResolve: card.adminStored ? undefined : () => adminActions.onResolve(card),
+                    onReturn: card.adminStored ? undefined : () => adminActions.onReturn(card),
                     onDelete: adminActions.onDelete ? () => adminActions.onDelete!(card) : undefined,
                     onRestore: adminActions.onRestore ? () => adminActions.onRestore!(card) : undefined,
                     isDeleted: adminActions.isDeleted ? adminActions.isDeleted(card) : false,
