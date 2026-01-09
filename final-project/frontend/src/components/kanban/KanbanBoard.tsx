@@ -691,7 +691,11 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
 
       // admin "Resolved" currently unused; leave empty
 
-      let cols = getColumnData(filterCards(adminCards), role);
+      let filteredAdminCards = adminCards;
+      if (methodFilter.length > 0) {
+        filteredAdminCards = adminCards.filter((c) => c.methods?.some((m) => methodFilter.includes(m.name)));
+      }
+      let cols = getColumnData(filterCards(filteredAdminCards), role);
       if (incompleteOnly) {
         cols = cols.map((col) => ({
           ...col,
