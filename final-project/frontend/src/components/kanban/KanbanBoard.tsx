@@ -341,10 +341,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
           return columnConfigByRole.admin.find((c) => c.id === 'progress')?.title ?? 'Conflicts';
         }
         if (status === 'done') {
-          if (card.issueReason?.trim()) {
-            return columnConfigByRole.admin.find((c) => c.id === 'done' && c.title === 'Issues')?.title ?? 'Issues';
-          }
-          return columnConfigByRole.admin.find((c) => c.id === 'done' && c.title === 'Stored')?.title ?? 'Stored';
+          return columnConfigByRole.admin.find((c) => c.id === 'done' && c.title === 'Issues')?.title ?? 'Issues';
         }
         return card.statusLabel;
       };
@@ -430,30 +427,6 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       deletedCards.forEach((c) => adminCards.push(c));
 
       // admin "Resolved" currently unused; leave empty
-
-      // Conflicts same as action supervision
-      // Conflicts mirror action supervision "Conflicts" (unresolved only)
-      conflicts
-        .filter((c) => c.status !== 'resolved')
-        .forEach((c) => {
-          adminCards.push({
-            id: `conflict-${c.id}`,
-            status: 'progress',
-            statusLabel: 'Conflicts',
-            sampleId: `Conflict ${c.id}`,
-            wellId: '',
-            horizon: '',
-            samplingDate: '',
-            storageLocation: '—',
-            analysisType: 'Conflict',
-            assignedTo: 'Action supervisor',
-            analysisStatus: 'review',
-            sampleStatus: 'received',
-            conflictOld: c.old_payload,
-            conflictNew: c.new_payload,
-            conflictResolutionNote: c.resolution_note,
-          });
-        });
 
       let cols = getColumnData(filterCards(adminCards), role);
       if (incompleteOnly) {
