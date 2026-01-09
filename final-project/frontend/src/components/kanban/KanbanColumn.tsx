@@ -17,6 +17,7 @@ interface KanbanColumnProps {
   analysisLabelMode?: 'analysis' | 'column';
   showConflictStatus?: boolean;
   conflictStatusLabel?: string;
+  columnColorClass?: string;
   adminActions?: {
     onResolve?: (card: CardType) => void;
     onReturn?: (card: CardType) => void;
@@ -33,7 +34,7 @@ const columnColors = {
   done: 'border-t-status-done',
 };
 
-export function KanbanColumn({ column, onCardClick, onDropCard, showAdd = false, onAdd, onToggleMethod, lockNeedsAttention = false, adminActions, showStatusActions = false, statusBadgeMode = 'sample', statusLineMode = 'analysis', analysisLabelMode = 'analysis', showConflictStatus = false, conflictStatusLabel }: KanbanColumnProps) {
+export function KanbanColumn({ column, onCardClick, onDropCard, showAdd = false, onAdd, onToggleMethod, lockNeedsAttention = false, adminActions, showStatusActions = false, statusBadgeMode = 'sample', statusLineMode = 'analysis', analysisLabelMode = 'analysis', showConflictStatus = false, conflictStatusLabel, columnColorClass }: KanbanColumnProps) {
   const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     const cardId = event.dataTransfer.getData('text/plain');
@@ -42,7 +43,7 @@ export function KanbanColumn({ column, onCardClick, onDropCard, showAdd = false,
 
   return (
     <div
-      className={cn('kanban-column flex flex-col border-t-2', columnColors[column.id])}
+      className={cn('kanban-column flex flex-col border-t-2', columnColorClass ?? columnColors[column.id])}
       onDragOver={(e) => e.preventDefault()}
       onDrop={handleDrop}
     >

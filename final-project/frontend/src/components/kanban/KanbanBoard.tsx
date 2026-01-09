@@ -1979,6 +1979,19 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
             analysisLabelMode={analysisLabelMode}
             showConflictStatus={showConflictStatus}
             conflictStatusLabel={conflictStatusLabel}
+            columnColorClass={
+              role === 'admin'
+                ? column.title === 'Issues'
+                  ? 'border-t-status-done'
+                  : column.title === 'Needs attention'
+                  ? 'border-t-status-review'
+                  : column.title === 'Stored'
+                  ? 'border-t-status-progress'
+                  : column.title === 'Deleted'
+                  ? 'border-t-status-new'
+                  : undefined
+                : undefined
+            }
             adminActions={
               isAdminUser
                 ? {
