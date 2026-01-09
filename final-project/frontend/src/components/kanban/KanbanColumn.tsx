@@ -23,7 +23,9 @@ interface KanbanColumnProps {
     onReturn?: (card: CardType) => void;
     onDelete?: (card: CardType) => void;
     onRestore?: (card: CardType) => void;
+    onRestoreStored?: (card: CardType) => void;
     isDeleted?: (card: CardType) => boolean;
+    isStored?: (card: CardType) => boolean;
   };
 }
 
@@ -83,6 +85,8 @@ export function KanbanColumn({ column, onCardClick, onDropCard, showAdd = false,
                     onDelete: adminActions.onDelete ? () => adminActions.onDelete!(card) : undefined,
                     onRestore: adminActions.onRestore ? () => adminActions.onRestore!(card) : undefined,
                     isDeleted: adminActions.isDeleted ? adminActions.isDeleted(card) : false,
+                    onRestoreStored: adminActions.onRestoreStored ? () => adminActions.onRestoreStored!(card) : undefined,
+                    isStored: adminActions.isStored ? adminActions.isStored(card) : false,
                   }
                 : undefined
             }

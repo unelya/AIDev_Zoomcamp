@@ -20,7 +20,9 @@ interface KanbanCardProps {
     onReturn?: () => void;
     onDelete?: () => void;
     onRestore?: () => void;
+    onRestoreStored?: () => void;
     isDeleted?: boolean;
+    isStored?: boolean;
   };
 }
 
@@ -95,6 +97,7 @@ export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adm
     adminActions &&
     (adminActions.onDelete ||
       adminActions.onRestore ||
+      adminActions.onRestoreStored ||
       adminActions.onResolve ||
       adminActions.onReturn);
 
@@ -239,6 +242,17 @@ export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adm
                       }}
                     >
                       Delete
+                    </button>
+                  )}
+                  {adminActions.isStored && adminActions.onRestoreStored && (
+                    <button
+                      className="text-[10px] px-2 py-1 rounded bg-emerald-900 text-emerald-100 hover:bg-emerald-800 transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        adminActions.onRestoreStored?.();
+                      }}
+                    >
+                      Restore
                     </button>
                   )}
                   {showStatusActions && adminActions.onResolve && (

@@ -25,6 +25,7 @@ const WAREHOUSE_RETURN_KEY = 'labsync-warehouse-returned';
 const ADMIN_RETURN_KEY = 'labsync-admin-return-notes';
 const ISSUE_REASON_KEY = 'labsync-issue-reasons';
 const ADMIN_STORED_KEY = 'labsync-admin-stored';
+const ADMIN_STORED_SOURCE_KEY = 'labsync-admin-stored-source';
 const SHOW_LAB_COMPLETED_MOCK = true;
 
 const roleCopy: Record<Role, string> = {
@@ -149,6 +150,15 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     if (typeof window === 'undefined') return {};
     try {
       const raw = localStorage.getItem(ADMIN_STORED_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+  const [adminStoredSources, setAdminStoredSources] = useState<Record<string, 'issues' | 'needs_attention'>>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const raw = localStorage.getItem(ADMIN_STORED_SOURCE_KEY);
       return raw ? JSON.parse(raw) : {};
     } catch {
       return {};
@@ -288,6 +298,10 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     if (typeof window === 'undefined') return;
     localStorage.setItem(ADMIN_STORED_KEY, JSON.stringify(adminStoredByCard));
   }, [adminStoredByCard]);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(ADMIN_STORED_SOURCE_KEY, JSON.stringify(adminStoredSources));
+  }, [adminStoredSources]);
   useEffect(() => {
     if (role === 'warehouse_worker' || role === 'action_supervision') {
       setMethodFilter([]);
@@ -845,8 +859,26 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     const prevValue = Boolean(adminStoredByCard[card.sampleId]);
     setUndoStack((prev) => [...prev.slice(-19), { kind: 'adminStored', sampleId: card.sampleId, prev: prevValue }]);
     setAdminStoredByCard((prev) => ({ ...prev, [card.sampleId]: true }));
+    const source = card.status === 'review' ? 'needs_attention' : 'issues';
+    setAdminStoredSources((prev) => ({ ...prev, [card.sampleId]: source }));
     if (selectedCard?.sampleId === card.sampleId) {
       setSelectedCard({ ...selectedCard, adminStored: true });
+    }
+  };
+  const handleAdminStoredRestore = (card: KanbanCard) => {
+    const source = adminStoredSources[card.sampleId] ?? 'issues';
+    setAdminStoredByCard((prev) => {
+      const { [card.sampleId]: _, ...rest } = prev;
+      return rest;
+    });
+    setAdminStoredSources((prev) => {
+      const { [card.sampleId]: _, ...rest } = prev;
+      return rest;
+    });
+    if (source === 'needs_attention') {
+      setLabStatusOverrides((prev) => ({ ...prev, [card.sampleId]: 'review' }));
+    } else {
+      handleSampleFieldUpdate(card.sampleId, { status: 'done' }, { skipUndo: true });
     }
   };
   
@@ -896,7 +928,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       );
   };
 
-  const handleDropToColumn = (columnId: KanbanCard['status']) => (cardId: string) => {
+  const handleDropToColumn = (columnId: KanbanCard['status'], columnTitle?: string) => (cardId: string) => {
     if (role === 'warehouse_worker') {
       const target =
         cards.find((c) => c.id === cardId || c.sampleId === cardId) ??
@@ -980,7 +1012,12 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       const target =
         columns.flatMap((c) => c.cards).find((c) => c.id === cardId || c.sampleId === cardId) ??
         cards.find((c) => c.id === cardId || c.sampleId === cardId);
-      if (target && target.analysisType === 'Sample' && ((target.status === 'done' && columnId === 'review') || (target.status === 'review' && columnId === 'done'))) {
+      if (
+        target &&
+        target.analysisType === 'Sample' &&
+        ((target.status === 'done' && columnId === 'review' && !target.adminStored && columnTitle === 'Needs attention') ||
+          (target.status === 'review' && columnId === 'done' && columnTitle === 'Issues'))
+      ) {
         toast({
           title: 'Invalid move',
           description: 'Issues and Needs attention cannot be swapped directly.',
@@ -988,11 +1025,11 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         });
         return;
       }
-      if (target && target.analysisType === 'Sample' && (target.status === 'done' || target.status === 'review') && columnId === 'done') {
+      if (target && target.analysisType === 'Sample' && (target.status === 'done' || target.status === 'review') && columnId === 'done' && columnTitle === 'Stored') {
         handleAdminStoreNotResolved(target);
         return;
       }
-      if (target && target.analysisType === 'Sample' && columnId === 'new') {
+      if (target && target.analysisType === 'Sample' && columnId === 'new' && columnTitle === 'Deleted') {
         setDeletePrompt({ open: true, card: target });
         setDeleteReason('');
         return;
@@ -1002,11 +1039,41 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         target.analysisType === 'Sample' &&
         target.status === 'done' &&
         (target.adminStored || adminStoredByCard[target.sampleId]) &&
-        (columnId === 'review' || columnId === 'progress')
+        (columnId === 'review' || columnId === 'progress') &&
+        (columnTitle === 'Needs attention' || columnTitle === 'Conflicts')
       ) {
         toast({
           title: 'Cannot move stored item',
-          description: 'Stored samples stay stored; they cannot be moved to Needs attention or Conflicts.',
+          description: columnTitle === 'Needs attention'
+            ? 'Stored samples stay stored; they cannot be moved to Needs attention.'
+            : 'Stored samples stay stored; they cannot be moved to Conflicts.',
+          variant: 'default',
+        });
+        return;
+      }
+      if (
+        target &&
+        target.analysisType === 'Sample' &&
+        target.status === 'done' &&
+        (target.adminStored || adminStoredByCard[target.sampleId]) &&
+        columnTitle === 'Issues'
+      ) {
+        toast({
+          title: 'Cannot move stored item',
+          description: 'Stored samples stay stored; they cannot be moved to Issues.',
+          variant: 'default',
+        });
+        return;
+      }
+      if (
+        target &&
+        target.analysisType === 'Sample' &&
+        deletedByCard[target.sampleId] &&
+        (columnTitle === 'Issues' || columnTitle === 'Needs attention' || columnTitle === 'Stored')
+      ) {
+        toast({
+          title: 'Cannot move deleted item',
+          description: 'Deleted samples can only be restored from the Deleted column.',
           variant: 'default',
         });
         return;
@@ -1976,7 +2043,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
           <KanbanColumn
             column={column}
             onCardClick={handleCardClick}
-            onDropCard={handleDropToColumn(column.id)}
+            onDropCard={handleDropToColumn(column.id, column.title)}
             showAdd={role === 'warehouse_worker' && column.id === 'new'}
             onAdd={() => setNewDialogOpen(true)}
             onToggleMethod={role === 'lab_operator' || role === 'admin' ? toggleMethodStatus : undefined}
@@ -2008,7 +2075,9 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
                       setDeleteReason('');
                     },
                     onRestore: handleRestoreCard,
+                    onRestoreStored: handleAdminStoredRestore,
                     isDeleted: (card) => Boolean(deletedByCard[card.sampleId]),
+                    isStored: (card) => Boolean(adminStoredByCard[card.sampleId]),
                     ...(role === 'admin'
                       ? {
                           onResolve: (card: KanbanCard) => handleAdminStoreNotResolved(card),
