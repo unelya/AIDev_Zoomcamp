@@ -39,6 +39,7 @@ export interface KanbanCard {
   deletedReason?: string;
   issueReason?: string;
   returnedFromAdmin?: boolean;
+  returnedToWarehouse?: boolean;
 }
 
 export interface NewCardPayload {

@@ -106,6 +106,8 @@ export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adm
           ? 'bg-emerald-900/70 border-emerald-400 shadow-[0_0_0_1px_rgba(16,185,129,0.35)]'
           : card.returnedFromAdmin
           ? 'bg-sky-900/50 border-sky-400 shadow-[0_0_0_1px_rgba(56,189,248,0.35)]'
+          : card.returnedToWarehouse
+          ? 'bg-amber-900/50 border-amber-400 shadow-[0_0_0_1px_rgba(251,191,36,0.35)]'
           : ''
       )}
     >

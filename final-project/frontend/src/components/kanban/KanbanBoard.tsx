@@ -21,6 +21,7 @@ const DEFAULT_ANALYSIS_TYPES = ['SARA', 'IR', 'Mass Spectrometry', 'Viscosity'];
 const METHOD_BLACKLIST = ['fsf', 'dadq'];
 const LAB_OVERRIDES_KEY = 'labsync-lab-overrides';
 const LAB_RETURN_KEY = 'labsync-lab-returned';
+const WAREHOUSE_RETURN_KEY = 'labsync-warehouse-returned';
 const SHOW_LAB_COMPLETED_MOCK = true;
 
 const roleCopy: Record<Role, string> = {
@@ -84,6 +85,15 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     if (typeof window === 'undefined') return {};
     try {
       const raw = localStorage.getItem(LAB_RETURN_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+  const [warehouseReturnHighlights, setWarehouseReturnHighlights] = useState<Record<string, boolean>>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const raw = localStorage.getItem(WAREHOUSE_RETURN_KEY);
       return raw ? JSON.parse(raw) : {};
     } catch {
       return {};
@@ -198,6 +208,10 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     if (typeof window === 'undefined') return;
     localStorage.setItem(LAB_RETURN_KEY, JSON.stringify(labReturnHighlights));
   }, [labReturnHighlights]);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(WAREHOUSE_RETURN_KEY, JSON.stringify(warehouseReturnHighlights));
+  }, [warehouseReturnHighlights]);
 
   const setLabReturnState = (sampleId: string, status: KanbanCard['status']) => {
     setLabStatusOverrides((prev) => ({ ...prev, [sampleId]: status }));
@@ -572,8 +586,15 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       const cardsWithComments = withComments([...batchCards, ...conflictCards]);
       return getColumnData(filterCards(cardsWithComments), role);
     }
+    if (role === 'warehouse_worker') {
+      const decorated = withComments(visibleCards).map((card) => ({
+        ...card,
+        returnedToWarehouse: Boolean(warehouseReturnHighlights[card.sampleId]),
+      }));
+      return getColumnData(filterCards(decorated), role);
+    }
     return getColumnData(filterCards(withComments(visibleCards)), role);
-  }, [cards, plannedAnalyses, actionBatches, conflicts, role, filterCards, methodFilter, assignedOnly, incompleteOnly, commentsByCard, user?.fullName, deletedByCard, labStatusOverrides, labNeedsAttentionReasons, labReturnHighlights]);
+  }, [cards, plannedAnalyses, actionBatches, conflicts, role, filterCards, methodFilter, assignedOnly, incompleteOnly, commentsByCard, user?.fullName, deletedByCard, labStatusOverrides, labNeedsAttentionReasons, labReturnHighlights, warehouseReturnHighlights]);
 
   const statusBadgeMode =
     role === 'lab_operator'
@@ -655,6 +676,12 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         });
         return;
       }
+      setWarehouseReturnHighlights((prev) => {
+        if (!prev[cardId]) return prev;
+        const next = { ...prev };
+        delete next[cardId];
+        return next;
+      });
     }
     if (role === 'warehouse_worker' && columnId === 'review') {
       const target = cards.find((c) => c.id === cardId);
@@ -1365,7 +1392,12 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
                       ? {
                           onResolve: (card: KanbanCard) => handleSampleFieldUpdate(card.sampleId, { status: 'done' }),
                           onReturn: (card: KanbanCard) => {
-                            handleSampleFieldUpdate(card.sampleId, { status: 'progress' });
+                            if (card.status === 'done') {
+                              const warehouseStatus =
+                                card.storageLocation && card.storageLocation.trim() ? 'review' : 'progress';
+                              handleSampleFieldUpdate(card.sampleId, { status: warehouseStatus });
+                              setWarehouseReturnHighlights((prev) => ({ ...prev, [card.sampleId]: true }));
+                            }
                             const methods = plannedAnalyses.filter((pa) => pa.sampleId === card.sampleId);
                             const hasDone = methods.some((m) => m.status === 'completed');
                             setLabReturnState(card.sampleId, hasDone ? 'progress' : 'new');
