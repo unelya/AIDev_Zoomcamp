@@ -8,6 +8,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useTheme } from '@/hooks/use-theme';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 const allRoleOptions: { id: Role; label: string }[] = [
   { id: 'warehouse_worker', label: 'Warehouse' },
@@ -22,9 +23,13 @@ interface TopBarProps {
   searchTerm?: string;
   onSearch?: (value: string) => void;
   allowedRoles?: Role[];
+  showNotificationDot?: boolean;
+  notifications?: { id: string; title: string; description?: string }[];
+  onNotificationClick?: (id: string) => void;
+  onMarkAllRead?: () => void;
 }
 
-export function TopBar({ role, onRoleChange, searchTerm, onSearch, allowedRoles }: TopBarProps) {
+export function TopBar({ role, onRoleChange, searchTerm, onSearch, allowedRoles, showNotificationDot = false, notifications = [], onNotificationClick, onMarkAllRead }: TopBarProps) {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const selectableRoles: Role[] =
@@ -89,10 +94,46 @@ export function TopBar({ role, onRoleChange, searchTerm, onSearch, allowedRoles 
             <Moon className="h-5 w-5 text-muted-foreground" />
           )}
         </button>
-        <button className="relative p-2 rounded-md hover:bg-muted transition-colors">
-          <Bell className="h-5 w-5 text-muted-foreground" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-accent rounded-full" />
-        </button>
+        <Popover>
+          <PopoverTrigger asChild>
+            <button className="relative p-2 rounded-md hover:bg-muted transition-colors" aria-label="Notifications">
+              <Bell className="h-5 w-5 text-muted-foreground" />
+              {showNotificationDot && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-accent rounded-full" />}
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-80 p-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-semibold text-foreground">Notifications</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">{notifications.length}</span>
+                {notifications.length > 0 && (
+                  <button
+                    className="text-xs text-primary hover:underline"
+                    onClick={onMarkAllRead}
+                  >
+                    Mark all as read
+                  </button>
+                )}
+              </div>
+            </div>
+            {notifications.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No new notifications.</p>
+            ) : (
+              <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                {notifications.map((note) => (
+                  <button
+                    key={note.id}
+                    className="w-full text-left rounded-md border border-border/60 bg-muted/40 p-2 hover:bg-muted/70 transition-colors"
+                    onClick={() => onNotificationClick?.(note.id)}
+                  >
+                    <p className="text-sm font-medium text-foreground">{note.title}</p>
+                    {note.description && <p className="text-xs text-muted-foreground mt-1">{note.description}</p>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </PopoverContent>
+        </Popover>
         
         <div className="flex items-center gap-3">
           <div className="text-right">

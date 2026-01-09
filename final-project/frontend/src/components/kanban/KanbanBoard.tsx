@@ -26,6 +26,9 @@ const ADMIN_RETURN_KEY = 'labsync-admin-return-notes';
 const ISSUE_REASON_KEY = 'labsync-issue-reasons';
 const ADMIN_STORED_KEY = 'labsync-admin-stored';
 const ADMIN_STORED_SOURCE_KEY = 'labsync-admin-stored-source';
+const CREATED_SAMPLE_KEY = 'labsync-created-samples';
+const WAREHOUSE_PLANNED_READ_KEY = 'labsync-warehouse-planned-read';
+const WAREHOUSE_RETURN_READ_KEY = 'labsync-warehouse-return-read';
 const SHOW_LAB_COMPLETED_MOCK = true;
 
 const roleCopy: Record<Role, string> = {
@@ -35,7 +38,21 @@ const roleCopy: Record<Role, string> = {
   admin: 'Admin view',
 };
 
-export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: string }) {
+export function KanbanBoard({
+  role,
+  searchTerm,
+  onNotificationsChange,
+  notificationClickId,
+  markAllReadToken,
+  onNotificationConsumed,
+}: {
+  role: Role;
+  searchTerm?: string;
+  onNotificationsChange?: (notifications: { id: string; title: string; description?: string }[]) => void;
+  notificationClickId?: string | null;
+  markAllReadToken?: number;
+  onNotificationConsumed?: () => void;
+}) {
   const { user } = useAuth();
   const [cards, setCards] = useState<KanbanCard[]>([]);
   const [plannedAnalyses, setPlannedAnalyses] = useState<PlannedAnalysisCard[]>([]);
@@ -159,6 +176,33 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     if (typeof window === 'undefined') return {};
     try {
       const raw = localStorage.getItem(ADMIN_STORED_SOURCE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+  const [createdSampleIds, setCreatedSampleIds] = useState<Record<string, boolean>>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const raw = localStorage.getItem(CREATED_SAMPLE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+  const [warehousePlannedRead, setWarehousePlannedRead] = useState<Record<string, boolean>>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const raw = localStorage.getItem(WAREHOUSE_PLANNED_READ_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+  const [warehouseReturnRead, setWarehouseReturnRead] = useState<Record<string, boolean>>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const raw = localStorage.getItem(WAREHOUSE_RETURN_READ_KEY);
       return raw ? JSON.parse(raw) : {};
     } catch {
       return {};
@@ -302,6 +346,18 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     if (typeof window === 'undefined') return;
     localStorage.setItem(ADMIN_STORED_SOURCE_KEY, JSON.stringify(adminStoredSources));
   }, [adminStoredSources]);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(CREATED_SAMPLE_KEY, JSON.stringify(createdSampleIds));
+  }, [createdSampleIds]);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(WAREHOUSE_PLANNED_READ_KEY, JSON.stringify(warehousePlannedRead));
+  }, [warehousePlannedRead]);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(WAREHOUSE_RETURN_READ_KEY, JSON.stringify(warehouseReturnRead));
+  }, [warehouseReturnRead]);
   useEffect(() => {
     if (role === 'warehouse_worker' || role === 'action_supervision') {
       setMethodFilter([]);
@@ -783,6 +839,76 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     }
     return getColumnData(filterCards(withComments(visibleCards)), role);
   }, [cards, plannedAnalyses, actionBatches, conflicts, role, filterCards, methodFilter, assignedOnly, incompleteOnly, commentsByCard, user?.fullName, deletedByCard, adminStoredByCard, labStatusOverrides, labNeedsAttentionReasons, labReturnHighlights, warehouseReturnHighlights, adminReturnNotes, issueReasons]);
+
+  useEffect(() => {
+    if (!onNotificationsChange) return;
+    if (role !== 'warehouse_worker') {
+      onNotificationsChange([]);
+      return;
+    }
+    const plannedCards = columns.find((col) => col.id === 'new')?.cards ?? [];
+    const plannedNotes = plannedCards
+      .filter((card) => !createdSampleIds[card.sampleId] && !warehousePlannedRead[card.sampleId])
+      .map((card) => ({
+        id: `planned:${card.sampleId}`,
+        title: 'New planned sample',
+        description: `${card.sampleId} appeared in Planned without using “New sample”.`,
+      }));
+    const returnedNotes = Object.entries(warehouseReturnHighlights)
+      .filter(([, flagged]) => flagged)
+      .filter(([sampleId]) => !warehouseReturnRead[sampleId])
+      .map(([sampleId]) => ({
+        id: `returned:${sampleId}`,
+        title: 'Returned for analysis',
+        description: `${sampleId} was returned to Warehouse by Admin.`,
+      }));
+    onNotificationsChange([...plannedNotes, ...returnedNotes]);
+  }, [columns, createdSampleIds, onNotificationsChange, role, warehouseReturnHighlights, warehousePlannedRead, warehouseReturnRead]);
+
+  useEffect(() => {
+    if (role !== 'warehouse_worker') return;
+    if (!notificationClickId) return;
+    const [kind, sampleId] = notificationClickId.split(':');
+    if (!sampleId) return;
+    if (kind === 'planned') {
+      setWarehousePlannedRead((prev) => ({ ...prev, [sampleId]: true }));
+    }
+    if (kind === 'returned') {
+      setWarehouseReturnRead((prev) => ({ ...prev, [sampleId]: true }));
+    }
+    const target = columns.flatMap((col) => col.cards).find((card) => card.sampleId === sampleId);
+    if (target) {
+      handleCardClick(target);
+    }
+    onNotificationConsumed?.();
+  }, [columns, notificationClickId, onNotificationConsumed, role]);
+
+  useEffect(() => {
+    if (role !== 'warehouse_worker') return;
+    if (!markAllReadToken) return;
+    const plannedCards = columns.find((col) => col.id === 'new')?.cards ?? [];
+    if (plannedCards.length > 0) {
+      setWarehousePlannedRead((prev) => {
+        const next = { ...prev };
+        plannedCards.forEach((card) => {
+          next[card.sampleId] = true;
+        });
+        return next;
+      });
+    }
+    const returnedIds = Object.entries(warehouseReturnHighlights)
+      .filter(([, flagged]) => flagged)
+      .map(([sampleId]) => sampleId);
+    if (returnedIds.length > 0) {
+      setWarehouseReturnRead((prev) => {
+        const next = { ...prev };
+        returnedIds.forEach((sampleId) => {
+          next[sampleId] = true;
+        });
+        return next;
+      });
+    }
+  }, [columns, markAllReadToken, role, warehouseReturnHighlights]);
 
   const statusBadgeMode =
     role === 'lab_operator'
@@ -1607,6 +1733,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     const newLabel = columnConfigByRole[role]?.find((c) => c.id === 'new')?.title ?? 'Planned';
     createSample(payload)
       .then((card) => {
+        setCreatedSampleIds((prev) => ({ ...prev, [payload.sampleId]: true }));
         setCards((prev) => [...prev, { ...card, statusLabel: newLabel }]);
       })
       .catch((err) => {
@@ -1618,6 +1745,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         if (err instanceof Error && /\((4\d\d)\)/.test(err.message)) {
           return;
         }
+        setCreatedSampleIds((prev) => ({ ...prev, [payload.sampleId]: true }));
         const fallback: KanbanCard = {
           id: `NEW-${Date.now()}`,
           status: 'new',

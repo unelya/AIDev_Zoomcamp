@@ -8,6 +8,9 @@ import { useAuth } from '@/hooks/use-auth';
 const Index = () => {
   const [role, setRole] = useState<Role>('lab_operator');
   const [searchTerm, setSearchTerm] = useState('');
+  const [notifications, setNotifications] = useState<{ id: string; title: string; description?: string }[]>([]);
+  const [notificationClickId, setNotificationClickId] = useState<string | null>(null);
+  const [markAllReadToken, setMarkAllReadToken] = useState(0);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -20,10 +23,27 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <TopBar role={role} onRoleChange={setRole} searchTerm={searchTerm} onSearch={setSearchTerm} allowedRoles={allowedRoles} />
+      <TopBar
+        role={role}
+        onRoleChange={setRole}
+        searchTerm={searchTerm}
+        onSearch={setSearchTerm}
+        allowedRoles={allowedRoles}
+        showNotificationDot={role === 'warehouse_worker' && notifications.length > 0}
+        notifications={notifications}
+        onNotificationClick={(id) => setNotificationClickId(id)}
+        onMarkAllRead={() => setMarkAllReadToken((prev) => prev + 1)}
+      />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
-        <KanbanBoard role={role} searchTerm={searchTerm} />
+        <KanbanBoard
+          role={role}
+          searchTerm={searchTerm}
+          onNotificationsChange={setNotifications}
+          notificationClickId={notificationClickId}
+          markAllReadToken={markAllReadToken}
+          onNotificationConsumed={() => setNotificationClickId(null)}
+        />
       </div>
     </div>
   );
