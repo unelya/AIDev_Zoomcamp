@@ -971,6 +971,9 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
           description: err instanceof Error ? err.message : "Backend unreachable",
           variant: "destructive",
         });
+        if (err instanceof Error && /\((4\d\d)\)/.test(err.message)) {
+          return;
+        }
         const fallback: KanbanCard = {
           id: `NEW-${Date.now()}`,
           status: 'new',
@@ -1350,7 +1353,12 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
             </Button>
           )}
           {role === 'warehouse_worker' && (
-            <NewCardDialog onCreate={handleCreateCard} open={newDialogOpen} onOpenChange={setNewDialogOpen} />
+            <NewCardDialog
+              onCreate={handleCreateCard}
+              existingSampleIds={cards.map((card) => card.sampleId)}
+              open={newDialogOpen}
+              onOpenChange={setNewDialogOpen}
+            />
           )}
           <Button size="sm" className="gap-2" onClick={handleSave} disabled={loading}>
             {loading ? "Syncing..." : "Refresh"}

@@ -11,11 +11,12 @@ import { format } from 'date-fns';
 
 interface NewCardDialogProps {
   onCreate: (payload: NewCardPayload) => void;
+  existingSampleIds?: string[];
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }
 
-export function NewCardDialog({ onCreate, open, onOpenChange }: NewCardDialogProps) {
+export function NewCardDialog({ onCreate, existingSampleIds = [], open, onOpenChange }: NewCardDialogProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const isControlled = open !== undefined;
   const dialogOpen = isControlled ? open : internalOpen;
@@ -62,6 +63,11 @@ export function NewCardDialog({ onCreate, open, onOpenChange }: NewCardDialogPro
     event.preventDefault();
     if (!form.sampleId || !form.wellId || !form.horizon || !form.samplingDate) {
       setError('All required fields must be filled');
+      return;
+    }
+    const normalized = form.sampleId.trim().toLowerCase();
+    if (existingSampleIds.some((id) => id.trim().toLowerCase() === normalized)) {
+      setError('Sample ID already exists');
       return;
     }
     let storageLocation = '';
