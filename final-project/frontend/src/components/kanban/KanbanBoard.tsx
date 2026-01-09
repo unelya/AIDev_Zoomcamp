@@ -283,6 +283,11 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     if (typeof window === 'undefined') return;
     localStorage.setItem(ADMIN_STORED_KEY, JSON.stringify(adminStoredByCard));
   }, [adminStoredByCard]);
+  useEffect(() => {
+    if (role === 'warehouse_worker' || role === 'action_supervision') {
+      setMethodFilter([]);
+    }
+  }, [role]);
 
   const setLabReturnState = (sampleId: string, status: KanbanCard['status']) => {
     setLabStatusOverrides((prev) => ({ ...prev, [sampleId]: status }));
@@ -1846,38 +1851,40 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         </div>
         
         <div className="flex items-center gap-2">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2">
-                <Filter className="w-4 h-4" />
-                Methods {methodFilter.length > 0 ? `(${methodFilter.length})` : ''}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="p-0 w-56" align="end">
-              <Command>
-                <CommandGroup>
-                  {[...new Set([...DEFAULT_ANALYSIS_TYPES, ...plannedAnalyses.map((pa) => pa.analysisType)])]
-                    .filter((m) => !METHOD_BLACKLIST.includes(m))
-                    .map((m) => (
-                      <CommandItem
-                        key={m}
-                        onSelect={() => {
-                          setMethodFilter((prev) =>
-                            prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m]
-                          );
-                        }}
-                      >
-                        <Checkbox
-                          checked={methodFilter.includes(m)}
-                          className="mr-2 pointer-events-none"
-                        />
-                        <span>{m}</span>
-                      </CommandItem>
-                    ))}
-                </CommandGroup>
-              </Command>
-            </PopoverContent>
-          </Popover>
+          {role !== 'warehouse_worker' && role !== 'action_supervision' && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Filter className="w-4 h-4" />
+                  Methods {methodFilter.length > 0 ? `(${methodFilter.length})` : ''}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="p-0 w-56" align="end">
+                <Command>
+                  <CommandGroup>
+                    {[...new Set([...DEFAULT_ANALYSIS_TYPES, ...plannedAnalyses.map((pa) => pa.analysisType)])]
+                      .filter((m) => !METHOD_BLACKLIST.includes(m))
+                      .map((m) => (
+                        <CommandItem
+                          key={m}
+                          onSelect={() => {
+                            setMethodFilter((prev) =>
+                              prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m]
+                            );
+                          }}
+                        >
+                          <Checkbox
+                            checked={methodFilter.includes(m)}
+                            className="mr-2 pointer-events-none"
+                          />
+                          <span>{m}</span>
+                        </CommandItem>
+                      ))}
+                  </CommandGroup>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          )}
           {role === 'lab_operator' && (
             <label className="flex items-center gap-2 text-sm text-foreground">
               <Checkbox
