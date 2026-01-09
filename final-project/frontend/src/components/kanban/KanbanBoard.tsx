@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Filter, SlidersHorizontal, Undo2 } from 'lucide-react';
 import { KanbanColumn } from './KanbanColumn';
 import { DetailPanel } from './DetailPanel';
@@ -62,6 +62,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       | { kind: 'conflict'; conflictId: number; prevStatus: string; prevResolutionNote?: string | null }
     )[]
   >([]);
+  const undoStackRef = useRef<(typeof undoStack)[number][]>([]);
   const [storagePrompt, setStoragePrompt] = useState<{ open: boolean; sampleId: string | null }>({ open: false, sampleId: null });
   const [storageValue, setStorageValue] = useState({ fridge: '', bin: '', place: '' });
   const [storageError, setStorageError] = useState('');
@@ -196,6 +197,10 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       setSelectedCard(merged);
     }
   }, [cards, plannedAnalyses, role, selectedCard]);
+
+  useEffect(() => {
+    undoStackRef.current = undoStack;
+  }, [undoStack]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -763,7 +768,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       return getColumnData(filterCards(decorated), role);
     }
     return getColumnData(filterCards(withComments(visibleCards)), role);
-  }, [cards, plannedAnalyses, actionBatches, conflicts, role, filterCards, methodFilter, assignedOnly, incompleteOnly, commentsByCard, user?.fullName, deletedByCard, labStatusOverrides, labNeedsAttentionReasons, labReturnHighlights, warehouseReturnHighlights, adminReturnNotes, issueReasons]);
+  }, [cards, plannedAnalyses, actionBatches, conflicts, role, filterCards, methodFilter, assignedOnly, incompleteOnly, commentsByCard, user?.fullName, deletedByCard, adminStoredByCard, labStatusOverrides, labNeedsAttentionReasons, labReturnHighlights, warehouseReturnHighlights, adminReturnNotes, issueReasons]);
 
   const statusBadgeMode =
     role === 'lab_operator'
@@ -1171,9 +1176,10 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
   };
 
   const undoLast = async () => {
-    const lastAction = undoStack[undoStack.length - 1];
+    const stackSnapshot = undoStackRef.current;
+    const lastAction = stackSnapshot[stackSnapshot.length - 1];
     if (!lastAction) return;
-    setUndoStack((prev) => prev.slice(0, -1));
+    setUndoStack(stackSnapshot.slice(0, -1));
 
     if (lastAction.kind === 'sample') {
       try {
