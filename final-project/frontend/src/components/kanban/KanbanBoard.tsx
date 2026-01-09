@@ -52,8 +52,14 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
   const analysisTypes = DEFAULT_ANALYSIS_TYPES;
   const [undoStack, setUndoStack] = useState<
     (
-      | { kind: 'sample'; sampleId: string; prev: Partial<KanbanCard> }
-      | { kind: 'analysis'; analysisId: number; sampleId: string; prevStatus: PlannedAnalysisCard['status']; prevAssignedTo?: string | null }
+      | { kind: 'sample'; sampleId: string; prev: Partial<KanbanCard>; prevWarehouseReturnHighlight?: boolean }
+      | { kind: 'analysis'; analysisId: number; sampleId: string; prevStatus: PlannedAnalysisCard['status']; prevAssignedTo?: string | null; prevLabOverride?: KanbanCard['status']; prevLabReturnHighlight?: boolean }
+      | { kind: 'adminStored'; sampleId: string; prev: boolean }
+      | { kind: 'labState'; sampleId: string; prev: { labStatusOverride?: KanbanCard['status']; labReturnHighlight?: boolean; labNeedsReason?: string; issueHistory?: string[] } }
+      | { kind: 'deleted'; sampleId: string; prevDeleted?: DeletedInfo; prevCard?: Partial<KanbanCard> }
+      | { kind: 'adminReturn'; sampleId: string; prevReturnNotes?: string[]; prevLabOverride?: KanbanCard['status']; prevLabReturnHighlight?: boolean; prevWarehouseReturnHighlight?: boolean; prevSample?: Partial<KanbanCard> }
+      | { kind: 'issueReason'; sampleId: string; prevStatus?: KanbanCard['status']; prevStatusLabel?: string; prevIssueHistory?: string[]; prevIssueReason?: string }
+      | { kind: 'conflict'; conflictId: number; prevStatus: string; prevResolutionNote?: string | null }
     )[]
   >([]);
   const [storagePrompt, setStoragePrompt] = useState<{ open: boolean; sampleId: string | null }>({ open: false, sampleId: null });
@@ -790,7 +796,40 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     setIsPanelOpen(true);
   };
 
+  const getSampleSnapshot = (sampleId: string): Partial<KanbanCard> | undefined => {
+    const card = cards.find((c) => c.sampleId === sampleId);
+    if (!card) return undefined;
+    return {
+      status: card.status,
+      statusLabel: card.statusLabel,
+      storageLocation: card.storageLocation,
+      samplingDate: card.samplingDate,
+      wellId: card.wellId,
+      horizon: card.horizon,
+      assignedTo: card.assignedTo,
+      deletedReason: card.deletedReason,
+    };
+  };
+
+  const pushLabStateUndo = (sampleId: string) => {
+    setUndoStack((prev) => [
+      ...prev.slice(-19),
+      {
+        kind: 'labState',
+        sampleId,
+        prev: {
+          labStatusOverride: labStatusOverrides[sampleId],
+          labReturnHighlight: labReturnHighlights[sampleId],
+          labNeedsReason: labNeedsAttentionReasons[sampleId],
+          issueHistory: issueReasons[sampleId],
+        },
+      },
+    ]);
+  };
+
   const handleAdminStoreNotResolved = (card: KanbanCard) => {
+    const prevValue = Boolean(adminStoredByCard[card.sampleId]);
+    setUndoStack((prev) => [...prev.slice(-19), { kind: 'adminStored', sampleId: card.sampleId, prev: prevValue }]);
     setAdminStoredByCard((prev) => ({ ...prev, [card.sampleId]: true }));
     if (selectedCard?.sampleId === card.sampleId) {
       setSelectedCard({ ...selectedCard, adminStored: true });
@@ -802,12 +841,19 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     setTimeout(() => setSelectedCard(null), 300);
   };
 
-  const applySampleStatusChange = (cardId: string, columnId: KanbanCard['status']) => {
-    const prevCard = cards.find((c) => c.id === cardId);
-    if (prevCard) {
+  const applySampleStatusChange = (cardId: string, columnId: KanbanCard['status'], options?: { skipUndo?: boolean }) => {
+    const prevCard =
+      cards.find((c) => c.id === cardId || c.sampleId === cardId) ??
+      columns.flatMap((c) => c.cards).find((c) => c.id === cardId || c.sampleId === cardId);
+    if (prevCard && !options?.skipUndo) {
       setUndoStack((prev) => [
         ...prev.slice(-19),
-        { kind: 'sample', sampleId: prevCard.sampleId, prev: { status: prevCard.status, statusLabel: prevCard.statusLabel } },
+        {
+          kind: 'sample',
+          sampleId: prevCard.sampleId,
+          prev: { status: prevCard.status, statusLabel: prevCard.statusLabel },
+          prevWarehouseReturnHighlight: Boolean(warehouseReturnHighlights[prevCard.sampleId]),
+        },
       ]);
     }
     setCards((prev) =>
@@ -838,7 +884,9 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
 
   const handleDropToColumn = (columnId: KanbanCard['status']) => (cardId: string) => {
     if (role === 'warehouse_worker') {
-      const target = cards.find((c) => c.id === cardId);
+      const target =
+        cards.find((c) => c.id === cardId || c.sampleId === cardId) ??
+        columns.flatMap((c) => c.cards).find((c) => c.id === cardId || c.sampleId === cardId);
       if (target?.status === 'done') {
         toast({
           title: 'Locked in Issues',
@@ -846,6 +894,33 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
           variant: 'default',
         });
         return;
+      }
+      if (target?.status === 'progress' && columnId === 'new') {
+        toast({
+          title: 'Invalid move',
+          description: 'Awaiting arrival samples cannot be moved back to Planned.',
+          variant: 'default',
+        });
+        return;
+      }
+      if (!target) {
+        toast({
+          title: 'Move failed',
+          description: `Could not resolve card for drop id: ${cardId}`,
+          variant: 'destructive',
+        });
+        return;
+      }
+      if (target) {
+        setUndoStack((prev) => [
+          ...prev.slice(-19),
+          {
+            kind: 'sample',
+            sampleId: target.sampleId,
+            prev: { status: target.status, statusLabel: target.statusLabel },
+            prevWarehouseReturnHighlight: Boolean(warehouseReturnHighlights[target.sampleId]),
+          },
+        ]);
       }
       if (target?.status === 'review' && columnId !== 'done') {
         toast({
@@ -856,9 +931,10 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         return;
       }
       setWarehouseReturnHighlights((prev) => {
-        if (!prev[cardId]) return prev;
+        const key = target?.sampleId ?? cardId;
+        if (!prev[key]) return prev;
         const next = { ...prev };
-        delete next[cardId];
+        delete next[key];
         return next;
       });
     }
@@ -916,6 +992,10 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         });
         return;
       }
+      setUndoStack((prev) => [
+        ...prev.slice(-19),
+        { kind: 'conflict', conflictId: conflict.id, prevStatus: conflict.status, prevResolutionNote: conflict.resolution_note },
+      ]);
       setConflicts((prev) =>
         prev.map((c) => (c.id === conflict.id ? { ...c, status: 'resolved', resolution_note: c.resolution_note } : c)),
       );
@@ -972,6 +1052,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         setLabNeedsReason(labNeedsAttentionReasons[cardId] ?? '');
         return;
       }
+      pushLabStateUndo(cardId);
       setLabStatusOverrides((prev) => ({ ...prev, [cardId]: columnId }));
       setLabReturnHighlights((prev) => {
         if (!prev[cardId]) return prev;
@@ -996,7 +1077,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       return;
     }
 
-    applySampleStatusChange(cardId, columnId);
+    applySampleStatusChange(cardId, columnId, { skipUndo: role === 'warehouse_worker' });
   };
 
   const handleSave = async () => {
@@ -1016,40 +1097,88 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     }
   };
 
+  const applySampleUndo = async (sampleId: string, snapshot?: Partial<KanbanCard>) => {
+    if (!snapshot) return;
+    const payload: Record<string, string | undefined> = {};
+    if (snapshot.status) payload.status = snapshot.status;
+    if (snapshot.storageLocation !== undefined) payload.storage_location = snapshot.storageLocation;
+    if (snapshot.samplingDate) payload.sampling_date = snapshot.samplingDate;
+    if (snapshot.wellId) payload.well_id = snapshot.wellId;
+    if (snapshot.horizon) payload.horizon = snapshot.horizon;
+    if (snapshot.assignedTo) payload.assigned_to = snapshot.assignedTo;
+    // Optimistic local update for undo so the board reverts immediately.
+    setCards((prev) =>
+      prev.map((card) =>
+        card.sampleId === sampleId
+          ? {
+              ...card,
+              ...mapSampleUpdates(card, payload),
+              status: (payload.status as KanbanCard['status']) ?? card.status,
+              statusLabel:
+                payload.status && columnConfigByRole[role]?.find((c) => c.id === (payload.status as KanbanCard['status']))?.title
+                  ? columnConfigByRole[role]?.find((c) => c.id === (payload.status as KanbanCard['status']))?.title!
+                  : card.statusLabel,
+              deletedReason: snapshot.deletedReason,
+            }
+          : card,
+      ),
+    );
+    if (selectedCard?.sampleId === sampleId) {
+      setSelectedCard((prev) =>
+        prev
+          ? {
+              ...prev,
+              ...mapSampleUpdates(prev, payload),
+              status: (payload.status as KanbanCard['status']) ?? prev.status,
+              statusLabel:
+                payload.status && columnConfigByRole[role]?.find((c) => c.id === (payload.status as KanbanCard['status']))?.title
+                  ? columnConfigByRole[role]?.find((c) => c.id === (payload.status as KanbanCard['status']))?.title!
+                  : prev.statusLabel,
+              deletedReason: snapshot.deletedReason,
+            }
+          : prev,
+      );
+    }
+    try {
+      if (payload.status) {
+        await updateSampleStatus(sampleId, payload.status, payload.storage_location);
+      }
+      const fieldPayload: Record<string, string | undefined> = {};
+      if (payload.storage_location !== undefined && !payload.status) fieldPayload.storage_location = payload.storage_location;
+      if (payload.sampling_date) fieldPayload.sampling_date = payload.sampling_date;
+      if (payload.well_id) fieldPayload.well_id = payload.well_id;
+      if (payload.horizon) fieldPayload.horizon = payload.horizon;
+      if (payload.assigned_to) fieldPayload.assigned_to = payload.assigned_to;
+      if (Object.keys(fieldPayload).length > 0) {
+        await updateSampleFields(sampleId, fieldPayload);
+      }
+    } catch (err) {
+      toast({
+        title: 'Undo sync failed',
+        description: err instanceof Error ? err.message : 'Undo applied locally but failed to sync with the server',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const undoLast = async () => {
-    let lastAction: (typeof undoStack)[number] | undefined;
-    setUndoStack((prev) => {
-      const next = [...prev];
-      lastAction = next.pop();
-      return next;
-    });
+    const lastAction = undoStack[undoStack.length - 1];
     if (!lastAction) return;
+    setUndoStack((prev) => prev.slice(0, -1));
 
     if (lastAction.kind === 'sample') {
-      const payload: Record<string, string | undefined> = {};
-      if (lastAction.prev.status) payload.status = lastAction.prev.status;
-      if (lastAction.prev.storageLocation !== undefined) payload.storage_location = lastAction.prev.storageLocation;
-      if (lastAction.prev.samplingDate) payload.sampling_date = lastAction.prev.samplingDate;
-      if (lastAction.prev.wellId) payload.well_id = lastAction.prev.wellId;
-      if (lastAction.prev.horizon) payload.horizon = lastAction.prev.horizon;
-      if (lastAction.prev.assignedTo) payload.assigned_to = lastAction.prev.assignedTo;
       try {
-        await updateSampleFields(lastAction.sampleId, payload);
-        setCards((prev) =>
-          prev.map((card) =>
-            card.sampleId === lastAction!.sampleId
-              ? {
-                  ...card,
-                  ...mapSampleUpdates(card, payload),
-                  status: (payload.status as KanbanCard['status']) ?? card.status,
-                  statusLabel:
-                    payload.status && columnConfigByRole[role]?.find((c) => c.id === (payload.status as KanbanCard['status']))?.title
-                      ? columnConfigByRole[role]?.find((c) => c.id === (payload.status as KanbanCard['status']))?.title!
-                      : card.statusLabel,
-                }
-              : card,
-          ),
-        );
+        await applySampleUndo(lastAction.sampleId, lastAction.prev);
+        if (lastAction.prevWarehouseReturnHighlight) {
+          setWarehouseReturnHighlights((prev) => ({ ...prev, [lastAction.sampleId]: true }));
+        } else {
+          setWarehouseReturnHighlights((prev) => {
+            if (!prev[lastAction.sampleId]) return prev;
+            const next = { ...prev };
+            delete next[lastAction.sampleId];
+            return next;
+          });
+        }
         toast({ title: 'Undo', description: 'Last change reverted' });
       } catch (err) {
         toast({
@@ -1061,11 +1190,37 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     } else if (lastAction.kind === 'analysis') {
       try {
         await updatePlannedAnalysis(lastAction.analysisId, lastAction.prevStatus, lastAction.prevAssignedTo ?? undefined);
-        setPlannedAnalyses((prev) =>
-          prev.map((pa) =>
+        setPlannedAnalyses((prev) => {
+          const updated = prev.map((pa) =>
             pa.id === lastAction!.analysisId ? { ...pa, status: lastAction!.prevStatus, assignedTo: lastAction!.prevAssignedTo ?? pa.assignedTo } : pa,
-          ),
-        );
+          );
+          const methods = updated.filter((pa) => pa.sampleId === lastAction!.sampleId);
+          const allDone = methods.length > 0 && methods.every((m) => m.status === 'completed');
+          setCards((cardsPrev) =>
+            cardsPrev.map((c) => (c.id === lastAction!.sampleId ? { ...c, allMethodsDone: allDone } : c)),
+          );
+          return updated;
+        });
+        if (lastAction.prevLabOverride) {
+          setLabStatusOverrides((prev) => ({ ...prev, [lastAction.sampleId]: lastAction.prevLabOverride! }));
+        } else {
+          setLabStatusOverrides((prev) => {
+            if (!(lastAction.sampleId in prev)) return prev;
+            const next = { ...prev };
+            delete next[lastAction.sampleId];
+            return next;
+          });
+        }
+        if (lastAction.prevLabReturnHighlight) {
+          setLabReturnHighlights((prev) => ({ ...prev, [lastAction.sampleId]: true }));
+        } else {
+          setLabReturnHighlights((prev) => {
+            if (!prev[lastAction.sampleId]) return prev;
+            const next = { ...prev };
+            delete next[lastAction.sampleId];
+            return next;
+          });
+        }
         toast({ title: 'Undo', description: 'Last method change reverted' });
       } catch (err) {
         toast({
@@ -1074,6 +1229,194 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
           variant: 'destructive',
         });
       }
+    } else if (lastAction.kind === 'adminStored') {
+      setAdminStoredByCard((prev) => ({ ...prev, [lastAction.sampleId]: lastAction.prev }));
+      if (selectedCard?.sampleId === lastAction.sampleId) {
+        setSelectedCard({ ...selectedCard, adminStored: lastAction.prev });
+      }
+      toast({ title: 'Undo', description: 'Last admin store change reverted' });
+    } else if (lastAction.kind === 'labState') {
+      if (lastAction.prev.labStatusOverride) {
+        setLabStatusOverrides((prev) => ({ ...prev, [lastAction.sampleId]: lastAction.prev.labStatusOverride! }));
+      } else {
+        setLabStatusOverrides((prev) => {
+          if (!(lastAction.sampleId in prev)) return prev;
+          const next = { ...prev };
+          delete next[lastAction.sampleId];
+          return next;
+        });
+      }
+      if (lastAction.prev.labReturnHighlight) {
+        setLabReturnHighlights((prev) => ({ ...prev, [lastAction.sampleId]: true }));
+      } else {
+        setLabReturnHighlights((prev) => {
+          if (!prev[lastAction.sampleId]) return prev;
+          const next = { ...prev };
+          delete next[lastAction.sampleId];
+          return next;
+        });
+      }
+      if (lastAction.prev.labNeedsReason) {
+        setLabNeedsAttentionReasons((prev) => ({ ...prev, [lastAction.sampleId]: lastAction.prev.labNeedsReason! }));
+      } else {
+        setLabNeedsAttentionReasons((prev) => {
+          if (!(lastAction.sampleId in prev)) return prev;
+          const next = { ...prev };
+          delete next[lastAction.sampleId];
+          return next;
+        });
+      }
+      if (lastAction.prev.issueHistory) {
+        setIssueReasons((prev) => ({ ...prev, [lastAction.sampleId]: lastAction.prev.issueHistory! }));
+      } else {
+        setIssueReasons((prev) => {
+          if (!(lastAction.sampleId in prev)) return prev;
+          const next = { ...prev };
+          delete next[lastAction.sampleId];
+          return next;
+        });
+      }
+      if (selectedCard?.sampleId === lastAction.sampleId) {
+        const baseCard = cards.find((c) => c.sampleId === lastAction.sampleId);
+        const status =
+          lastAction.prev.labStatusOverride ??
+          baseCard?.status ??
+          selectedCard.status;
+        const label =
+          columnConfigByRole.lab_operator.find((c) => c.id === status)?.title ?? selectedCard.statusLabel;
+        setSelectedCard({ ...selectedCard, status, statusLabel: label });
+      }
+      toast({ title: 'Undo', description: 'Last lab change reverted' });
+    } else if (lastAction.kind === 'deleted') {
+      if (lastAction.prevDeleted) {
+        setDeletedByCard((prev) => ({ ...prev, [lastAction.sampleId]: lastAction.prevDeleted! }));
+      } else {
+        setDeletedByCard((prev) => {
+          if (!(lastAction.sampleId in prev)) return prev;
+          const next = { ...prev };
+          delete next[lastAction.sampleId];
+          return next;
+        });
+      }
+      if (lastAction.prevCard) {
+        setCards((prev) =>
+          prev.map((card) =>
+            card.sampleId === lastAction.sampleId
+              ? {
+                  ...card,
+                  ...lastAction.prevCard,
+                }
+              : card,
+          ),
+        );
+        if (selectedCard?.sampleId === lastAction.sampleId) {
+          setSelectedCard({ ...selectedCard, ...lastAction.prevCard });
+        }
+      }
+      toast({ title: 'Undo', description: 'Last delete/restore reverted' });
+    } else if (lastAction.kind === 'adminReturn') {
+      if (lastAction.prevReturnNotes?.length) {
+        setAdminReturnNotes((prev) => ({ ...prev, [lastAction.sampleId]: lastAction.prevReturnNotes! }));
+      } else {
+        setAdminReturnNotes((prev) => {
+          if (!(lastAction.sampleId in prev)) return prev;
+          const next = { ...prev };
+          delete next[lastAction.sampleId];
+          return next;
+        });
+      }
+      if (lastAction.prevLabOverride) {
+        setLabStatusOverrides((prev) => ({ ...prev, [lastAction.sampleId]: lastAction.prevLabOverride! }));
+      } else {
+        setLabStatusOverrides((prev) => {
+          if (!(lastAction.sampleId in prev)) return prev;
+          const next = { ...prev };
+          delete next[lastAction.sampleId];
+          return next;
+        });
+      }
+      if (lastAction.prevLabReturnHighlight) {
+        setLabReturnHighlights((prev) => ({ ...prev, [lastAction.sampleId]: true }));
+      } else {
+        setLabReturnHighlights((prev) => {
+          if (!prev[lastAction.sampleId]) return prev;
+          const next = { ...prev };
+          delete next[lastAction.sampleId];
+          return next;
+        });
+      }
+      if (lastAction.prevWarehouseReturnHighlight) {
+        setWarehouseReturnHighlights((prev) => ({ ...prev, [lastAction.sampleId]: true }));
+      } else {
+        setWarehouseReturnHighlights((prev) => {
+          if (!prev[lastAction.sampleId]) return prev;
+          const next = { ...prev };
+          delete next[lastAction.sampleId];
+          return next;
+        });
+      }
+      if (lastAction.prevSample) {
+        try {
+          await applySampleUndo(lastAction.sampleId, lastAction.prevSample);
+        } catch (err) {
+          toast({
+            title: 'Undo failed',
+            description: err instanceof Error ? err.message : 'Could not revert return',
+            variant: 'destructive',
+          });
+          return;
+        }
+      }
+      if (selectedCard?.sampleId === lastAction.sampleId) {
+        const returnNotes = lastAction.prevReturnNotes ?? [];
+        const returnNote = returnNotes.length > 0 ? returnNotes[returnNotes.length - 1] : '';
+        setSelectedCard({ ...selectedCard, returnNotes, returnNote });
+      }
+      toast({ title: 'Undo', description: 'Last return reverted' });
+    } else if (lastAction.kind === 'issueReason') {
+      const prevHistory = lastAction.prevIssueHistory;
+      if (prevHistory?.length) {
+        setIssueReasons((prev) => ({ ...prev, [lastAction.sampleId]: prevHistory }));
+      } else {
+        setIssueReasons((prev) => {
+          if (!(lastAction.sampleId in prev)) return prev;
+          const next = { ...prev };
+          delete next[lastAction.sampleId];
+          return next;
+        });
+      }
+      if (lastAction.prevStatus) {
+        setCards((prev) =>
+          prev.map((card) =>
+            card.sampleId === lastAction.sampleId
+              ? {
+                  ...card,
+                  status: lastAction.prevStatus!,
+                  statusLabel: lastAction.prevStatusLabel ?? card.statusLabel,
+                  issueReason: lastAction.prevIssueReason,
+                }
+              : card,
+          ),
+        );
+        if (selectedCard?.sampleId === lastAction.sampleId) {
+          setSelectedCard({
+            ...selectedCard,
+            status: lastAction.prevStatus!,
+            statusLabel: lastAction.prevStatusLabel ?? selectedCard.statusLabel,
+            issueReason: lastAction.prevIssueReason,
+          });
+        }
+      }
+      toast({ title: 'Undo', description: 'Last issue change reverted' });
+    } else if (lastAction.kind === 'conflict') {
+      setConflicts((prev) =>
+        prev.map((c) =>
+          c.id === lastAction.conflictId
+            ? { ...c, status: lastAction.prevStatus, resolution_note: lastAction.prevResolutionNote ?? c.resolution_note }
+            : c,
+        ),
+      );
+      toast({ title: 'Undo', description: 'Last conflict change reverted' });
     }
   };
 
@@ -1097,6 +1440,17 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
   const confirmIssueReason = () => {
     if (!issuePrompt.card || !issueReason.trim()) return;
     const targetId = issuePrompt.card.id;
+    setUndoStack((prev) => [
+      ...prev.slice(-19),
+      {
+        kind: 'issueReason',
+        sampleId: issuePrompt.card.sampleId,
+        prevStatus: issuePrompt.card.status,
+        prevStatusLabel: issuePrompt.card.statusLabel,
+        prevIssueHistory: issueReasons[issuePrompt.card.sampleId],
+        prevIssueReason: issuePrompt.card.issueReason,
+      },
+    ]);
     setCards((prev) =>
       prev.map((c) =>
         c.id === targetId
@@ -1179,6 +1533,10 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     if (user?.role !== 'admin') return;
     if (card.analysisType !== 'Sample') return;
     if (!reason.trim()) return;
+    setUndoStack((prev) => [
+      ...prev.slice(-19),
+      { kind: 'deleted', sampleId: card.sampleId, prevDeleted: deletedByCard[card.sampleId], prevCard: getSampleSnapshot(card.sampleId) },
+    ]);
     const deletedLabel = columnConfigByRole.admin.find((c) => c.id === 'new')?.title ?? 'Deleted';
     setDeletedByCard((prev) => ({ ...prev, [card.sampleId]: { reason, prevStatus: card.status } }));
     setCards((prev) =>
@@ -1196,6 +1554,10 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
   const handleRestoreCard = (card: KanbanCard) => {
     if (user?.role !== 'admin') return;
     const info = deletedByCard[card.sampleId];
+    setUndoStack((prev) => [
+      ...prev.slice(-19),
+      { kind: 'deleted', sampleId: card.sampleId, prevDeleted: info, prevCard: getSampleSnapshot(card.sampleId) },
+    ]);
     const prevStatus = info?.prevStatus ?? 'progress';
     const restoredLabel =
       columnConfigByRole.admin.find((c) => c.id === prevStatus)?.title ??
@@ -1327,7 +1689,18 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     const nextStatus = done ? 'completed' : 'planned';
     const prevPa = plannedAnalyses.find((pa) => pa.id === methodId);
     if (prevPa) {
-      setUndoStack((prev) => [...prev.slice(-19), { kind: 'analysis', analysisId: methodId, sampleId: prevPa.sampleId, prevStatus: prevPa.status, prevAssignedTo: prevPa.assignedTo }]);
+      setUndoStack((prev) => [
+        ...prev.slice(-19),
+        {
+          kind: 'analysis',
+          analysisId: methodId,
+          sampleId: prevPa.sampleId,
+          prevStatus: prevPa.status,
+          prevAssignedTo: prevPa.assignedTo,
+          prevLabOverride: labStatusOverrides[prevPa.sampleId],
+          prevLabReturnHighlight: labReturnHighlights[prevPa.sampleId],
+        },
+      ]);
     }
     setPlannedAnalyses((prev) => {
       const updated = prev.map((pa) => (pa.id === methodId ? { ...pa, status: nextStatus as PlannedAnalysisCard['status'] } : pa));
@@ -1357,7 +1730,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
   const totalSamples = columns.reduce((sum, col) => sum + col.cards.length, 0);
   const lockNeedsAttentionCards = role === 'lab_operator' && user?.role !== 'admin';
 
-  const handleSampleFieldUpdate = async (sampleId: string, updates: Record<string, string>) => {
+  const handleSampleFieldUpdate = async (sampleId: string, updates: Record<string, string>, options?: { skipUndo?: boolean }) => {
     const nextUpdates = { ...updates };
     if (typeof nextUpdates.well_id === 'string') {
       nextUpdates.well_id = nextUpdates.well_id.replace(/\D/g, '');
@@ -1382,7 +1755,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     const statusLabel =
       targetStatus && columnConfigByRole[role]?.find((c) => c.id === targetStatus)?.title;
 
-    if (prevCard) {
+    if (prevCard && !options?.skipUndo) {
       setUndoStack((prev) => [
         ...prev.slice(-19),
         {
@@ -1396,6 +1769,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
             horizon: prevCard.horizon,
             assignedTo: prevCard.assignedTo,
           },
+          prevWarehouseReturnHighlight: Boolean(warehouseReturnHighlights[sampleId]),
         },
       ]);
     }
@@ -1754,6 +2128,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
                 const targetId = labNeedsPrompt.cardId;
                 const reason = labNeedsReason.trim();
                 if (!targetId || !reason) return;
+                pushLabStateUndo(targetId);
                 setLabNeedsPrompt({ open: false, cardId: null });
                 setLabNeedsAttentionReasons((prev) => ({ ...prev, [targetId]: reason }));
                 setIssueReasons((prev) => ({
@@ -1893,16 +2268,28 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
                 const target = adminReturnPrompt.card;
                 const note = adminReturnNote.trim();
                 if (!target || !note) return;
-                            setAdminReturnNotes((prev) => ({
-                              ...prev,
-                              [target.sampleId]: [...(prev[target.sampleId] ?? []), note],
-                            }));
+                setUndoStack((prev) => [
+                  ...prev.slice(-19),
+                  {
+                    kind: 'adminReturn',
+                    sampleId: target.sampleId,
+                    prevReturnNotes: adminReturnNotes[target.sampleId],
+                    prevLabOverride: labStatusOverrides[target.sampleId],
+                    prevLabReturnHighlight: labReturnHighlights[target.sampleId],
+                    prevWarehouseReturnHighlight: warehouseReturnHighlights[target.sampleId],
+                    prevSample: target.status === 'done' ? getSampleSnapshot(target.sampleId) : undefined,
+                  },
+                ]);
+                setAdminReturnNotes((prev) => ({
+                  ...prev,
+                  [target.sampleId]: [...(prev[target.sampleId] ?? []), note],
+                }));
                 setAdminReturnPrompt({ open: false, card: null });
                 setAdminReturnNote('');
                 if (target.status === 'done') {
                   const warehouseStatus =
                     target.storageLocation && target.storageLocation.trim() ? 'review' : 'progress';
-                  handleSampleFieldUpdate(target.sampleId, { status: warehouseStatus });
+                  handleSampleFieldUpdate(target.sampleId, { status: warehouseStatus }, { skipUndo: true });
                   setWarehouseReturnHighlights((prev) => ({ ...prev, [target.sampleId]: true }));
                 }
                 const methods = plannedAnalyses.filter((pa) => pa.sampleId === target.sampleId);
