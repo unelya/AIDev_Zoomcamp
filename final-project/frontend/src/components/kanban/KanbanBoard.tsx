@@ -19,6 +19,7 @@ import { Textarea } from '@/components/ui/textarea';
 const STORAGE_KEY = 'labsync-kanban-cards';
 const DEFAULT_ANALYSIS_TYPES = ['SARA', 'IR', 'Mass Spectrometry', 'Viscosity'];
 const METHOD_BLACKLIST = ['fsf', 'dadq'];
+const SHOW_LAB_COMPLETED_MOCK = true;
 
 const roleCopy: Record<Role, string> = {
   warehouse_worker: 'Warehouse view: samples and storage',
@@ -69,6 +70,9 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     }
   });
   const [labStatusOverrides, setLabStatusOverrides] = useState<Record<string, KanbanCard['status']>>({});
+  const [labNeedsAttentionReasons, setLabNeedsAttentionReasons] = useState<Record<string, string>>({});
+  const [labNeedsPrompt, setLabNeedsPrompt] = useState<{ open: boolean; cardId: string | null }>({ open: false, cardId: null });
+  const [labNeedsReason, setLabNeedsReason] = useState('');
   const storageFormatRegex = /^Fridge\s+[A-Za-z0-9]+\s*·\s*Bin\s+[A-Za-z0-9]+\s*·\s*Place\s+[A-Za-z0-9]+$/;
   const isValidStorageLocation = (value: string) => storageFormatRegex.test(value.trim());
   const formatStorageLocation = (parts: { fridge: string; bin: string; place: string }) =>
@@ -307,6 +311,12 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
           card.statusLabel = columnConfigByRole[role]?.find((c) => c.id === overrideStatus)?.title ?? card.statusLabel;
           card.analysisStatus = toAnalysisStatus(overrideStatus);
         }
+        if (card.status === 'review') {
+          const reason = labNeedsAttentionReasons[card.sampleId];
+          if (reason) {
+            card.issueReason = reason;
+          }
+        }
       });
       // remove cards that have no methods (e.g., all filtered out)
       let cardsWithMethods = [...bySample.values()].filter((c) => c.methods && c.methods.length > 0);
@@ -333,6 +343,30 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       // apply method filter if any
       if (methodFilter.length > 0) {
         cardsWithMethods = cardsWithMethods.filter((c) => c.methods?.some((m) => methodFilter.includes(m.name)));
+      }
+      if (SHOW_LAB_COMPLETED_MOCK && !assignedOnly && !incompleteOnly && methodFilter.length === 0) {
+        const exists = cardsWithMethods.some((c) => c.sampleId === 'MOCK-COMPLETED');
+        if (!exists) {
+          cardsWithMethods = [
+            ...cardsWithMethods,
+            {
+              id: 'mock-completed',
+              status: 'done',
+              statusLabel: columnConfigByRole.lab_operator.find((c) => c.id === 'done')?.title ?? 'Completed',
+              sampleId: 'MOCK-COMPLETED',
+              wellId: '000',
+              horizon: '—',
+              samplingDate: '2026-01-01',
+              storageLocation: '—',
+              analysisType: 'Sample',
+              assignedTo: 'Mock',
+              analysisStatus: 'completed',
+              sampleStatus: 'received',
+              methods: [{ id: -1, name: 'SARA', status: 'completed', assignedTo: 'Mock' }],
+              allMethodsDone: true,
+            },
+          ];
+        }
       }
 
       return getColumnData(filterCards(cardsWithMethods), role);
@@ -484,7 +518,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       return getColumnData(filterCards(cardsWithComments), role);
     }
     return getColumnData(filterCards(withComments(visibleCards)), role);
-  }, [cards, plannedAnalyses, actionBatches, conflicts, role, filterCards, methodFilter, assignedOnly, incompleteOnly, commentsByCard, user?.fullName, deletedByCard, labStatusOverrides]);
+  }, [cards, plannedAnalyses, actionBatches, conflicts, role, filterCards, methodFilter, assignedOnly, incompleteOnly, commentsByCard, user?.fullName, deletedByCard, labStatusOverrides, labNeedsAttentionReasons]);
 
   const statusBadgeMode =
     role === 'lab_operator'
@@ -622,7 +656,61 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
 
     // Lab operator: allow board-only moves without touching warehouse status
     if (role === 'lab_operator') {
+      if (columnId === 'done') {
+        toast({
+          title: 'Cannot move to Completed',
+          description: 'Completion will be handled automatically.',
+          variant: 'default',
+        });
+        return;
+      }
+      const labCard = columns.flatMap((c) => c.cards).find((c) => c.id === cardId);
+      const currentStatus = labStatusOverrides[cardId] ?? labCard?.status;
+      if (currentStatus === 'new' && columnId !== 'progress' && columnId !== 'review') {
+        toast({
+          title: 'Invalid move',
+          description: 'Planned samples can move to In progress or Needs attention only.',
+          variant: 'default',
+        });
+        return;
+      }
+      if (currentStatus === 'done') {
+        toast({
+          title: 'Locked in Completed',
+          description: 'Completed samples cannot be moved by Lab Operator.',
+          variant: 'default',
+        });
+        return;
+      }
+      if (currentStatus === 'review') {
+        toast({
+          title: 'Locked in Needs attention',
+          description: 'Samples in Needs attention cannot be moved by Lab Operator.',
+          variant: 'default',
+        });
+        return;
+      }
+      if (currentStatus === 'progress' && columnId !== 'progress' && columnId !== 'review') {
+        toast({
+          title: 'Invalid move',
+          description: 'Samples stay in In progress or Needs attention until completion.',
+          variant: 'default',
+        });
+        return;
+      }
+      if (columnId === 'review') {
+        setLabNeedsPrompt({ open: true, cardId });
+        setLabNeedsReason(labNeedsAttentionReasons[cardId] ?? '');
+        return;
+      }
       setLabStatusOverrides((prev) => ({ ...prev, [cardId]: columnId }));
+      if (columnId !== 'review') {
+        setLabNeedsAttentionReasons((prev) => {
+          const next = { ...prev };
+          delete next[cardId];
+          return next;
+        });
+      }
       if (selectedCard?.id === cardId) {
         setSelectedCard({
           ...selectedCard,
@@ -1323,6 +1411,48 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
               disabled={!storageValue.fridge.trim() || !storageValue.bin.trim() || !storageValue.place.trim()}
             >
               Save & Store
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={labNeedsPrompt.open} onOpenChange={(open) => setLabNeedsPrompt({ open, cardId: open ? labNeedsPrompt.cardId : null })}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Send to Needs attention</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">Provide a reason for sending this sample to Needs attention.</p>
+          <Textarea
+            autoFocus
+            placeholder="Reason"
+            value={labNeedsReason}
+            onChange={(e) => setLabNeedsReason(e.target.value)}
+            className="min-h-[96px]"
+          />
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setLabNeedsPrompt({ open: false, cardId: null })}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                const targetId = labNeedsPrompt.cardId;
+                const reason = labNeedsReason.trim();
+                if (!targetId || !reason) return;
+                setLabNeedsPrompt({ open: false, cardId: null });
+                setLabNeedsAttentionReasons((prev) => ({ ...prev, [targetId]: reason }));
+                setLabStatusOverrides((prev) => ({ ...prev, [targetId]: 'review' }));
+                if (selectedCard?.id === targetId) {
+                  setSelectedCard({
+                    ...selectedCard,
+                    status: 'review',
+                    statusLabel: columnConfigByRole.lab_operator.find((c) => c.id === 'review')?.title ?? selectedCard.statusLabel,
+                    issueReason: reason,
+                  });
+                }
+                setLabNeedsReason('');
+              }}
+              disabled={!labNeedsReason.trim()}
+            >
+              Send to Needs attention
             </Button>
           </DialogFooter>
         </DialogContent>
