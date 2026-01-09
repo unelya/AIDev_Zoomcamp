@@ -977,8 +977,25 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
 
     // Admin: prevent moving stored samples back to Needs attention/Conflicts equivalents
     if (role === 'admin') {
-      const target = cards.find((c) => c.id === cardId || c.sampleId === cardId);
-      if (target && target.analysisType === 'Sample' && target.status === 'done' && (columnId === 'review' || columnId === 'progress')) {
+      const target =
+        columns.flatMap((c) => c.cards).find((c) => c.id === cardId || c.sampleId === cardId) ??
+        cards.find((c) => c.id === cardId || c.sampleId === cardId);
+      if (target && target.analysisType === 'Sample' && (target.status === 'done' || target.status === 'review') && columnId === 'done') {
+        handleAdminStoreNotResolved(target);
+        return;
+      }
+      if (target && target.analysisType === 'Sample' && columnId === 'new') {
+        setDeletePrompt({ open: true, card: target });
+        setDeleteReason('');
+        return;
+      }
+      if (
+        target &&
+        target.analysisType === 'Sample' &&
+        target.status === 'done' &&
+        (target.adminStored || adminStoredByCard[target.sampleId]) &&
+        (columnId === 'review' || columnId === 'progress')
+      ) {
         toast({
           title: 'Cannot move stored item',
           description: 'Stored samples stay stored; they cannot be moved to Needs attention or Conflicts.',
