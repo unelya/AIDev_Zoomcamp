@@ -329,29 +329,27 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
         list.push(pa);
         analysesBySampleId.set(pa.sampleId, list);
       });
-    const toLabAnalysisStatus = (aggStatus: KanbanCard['status'], allDone: boolean) => {
-      if (aggStatus === 'progress' && allDone) return 'completed';
-      if (aggStatus === 'progress') return 'in_progress';
-      if (aggStatus === 'review') return 'review';
-      if (aggStatus === 'done') return 'completed';
-      return 'planned';
-    };
-    cards.forEach((sample) => {
+    const sampleIds = new Set<string>(cards.map((c) => c.sampleId));
+    analysesBySampleId.forEach((_, sampleId) => sampleIds.add(sampleId));
+    sampleIds.forEach((sampleId) => {
       const methods =
         mergeMethods(
-          (analysesBySampleId.get(sample.sampleId) ?? []).map((pa) => ({
+          (analysesBySampleId.get(sampleId) ?? []).map((pa) => ({
             id: pa.id,
             name: pa.analysisType,
             status: pa.status,
             assignedTo: pa.assignedTo,
           })),
         ) ?? [];
+      const overrideStatus = labStatusOverrides[sampleId];
       if (methods.length === 0) {
-        analysisStatusBySampleId.set(sample.sampleId, sample.analysisStatus);
+        const labStatus = overrideStatus ?? 'new';
+        analysisStatusBySampleId.set(sampleId, toAnalysisStatus(labStatus));
         return;
       }
-      const { aggStatus, allDone } = aggregateStatus(methods, sample.status);
-      analysisStatusBySampleId.set(sample.sampleId, toLabAnalysisStatus(aggStatus, allDone));
+      const { aggStatus } = aggregateStatus(methods, 'new');
+      const labStatus = overrideStatus ?? aggStatus;
+      analysisStatusBySampleId.set(sampleId, toAnalysisStatus(labStatus));
     });
 
     if (role === 'lab_operator') {
@@ -691,11 +689,22 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
     if (role === 'warehouse_worker') {
       const decorated = withComments(visibleCards).map((card) => {
         const issueHistory = issueReasons[card.sampleId] ?? [];
+        const analysisStatus = analysisStatusBySampleId.get(card.sampleId) ?? card.analysisStatus;
+        const analysisLabel =
+          analysisStatus === 'completed'
+            ? 'Completed'
+            : analysisStatus === 'review'
+            ? 'Needs attention'
+            : analysisStatus === 'in_progress'
+            ? 'In progress'
+            : 'Planned';
         return {
           ...card,
           returnedToWarehouse: Boolean(warehouseReturnHighlights[card.sampleId]),
           issueReason: issueHistory[issueHistory.length - 1] ?? card.issueReason,
           issueHistory,
+          analysisStatus,
+          analysisLabel,
         };
       });
       return getColumnData(filterCards(decorated), role);
@@ -710,7 +719,7 @@ export function KanbanBoard({ role, searchTerm }: { role: Role; searchTerm?: str
       ? 'column'
       : 'sample';
   const statusLineMode = role === 'lab_operator' ? 'sample' : role === 'action_supervision' || role === 'admin' ? 'both' : 'analysis';
-  const analysisLabelMode = role === 'lab_operator' ? 'column' : 'analysis';
+  const analysisLabelMode = role === 'lab_operator' || role === 'warehouse_worker' ? 'column' : 'analysis';
   const showConflictStatus = role === 'admin' || role === 'action_supervision';
   const conflictStatusLabel = showConflictStatus ? 'Conflict' : 'Conflict status';
   const handleCardClick = (card: KanbanCard) => {

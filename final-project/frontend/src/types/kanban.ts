@@ -43,6 +43,7 @@ export interface KanbanCard {
   returnNote?: string;
   issueHistory?: string[];
   returnNotes?: string[];
+  analysisLabel?: string;
 }
 
 export interface NewCardPayload {

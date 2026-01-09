@@ -45,9 +45,6 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
     return idx >= 0 ? idx : METHOD_ORDER.length + 100 + name.toLowerCase().charCodeAt(0);
   };
   const analysisBadge = (() => {
-    if (role === 'lab_operator') {
-      return { status: card.status, label: card.statusLabel || 'Planned' };
-    }
     const normalized = card.analysisStatus?.toLowerCase() ?? 'planned';
     switch (normalized) {
       case 'in_progress':
@@ -62,6 +59,11 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
         return { status: 'new', label: 'Planned' };
     }
   })();
+  const analysisBadgeDisplay = card.analysisLabel
+    ? { ...analysisBadge, label: card.analysisLabel }
+    : role === 'lab_operator'
+    ? { status: card.status, label: card.statusLabel || 'Planned' }
+    : analysisBadge;
   const conflictStatusMap: Record<KanbanCard['status'], { status: KanbanCard['status']; label: string }> = {
     new: { status: 'new', label: 'Uploaded batch' },
     progress: { status: 'progress', label: 'Conflicts' },
@@ -157,16 +159,20 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
                 <span className="text-sm text-muted-foreground flex items-center gap-1">
                   <ClipboardList className="w-3 h-3" /> Sample status:
                 </span>
-                <span className="text-sm text-foreground">{sampleLabel}</span>
+                {role === 'warehouse_worker' ? (
+                  <StatusBadge status={card.status} label={sampleLabel} />
+                ) : (
+                  <span className="text-sm text-foreground">{sampleLabel}</span>
+                )}
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-sm text-muted-foreground flex items-center gap-1">
                   <FlaskConical className="w-3 h-3" /> Analysis status:
                 </span>
                 {role === 'lab_operator' ? (
-                  <StatusBadge status={analysisBadge.status} label={analysisBadge.label} />
+                  <StatusBadge status={analysisBadgeDisplay.status} label={analysisBadgeDisplay.label} />
                 ) : (
-                  <span className="text-sm text-foreground">{analysisBadge.label}</span>
+                  <span className="text-sm text-foreground">{analysisBadgeDisplay.label}</span>
                 )}
               </div>
               {((card.issueHistory && card.issueHistory.length > 0) || (card.returnNotes && card.returnNotes.length > 0) || card.issueReason || card.returnNote) && (

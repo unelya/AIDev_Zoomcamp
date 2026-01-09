@@ -39,7 +39,7 @@ export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adm
     });
   const analysisBadge = (() => {
     if (analysisLabelMode === 'column') {
-      return { status: card.status, label: card.statusLabel };
+      return { status: card.status, label: card.analysisLabel ?? card.statusLabel };
     }
     const normalized = card.analysisStatus?.toLowerCase() ?? 'planned';
     switch (normalized) {
