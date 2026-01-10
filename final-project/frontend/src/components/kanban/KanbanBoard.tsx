@@ -272,6 +272,9 @@ export function KanbanBoard({
   const prevAdminReturnNotesRef = useRef<Record<string, string[]>>({});
   const adminReturnLoadedRef = useRef(false);
   const labPlannedLoadedRef = useRef(false);
+  const prevAdminIssuesRef = useRef<Set<string>>(new Set());
+  const prevAdminNeedsRef = useRef<Set<string>>(new Set());
+  const adminNotifsLoadedRef = useRef(false);
   const [labNeedsAttentionReasons, setLabNeedsAttentionReasons] = useState<Record<string, string>>({});
   const [labNeedsPrompt, setLabNeedsPrompt] = useState<{ open: boolean; cardId: string | null }>({ open: false, cardId: null });
   const [labNeedsReason, setLabNeedsReason] = useState('');
@@ -990,6 +993,47 @@ export function KanbanBoard({
   }, [columns, role]);
 
   useEffect(() => {
+    if (role !== 'admin') {
+      prevAdminIssuesRef.current = new Set();
+      prevAdminNeedsRef.current = new Set();
+      adminNotifsLoadedRef.current = false;
+      return;
+    }
+    const issuesCards = columns.find((col) => col.title === 'Issues')?.cards ?? [];
+    const needsCards = columns.find((col) => col.title === 'Needs attention')?.cards ?? [];
+    const currentIssues = new Set(issuesCards.map((card) => card.sampleId));
+    const currentNeeds = new Set(needsCards.map((card) => card.sampleId));
+    if (!adminNotifsLoadedRef.current) {
+      prevAdminIssuesRef.current = currentIssues;
+      prevAdminNeedsRef.current = currentNeeds;
+      adminNotifsLoadedRef.current = true;
+      return;
+    }
+    const newlyIssues = [...currentIssues].filter((id) => !prevAdminIssuesRef.current.has(id));
+    const newlyNeeds = [...currentNeeds].filter((id) => !prevAdminNeedsRef.current.has(id));
+    if (newlyIssues.length > 0) {
+      setAdminIssuesRead((prev) => {
+        const next = { ...prev };
+        newlyIssues.forEach((id) => {
+          if (next[id]) delete next[id];
+        });
+        return next;
+      });
+    }
+    if (newlyNeeds.length > 0) {
+      setAdminNeedsRead((prev) => {
+        const next = { ...prev };
+        newlyNeeds.forEach((id) => {
+          if (next[id]) delete next[id];
+        });
+        return next;
+      });
+    }
+    prevAdminIssuesRef.current = currentIssues;
+    prevAdminNeedsRef.current = currentNeeds;
+  }, [columns, role]);
+
+  useEffect(() => {
     if (!onNotificationsChange) return;
     if (role !== 'warehouse_worker' && role !== 'lab_operator' && role !== 'action_supervision' && role !== 'admin') {
       onNotificationsChange([]);
@@ -1089,6 +1133,10 @@ export function KanbanBoard({
     labReturnRead,
     labReturnHighlights,
     adminReturnNotes,
+    actionUploadedRead,
+    actionConflictRead,
+    adminIssuesRead,
+    adminNeedsRead,
   ]);
 
   useEffect(() => {
@@ -2052,6 +2100,12 @@ export function KanbanBoard({
       ...prev,
       [issuePrompt.card.sampleId]: [...(prev[issuePrompt.card.sampleId] ?? []), issueReason.trim()],
     }));
+    setAdminIssuesRead((prev) => {
+      if (!(issuePrompt.card.sampleId in prev)) return prev;
+      const next = { ...prev };
+      delete next[issuePrompt.card.sampleId];
+      return next;
+    });
     if (selectedCard?.id === targetId) {
       setSelectedCard({ ...selectedCard, status: 'done', statusLabel: columnConfigByRole[role]?.find((col) => col.id === 'done')?.title ?? selectedCard.statusLabel, issueReason: issueReason.trim() });
     }
@@ -2739,6 +2793,12 @@ export function KanbanBoard({
                   ...prev,
                   [targetId]: [...(prev[targetId] ?? []), reason],
                 }));
+                setAdminNeedsRead((prev) => {
+                  if (!(targetId in prev)) return prev;
+                  const next = { ...prev };
+                  delete next[targetId];
+                  return next;
+                });
                 setLabStatusOverrides((prev) => ({ ...prev, [targetId]: 'review' }));
                 setLabReturnHighlights((prev) => {
                   if (!prev[targetId]) return prev;
