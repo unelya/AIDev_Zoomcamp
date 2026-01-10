@@ -929,6 +929,14 @@ export function KanbanBoard({
         return next;
       });
     }
+    if (role === 'lab_operator' && labReturnHighlights[card.sampleId]) {
+      setLabReturnHighlights((prev) => {
+        if (!prev[card.sampleId]) return prev;
+        const next = { ...prev };
+        delete next[card.sampleId];
+        return next;
+      });
+    }
     // ensure methods are attached for the detail panel even if this card came from a role/column that does not render them
     const methodsFromAnalyses =
       mergeMethods(
