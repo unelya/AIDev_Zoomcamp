@@ -2823,8 +2823,8 @@ export function KanbanBoard({
                 setAdminReturnPrompt({ open: false, card: null });
                 setAdminReturnNote('');
                 {
-                  const warehouseStatus =
-                    target.storageLocation && target.storageLocation.trim() ? 'review' : 'progress';
+                  const hasLocation = Boolean(target.storageLocation && target.storageLocation.trim());
+                  const warehouseStatus = hasLocation ? 'review' : 'progress';
                   handleSampleFieldUpdate(target.sampleId, { status: warehouseStatus }, { skipUndo: true });
                   setWarehouseReturnHighlights((prev) => ({ ...prev, [target.sampleId]: true }));
                   setCards((prev) =>
@@ -2838,16 +2838,31 @@ export function KanbanBoard({
                     delete next[target.sampleId];
                     return next;
                   });
+                  if (hasLocation) {
+                    const methods = plannedAnalyses.filter((pa) => pa.sampleId === target.sampleId);
+                    const hasDone = methods.some((m) => m.status === 'completed');
+                    setLabReturnState(target.sampleId, hasDone ? 'progress' : 'new');
+                    setLabReturnRead((prev) => {
+                      if (!prev[target.sampleId]) return prev;
+                      const next = { ...prev };
+                      delete next[target.sampleId];
+                      return next;
+                    });
+                  } else {
+                    setLabStatusOverrides((prev) => {
+                      if (!(target.sampleId in prev)) return prev;
+                      const next = { ...prev };
+                      delete next[target.sampleId];
+                      return next;
+                    });
+                    setLabReturnHighlights((prev) => {
+                      if (!prev[target.sampleId]) return prev;
+                      const next = { ...prev };
+                      delete next[target.sampleId];
+                      return next;
+                    });
+                  }
                 }
-                const methods = plannedAnalyses.filter((pa) => pa.sampleId === target.sampleId);
-                const hasDone = methods.some((m) => m.status === 'completed');
-                setLabReturnState(target.sampleId, hasDone ? 'progress' : 'new');
-                setLabReturnRead((prev) => {
-                  if (!prev[target.sampleId]) return prev;
-                  const next = { ...prev };
-                  delete next[target.sampleId];
-                  return next;
-                });
                 if (selectedCard?.sampleId === target.sampleId) {
                   setSelectedCard({ ...selectedCard, returnNote: note });
                 }
