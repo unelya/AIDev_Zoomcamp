@@ -2484,10 +2484,10 @@ export function KanbanBoard({
                     ...(role === 'admin'
                       ? {
                           onResolve: (card: KanbanCard) => handleAdminStoreNotResolved(card),
-                          onReturn: (card: KanbanCard) => {
-                            setAdminReturnPrompt({ open: true, card });
-                            setAdminReturnNote(getLatestReturnNote(card.sampleId));
-                          },
+                        onReturn: (card: KanbanCard) => {
+                          setAdminReturnPrompt({ open: true, card });
+                          setAdminReturnNote('');
+                        },
                         }
                       : {}),
                   }
@@ -2781,17 +2781,21 @@ export function KanbanBoard({
           {(() => {
             const card = adminReturnPrompt.card;
             const latest = card ? getLatestReturnNote(card.sampleId) : '';
-            const isExisting = Boolean(latest) && adminReturnNote.trim() === latest;
             return (
               <>
-          <p className="text-sm text-muted-foreground">What was done? This note will appear on the admin card.</p>
-          <Textarea
-            autoFocus
-            placeholder="Explanation"
-            value={adminReturnNote}
-            onChange={(e) => setAdminReturnNote(e.target.value)}
-            className={isExisting ? 'min-h-[96px] text-muted-foreground' : 'min-h-[96px]'}
-          />
+                <p className="text-sm text-muted-foreground">What was done? This note will appear on the admin card.</p>
+                {latest && (
+                  <p className="text-xs text-muted-foreground">
+                    Previous return note: {latest}
+                  </p>
+                )}
+                <Textarea
+                  autoFocus
+                  placeholder="New explanation"
+                  value={adminReturnNote}
+                  onChange={(e) => setAdminReturnNote(e.target.value)}
+                  className="min-h-[96px]"
+                />
               </>
             );
           })()}
