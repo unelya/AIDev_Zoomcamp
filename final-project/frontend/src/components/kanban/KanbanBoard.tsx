@@ -33,6 +33,8 @@ const LAB_PLANNED_READ_KEY = 'labsync-lab-planned-read';
 const LAB_RETURN_READ_KEY = 'labsync-lab-return-read';
 const ACTION_UPLOADED_READ_KEY = 'labsync-action-uploaded-read';
 const ACTION_CONFLICT_READ_KEY = 'labsync-action-conflict-read';
+const ADMIN_ISSUES_READ_KEY = 'labsync-admin-issues-read';
+const ADMIN_NEEDS_READ_KEY = 'labsync-admin-needs-read';
 const SHOW_LAB_COMPLETED_MOCK = true;
 
 const roleCopy: Record<Role, string> = {
@@ -249,6 +251,24 @@ export function KanbanBoard({
       return {};
     }
   });
+  const [adminIssuesRead, setAdminIssuesRead] = useState<Record<string, boolean>>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const raw = localStorage.getItem(ADMIN_ISSUES_READ_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+  const [adminNeedsRead, setAdminNeedsRead] = useState<Record<string, boolean>>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const raw = localStorage.getItem(ADMIN_NEEDS_READ_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
   const prevAdminReturnNotesRef = useRef<Record<string, string[]>>({});
   const adminReturnLoadedRef = useRef(false);
   const labPlannedLoadedRef = useRef(false);
@@ -418,6 +438,14 @@ export function KanbanBoard({
     if (typeof window === 'undefined') return;
     localStorage.setItem(ACTION_CONFLICT_READ_KEY, JSON.stringify(actionConflictRead));
   }, [actionConflictRead]);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(ADMIN_ISSUES_READ_KEY, JSON.stringify(adminIssuesRead));
+  }, [adminIssuesRead]);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(ADMIN_NEEDS_READ_KEY, JSON.stringify(adminNeedsRead));
+  }, [adminNeedsRead]);
   useEffect(() => {
     if (role !== 'lab_operator') {
       prevAdminReturnNotesRef.current = adminReturnNotes;
@@ -963,7 +991,7 @@ export function KanbanBoard({
 
   useEffect(() => {
     if (!onNotificationsChange) return;
-    if (role !== 'warehouse_worker' && role !== 'lab_operator' && role !== 'action_supervision') {
+    if (role !== 'warehouse_worker' && role !== 'lab_operator' && role !== 'action_supervision' && role !== 'admin') {
       onNotificationsChange([]);
       return;
     }
@@ -1007,6 +1035,26 @@ export function KanbanBoard({
       onNotificationsChange([...uploadedNotes, ...conflictNotes]);
       return;
     }
+    if (role === 'admin') {
+      const issuesCards = columns.find((col) => col.title === 'Issues')?.cards ?? [];
+      const needsCards = columns.find((col) => col.title === 'Needs attention')?.cards ?? [];
+      const issueNotes = issuesCards
+        .filter((card) => !adminIssuesRead[card.sampleId])
+        .map((card) => ({
+          id: `admin-issues:${card.sampleId}`,
+          title: 'Issue reported',
+          description: `${card.sampleId} is in Issues.`,
+        }));
+      const needsNotes = needsCards
+        .filter((card) => !adminNeedsRead[card.sampleId])
+        .map((card) => ({
+          id: `admin-needs:${card.sampleId}`,
+          title: 'Needs attention',
+          description: `${card.sampleId} is in Needs attention.`,
+        }));
+      onNotificationsChange([...issueNotes, ...needsNotes]);
+      return;
+    }
     const plannedNotes = plannedCards
       .filter((card) => !labPlannedRead[card.sampleId])
       .map((card) => ({
@@ -1044,7 +1092,7 @@ export function KanbanBoard({
   ]);
 
   useEffect(() => {
-    if (role !== 'warehouse_worker' && role !== 'lab_operator' && role !== 'action_supervision') return;
+    if (role !== 'warehouse_worker' && role !== 'lab_operator' && role !== 'action_supervision' && role !== 'admin') return;
     if (!notificationClickId) return;
     const [kind, sampleId] = notificationClickId.split(':');
     if (!sampleId) return;
@@ -1072,6 +1120,14 @@ export function KanbanBoard({
         setActionConflictRead((prev) => ({ ...prev, [sampleId]: true }));
       }
     }
+    if (role === 'admin') {
+      if (kind === 'admin-issues') {
+        setAdminIssuesRead((prev) => ({ ...prev, [sampleId]: true }));
+      }
+      if (kind === 'admin-needs') {
+        setAdminNeedsRead((prev) => ({ ...prev, [sampleId]: true }));
+      }
+    }
     const target = columns.flatMap((col) => col.cards).find((card) => card.sampleId === sampleId);
     if (target) {
       handleCardClick(target);
@@ -1080,7 +1136,7 @@ export function KanbanBoard({
   }, [columns, notificationClickId, onNotificationConsumed, role]);
 
   useEffect(() => {
-    if (role !== 'warehouse_worker' && role !== 'lab_operator' && role !== 'action_supervision') return;
+    if (role !== 'warehouse_worker' && role !== 'lab_operator' && role !== 'action_supervision' && role !== 'admin') return;
     if (!markAllReadToken) return;
     const plannedCards = columns.find((col) => col.id === 'new')?.cards ?? [];
     if (plannedCards.length > 0) {
@@ -1092,7 +1148,7 @@ export function KanbanBoard({
           });
           return next;
         });
-      } else {
+      } else if (role === 'lab_operator') {
         if (role === 'lab_operator') {
           setLabPlannedRead((prev) => {
             const next = { ...prev };
@@ -1101,7 +1157,7 @@ export function KanbanBoard({
             });
             return next;
           });
-        } else {
+        } else if (role === 'action_supervision') {
           setActionUploadedRead((prev) => {
             const next = { ...prev };
             plannedCards.forEach((card) => {
@@ -1143,12 +1199,33 @@ export function KanbanBoard({
           return next;
         });
       }
-    } else {
+    } else if (role === 'action_supervision') {
       const conflictCards = columns.find((col) => col.id === 'progress')?.cards ?? [];
       if (conflictCards.length > 0) {
         setActionConflictRead((prev) => {
           const next = { ...prev };
           conflictCards.forEach((card) => {
+            next[card.sampleId] = true;
+          });
+          return next;
+        });
+      }
+    } else if (role === 'admin') {
+      const issuesCards = columns.find((col) => col.title === 'Issues')?.cards ?? [];
+      if (issuesCards.length > 0) {
+        setAdminIssuesRead((prev) => {
+          const next = { ...prev };
+          issuesCards.forEach((card) => {
+            next[card.sampleId] = true;
+          });
+          return next;
+        });
+      }
+      const needsCards = columns.find((col) => col.title === 'Needs attention')?.cards ?? [];
+      if (needsCards.length > 0) {
+        setAdminNeedsRead((prev) => {
+          const next = { ...prev };
+          needsCards.forEach((card) => {
             next[card.sampleId] = true;
           });
           return next;
