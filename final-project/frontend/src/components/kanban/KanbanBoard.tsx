@@ -921,6 +921,14 @@ export function KanbanBoard({
   const showConflictStatus = role === 'admin' || role === 'action_supervision';
   const conflictStatusLabel = showConflictStatus ? 'Conflict' : 'Conflict status';
   const handleCardClick = (card: KanbanCard) => {
+    if (role === 'warehouse_worker' && warehouseReturnHighlights[card.sampleId]) {
+      setWarehouseReturnHighlights((prev) => {
+        if (!prev[card.sampleId]) return prev;
+        const next = { ...prev };
+        delete next[card.sampleId];
+        return next;
+      });
+    }
     // ensure methods are attached for the detail panel even if this card came from a role/column that does not render them
     const methodsFromAnalyses =
       mergeMethods(
