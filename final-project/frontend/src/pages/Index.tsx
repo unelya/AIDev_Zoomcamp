@@ -29,7 +29,7 @@ const Index = () => {
         searchTerm={searchTerm}
         onSearch={setSearchTerm}
         allowedRoles={allowedRoles}
-        showNotificationDot={(role === 'warehouse_worker' || role === 'lab_operator') && notifications.length > 0}
+        showNotificationDot={(role === 'warehouse_worker' || role === 'lab_operator' || role === 'action_supervision') && notifications.length > 0}
         notifications={notifications}
         onNotificationClick={(id) => setNotificationClickId(id)}
         onMarkAllRead={() => setMarkAllReadToken((prev) => prev + 1)}

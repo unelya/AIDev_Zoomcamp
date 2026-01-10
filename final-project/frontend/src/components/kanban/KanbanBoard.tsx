@@ -31,6 +31,8 @@ const WAREHOUSE_PLANNED_READ_KEY = 'labsync-warehouse-planned-read';
 const WAREHOUSE_RETURN_READ_KEY = 'labsync-warehouse-return-read';
 const LAB_PLANNED_READ_KEY = 'labsync-lab-planned-read';
 const LAB_RETURN_READ_KEY = 'labsync-lab-return-read';
+const ACTION_UPLOADED_READ_KEY = 'labsync-action-uploaded-read';
+const ACTION_CONFLICT_READ_KEY = 'labsync-action-conflict-read';
 const SHOW_LAB_COMPLETED_MOCK = true;
 
 const roleCopy: Record<Role, string> = {
@@ -83,6 +85,7 @@ export function KanbanBoard({
     )[]
   >([]);
   const undoStackRef = useRef<(typeof undoStack)[number][]>([]);
+  const prevLabPlannedRef = useRef<Set<string>>(new Set());
   const [storagePrompt, setStoragePrompt] = useState<{ open: boolean; sampleId: string | null }>({ open: false, sampleId: null });
   const [storageValue, setStorageValue] = useState({ fridge: '', bin: '', place: '' });
   const [storageError, setStorageError] = useState('');
@@ -228,6 +231,27 @@ export function KanbanBoard({
       return {};
     }
   });
+  const [actionUploadedRead, setActionUploadedRead] = useState<Record<string, boolean>>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const raw = localStorage.getItem(ACTION_UPLOADED_READ_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+  const [actionConflictRead, setActionConflictRead] = useState<Record<string, boolean>>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const raw = localStorage.getItem(ACTION_CONFLICT_READ_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+  const prevAdminReturnNotesRef = useRef<Record<string, string[]>>({});
+  const adminReturnLoadedRef = useRef(false);
+  const labPlannedLoadedRef = useRef(false);
   const [labNeedsAttentionReasons, setLabNeedsAttentionReasons] = useState<Record<string, string>>({});
   const [labNeedsPrompt, setLabNeedsPrompt] = useState<{ open: boolean; cardId: string | null }>({ open: false, cardId: null });
   const [labNeedsReason, setLabNeedsReason] = useState('');
@@ -386,6 +410,46 @@ export function KanbanBoard({
     if (typeof window === 'undefined') return;
     localStorage.setItem(LAB_RETURN_READ_KEY, JSON.stringify(labReturnRead));
   }, [labReturnRead]);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(ACTION_UPLOADED_READ_KEY, JSON.stringify(actionUploadedRead));
+  }, [actionUploadedRead]);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(ACTION_CONFLICT_READ_KEY, JSON.stringify(actionConflictRead));
+  }, [actionConflictRead]);
+  useEffect(() => {
+    if (role !== 'lab_operator') {
+      prevAdminReturnNotesRef.current = adminReturnNotes;
+      adminReturnLoadedRef.current = false;
+      return;
+    }
+    const prevNotes = prevAdminReturnNotesRef.current;
+    if (!adminReturnLoadedRef.current) {
+      prevAdminReturnNotesRef.current = adminReturnNotes;
+      adminReturnLoadedRef.current = true;
+      return;
+    }
+    const newlyReturned = Object.entries(adminReturnNotes)
+      .filter(([sampleId, notes]) => {
+        if (!notes || notes.length === 0) return false;
+        const prevCount = prevNotes[sampleId]?.length ?? 0;
+        return notes.length > prevCount;
+      })
+      .map(([sampleId]) => sampleId);
+    if (newlyReturned.length > 0) {
+      setLabReturnRead((prev) => {
+        const next = { ...prev };
+        newlyReturned.forEach((sampleId) => {
+          if (next[sampleId]) {
+            delete next[sampleId];
+          }
+        });
+        return next;
+      });
+    }
+    prevAdminReturnNotesRef.current = adminReturnNotes;
+  }, [adminReturnNotes, role]);
   useEffect(() => {
     if (role === 'warehouse_worker' || role === 'action_supervision') {
       setMethodFilter([]);
@@ -869,8 +933,37 @@ export function KanbanBoard({
   }, [cards, plannedAnalyses, actionBatches, conflicts, role, filterCards, methodFilter, assignedOnly, incompleteOnly, commentsByCard, user?.fullName, deletedByCard, adminStoredByCard, labStatusOverrides, labNeedsAttentionReasons, labReturnHighlights, warehouseReturnHighlights, adminReturnNotes, issueReasons]);
 
   useEffect(() => {
+    if (role !== 'lab_operator') {
+      prevLabPlannedRef.current = new Set();
+      labPlannedLoadedRef.current = false;
+      return;
+    }
+    if (!labPlannedLoadedRef.current) {
+      prevLabPlannedRef.current = new Set((columns.find((col) => col.id === 'new')?.cards ?? []).map((card) => card.sampleId));
+      labPlannedLoadedRef.current = true;
+      return;
+    }
+    const plannedCards = columns.find((col) => col.id === 'new')?.cards ?? [];
+    const currentPlanned = new Set(plannedCards.map((card) => card.sampleId));
+    const prevPlanned = prevLabPlannedRef.current;
+    const newlyAdded = [...currentPlanned].filter((id) => !prevPlanned.has(id));
+    if (newlyAdded.length > 0) {
+      setLabPlannedRead((prev) => {
+        const next = { ...prev };
+        newlyAdded.forEach((id) => {
+          if (next[id]) {
+            delete next[id];
+          }
+        });
+        return next;
+      });
+    }
+    prevLabPlannedRef.current = currentPlanned;
+  }, [columns, role]);
+
+  useEffect(() => {
     if (!onNotificationsChange) return;
-    if (role !== 'warehouse_worker' && role !== 'lab_operator') {
+    if (role !== 'warehouse_worker' && role !== 'lab_operator' && role !== 'action_supervision') {
       onNotificationsChange([]);
       return;
     }
@@ -894,6 +987,26 @@ export function KanbanBoard({
       onNotificationsChange([...plannedNotes, ...returnedNotes]);
       return;
     }
+    if (role === 'action_supervision') {
+      const uploadedCards = columns.find((col) => col.id === 'new')?.cards ?? [];
+      const conflictCards = columns.find((col) => col.id === 'progress')?.cards ?? [];
+      const uploadedNotes = uploadedCards
+        .filter((card) => !actionUploadedRead[card.sampleId])
+        .map((card) => ({
+          id: `action-uploaded:${card.sampleId}`,
+          title: 'Uploaded batch',
+          description: `${card.sampleId} is in Uploaded batch.`,
+        }));
+      const conflictNotes = conflictCards
+        .filter((card) => !actionConflictRead[card.sampleId])
+        .map((card) => ({
+          id: `action-conflict:${card.sampleId}`,
+          title: 'Conflict detected',
+          description: `${card.sampleId} is in Conflicts.`,
+        }));
+      onNotificationsChange([...uploadedNotes, ...conflictNotes]);
+      return;
+    }
     const plannedNotes = plannedCards
       .filter((card) => !labPlannedRead[card.sampleId])
       .map((card) => ({
@@ -901,10 +1014,16 @@ export function KanbanBoard({
         title: 'New planned analysis',
         description: `${card.sampleId} is in Planned.`,
       }));
-    const returnedNotes = Object.entries(labReturnHighlights)
-      .filter(([, flagged]) => flagged)
-      .filter(([sampleId]) => !labReturnRead[sampleId])
-      .map(([sampleId]) => ({
+    const returnedSampleIds = new Set<string>();
+    Object.entries(labReturnHighlights).forEach(([sampleId, flagged]) => {
+      if (flagged) returnedSampleIds.add(sampleId);
+    });
+    Object.entries(adminReturnNotes).forEach(([sampleId, notes]) => {
+      if (notes && notes.length > 0) returnedSampleIds.add(sampleId);
+    });
+    const returnedNotes = [...returnedSampleIds]
+      .filter((sampleId) => !labReturnRead[sampleId])
+      .map((sampleId) => ({
         id: `lab-returned:${sampleId}`,
         title: 'Returned for analysis',
         description: `${sampleId} was returned to Lab by Admin.`,
@@ -921,10 +1040,11 @@ export function KanbanBoard({
     labPlannedRead,
     labReturnRead,
     labReturnHighlights,
+    adminReturnNotes,
   ]);
 
   useEffect(() => {
-    if (role !== 'warehouse_worker' && role !== 'lab_operator') return;
+    if (role !== 'warehouse_worker' && role !== 'lab_operator' && role !== 'action_supervision') return;
     if (!notificationClickId) return;
     const [kind, sampleId] = notificationClickId.split(':');
     if (!sampleId) return;
@@ -944,6 +1064,14 @@ export function KanbanBoard({
         setLabReturnRead((prev) => ({ ...prev, [sampleId]: true }));
       }
     }
+    if (role === 'action_supervision') {
+      if (kind === 'action-uploaded') {
+        setActionUploadedRead((prev) => ({ ...prev, [sampleId]: true }));
+      }
+      if (kind === 'action-conflict') {
+        setActionConflictRead((prev) => ({ ...prev, [sampleId]: true }));
+      }
+    }
     const target = columns.flatMap((col) => col.cards).find((card) => card.sampleId === sampleId);
     if (target) {
       handleCardClick(target);
@@ -952,7 +1080,7 @@ export function KanbanBoard({
   }, [columns, notificationClickId, onNotificationConsumed, role]);
 
   useEffect(() => {
-    if (role !== 'warehouse_worker' && role !== 'lab_operator') return;
+    if (role !== 'warehouse_worker' && role !== 'lab_operator' && role !== 'action_supervision') return;
     if (!markAllReadToken) return;
     const plannedCards = columns.find((col) => col.id === 'new')?.cards ?? [];
     if (plannedCards.length > 0) {
@@ -965,13 +1093,23 @@ export function KanbanBoard({
           return next;
         });
       } else {
-        setLabPlannedRead((prev) => {
-          const next = { ...prev };
-          plannedCards.forEach((card) => {
-            next[card.sampleId] = true;
+        if (role === 'lab_operator') {
+          setLabPlannedRead((prev) => {
+            const next = { ...prev };
+            plannedCards.forEach((card) => {
+              next[card.sampleId] = true;
+            });
+            return next;
           });
-          return next;
-        });
+        } else {
+          setActionUploadedRead((prev) => {
+            const next = { ...prev };
+            plannedCards.forEach((card) => {
+              next[card.sampleId] = true;
+            });
+            return next;
+          });
+        }
       }
     }
     if (role === 'warehouse_worker') {
@@ -987,10 +1125,15 @@ export function KanbanBoard({
           return next;
         });
       }
-    } else {
-      const returnedIds = Object.entries(labReturnHighlights)
-        .filter(([, flagged]) => flagged)
-        .map(([sampleId]) => sampleId);
+    } else if (role === 'lab_operator') {
+      const returnedSet = new Set<string>();
+      Object.entries(labReturnHighlights).forEach(([sampleId, flagged]) => {
+        if (flagged) returnedSet.add(sampleId);
+      });
+      Object.entries(adminReturnNotes).forEach(([sampleId, notes]) => {
+        if (notes && notes.length > 0) returnedSet.add(sampleId);
+      });
+      const returnedIds = [...returnedSet];
       if (returnedIds.length > 0) {
         setLabReturnRead((prev) => {
           const next = { ...prev };
@@ -1000,8 +1143,19 @@ export function KanbanBoard({
           return next;
         });
       }
+    } else {
+      const conflictCards = columns.find((col) => col.id === 'progress')?.cards ?? [];
+      if (conflictCards.length > 0) {
+        setActionConflictRead((prev) => {
+          const next = { ...prev };
+          conflictCards.forEach((card) => {
+            next[card.sampleId] = true;
+          });
+          return next;
+        });
+      }
     }
-  }, [columns, markAllReadToken, role, warehouseReturnHighlights, labReturnHighlights]);
+  }, [columns, markAllReadToken, role, warehouseReturnHighlights, labReturnHighlights, adminReturnNotes]);
 
   const statusBadgeMode =
     role === 'lab_operator'
