@@ -828,7 +828,7 @@ export function KanbanBoard({
             : 'Planned';
         return {
           ...card,
-          returnedToWarehouse: Boolean(warehouseReturnHighlights[card.sampleId]),
+          returnedToWarehouse: Boolean(warehouseReturnHighlights[card.sampleId] || card.returnedToWarehouse),
           issueReason: issueHistory[issueHistory.length - 1] ?? card.issueReason,
           issueHistory,
           analysisStatus,
@@ -928,6 +928,11 @@ export function KanbanBoard({
         delete next[card.sampleId];
         return next;
       });
+      setCards((prev) =>
+        prev.map((c) =>
+          c.sampleId === card.sampleId ? { ...c, returnedToWarehouse: false } : c,
+        ),
+      );
     }
     if (role === 'lab_operator' && labReturnHighlights[card.sampleId]) {
       setLabReturnHighlights((prev) => {
@@ -1125,6 +1130,13 @@ export function KanbanBoard({
         delete next[key];
         return next;
       });
+      if (target) {
+        setCards((prev) =>
+          prev.map((card) =>
+            card.sampleId === target.sampleId ? { ...card, returnedToWarehouse: false } : card,
+          ),
+        );
+      }
     }
     if (role === 'warehouse_worker' && columnId === 'review') {
       const target = cards.find((c) => c.id === cardId);
@@ -2554,11 +2566,22 @@ export function KanbanBoard({
                 }));
                 setAdminReturnPrompt({ open: false, card: null });
                 setAdminReturnNote('');
-                if (target.status === 'done') {
+                {
                   const warehouseStatus =
                     target.storageLocation && target.storageLocation.trim() ? 'review' : 'progress';
                   handleSampleFieldUpdate(target.sampleId, { status: warehouseStatus }, { skipUndo: true });
                   setWarehouseReturnHighlights((prev) => ({ ...prev, [target.sampleId]: true }));
+                  setCards((prev) =>
+                    prev.map((card) =>
+                      card.sampleId === target.sampleId ? { ...card, returnedToWarehouse: true } : card,
+                    ),
+                  );
+                  setWarehouseReturnRead((prev) => {
+                    if (!prev[target.sampleId]) return prev;
+                    const next = { ...prev };
+                    delete next[target.sampleId];
+                    return next;
+                  });
                 }
                 const methods = plannedAnalyses.filter((pa) => pa.sampleId === target.sampleId);
                 const hasDone = methods.some((m) => m.status === 'completed');
