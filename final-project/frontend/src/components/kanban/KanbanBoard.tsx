@@ -29,6 +29,8 @@ const ADMIN_STORED_SOURCE_KEY = 'labsync-admin-stored-source';
 const CREATED_SAMPLE_KEY = 'labsync-created-samples';
 const WAREHOUSE_PLANNED_READ_KEY = 'labsync-warehouse-planned-read';
 const WAREHOUSE_RETURN_READ_KEY = 'labsync-warehouse-return-read';
+const LAB_PLANNED_READ_KEY = 'labsync-lab-planned-read';
+const LAB_RETURN_READ_KEY = 'labsync-lab-return-read';
 const SHOW_LAB_COMPLETED_MOCK = true;
 
 const roleCopy: Record<Role, string> = {
@@ -208,6 +210,24 @@ export function KanbanBoard({
       return {};
     }
   });
+  const [labPlannedRead, setLabPlannedRead] = useState<Record<string, boolean>>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const raw = localStorage.getItem(LAB_PLANNED_READ_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+  const [labReturnRead, setLabReturnRead] = useState<Record<string, boolean>>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const raw = localStorage.getItem(LAB_RETURN_READ_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
   const [labNeedsAttentionReasons, setLabNeedsAttentionReasons] = useState<Record<string, string>>({});
   const [labNeedsPrompt, setLabNeedsPrompt] = useState<{ open: boolean; cardId: string | null }>({ open: false, cardId: null });
   const [labNeedsReason, setLabNeedsReason] = useState('');
@@ -358,6 +378,14 @@ export function KanbanBoard({
     if (typeof window === 'undefined') return;
     localStorage.setItem(WAREHOUSE_RETURN_READ_KEY, JSON.stringify(warehouseReturnRead));
   }, [warehouseReturnRead]);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(LAB_PLANNED_READ_KEY, JSON.stringify(labPlannedRead));
+  }, [labPlannedRead]);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(LAB_RETURN_READ_KEY, JSON.stringify(labReturnRead));
+  }, [labReturnRead]);
   useEffect(() => {
     if (role === 'warehouse_worker' || role === 'action_supervision') {
       setMethodFilter([]);
@@ -842,39 +870,79 @@ export function KanbanBoard({
 
   useEffect(() => {
     if (!onNotificationsChange) return;
-    if (role !== 'warehouse_worker') {
+    if (role !== 'warehouse_worker' && role !== 'lab_operator') {
       onNotificationsChange([]);
       return;
     }
     const plannedCards = columns.find((col) => col.id === 'new')?.cards ?? [];
+    if (role === 'warehouse_worker') {
+      const plannedNotes = plannedCards
+        .filter((card) => !createdSampleIds[card.sampleId] && !warehousePlannedRead[card.sampleId])
+        .map((card) => ({
+          id: `planned:${card.sampleId}`,
+          title: 'New planned sample',
+          description: `${card.sampleId} appeared in Planned without using “New sample”.`,
+        }));
+      const returnedNotes = Object.entries(warehouseReturnHighlights)
+        .filter(([, flagged]) => flagged)
+        .filter(([sampleId]) => !warehouseReturnRead[sampleId])
+        .map(([sampleId]) => ({
+          id: `returned:${sampleId}`,
+          title: 'Returned for analysis',
+          description: `${sampleId} was returned to Warehouse by Admin.`,
+        }));
+      onNotificationsChange([...plannedNotes, ...returnedNotes]);
+      return;
+    }
     const plannedNotes = plannedCards
-      .filter((card) => !createdSampleIds[card.sampleId] && !warehousePlannedRead[card.sampleId])
+      .filter((card) => !labPlannedRead[card.sampleId])
       .map((card) => ({
-        id: `planned:${card.sampleId}`,
-        title: 'New planned sample',
-        description: `${card.sampleId} appeared in Planned without using “New sample”.`,
+        id: `lab-planned:${card.sampleId}`,
+        title: 'New planned analysis',
+        description: `${card.sampleId} is in Planned.`,
       }));
-    const returnedNotes = Object.entries(warehouseReturnHighlights)
+    const returnedNotes = Object.entries(labReturnHighlights)
       .filter(([, flagged]) => flagged)
-      .filter(([sampleId]) => !warehouseReturnRead[sampleId])
+      .filter(([sampleId]) => !labReturnRead[sampleId])
       .map(([sampleId]) => ({
-        id: `returned:${sampleId}`,
+        id: `lab-returned:${sampleId}`,
         title: 'Returned for analysis',
-        description: `${sampleId} was returned to Warehouse by Admin.`,
+        description: `${sampleId} was returned to Lab by Admin.`,
       }));
     onNotificationsChange([...plannedNotes, ...returnedNotes]);
-  }, [columns, createdSampleIds, onNotificationsChange, role, warehouseReturnHighlights, warehousePlannedRead, warehouseReturnRead]);
+  }, [
+    columns,
+    createdSampleIds,
+    onNotificationsChange,
+    role,
+    warehouseReturnHighlights,
+    warehousePlannedRead,
+    warehouseReturnRead,
+    labPlannedRead,
+    labReturnRead,
+    labReturnHighlights,
+  ]);
 
   useEffect(() => {
-    if (role !== 'warehouse_worker') return;
+    if (role !== 'warehouse_worker' && role !== 'lab_operator') return;
     if (!notificationClickId) return;
     const [kind, sampleId] = notificationClickId.split(':');
     if (!sampleId) return;
-    if (kind === 'planned') {
-      setWarehousePlannedRead((prev) => ({ ...prev, [sampleId]: true }));
+    if (role === 'warehouse_worker') {
+      if (kind === 'planned') {
+        setWarehousePlannedRead((prev) => ({ ...prev, [sampleId]: true }));
+      }
+      if (kind === 'returned') {
+        setWarehouseReturnRead((prev) => ({ ...prev, [sampleId]: true }));
+      }
     }
-    if (kind === 'returned') {
-      setWarehouseReturnRead((prev) => ({ ...prev, [sampleId]: true }));
+    if (role === 'lab_operator') {
+      if (kind === 'lab-planned') {
+        setLabPlannedRead((prev) => ({ ...prev, [sampleId]: true }));
+      }
+      if (kind === 'lab-returned') {
+        setLabReturnRead((prev) => ({ ...prev, [sampleId]: true }));
+      }
     }
     const target = columns.flatMap((col) => col.cards).find((card) => card.sampleId === sampleId);
     if (target) {
@@ -884,31 +952,56 @@ export function KanbanBoard({
   }, [columns, notificationClickId, onNotificationConsumed, role]);
 
   useEffect(() => {
-    if (role !== 'warehouse_worker') return;
+    if (role !== 'warehouse_worker' && role !== 'lab_operator') return;
     if (!markAllReadToken) return;
     const plannedCards = columns.find((col) => col.id === 'new')?.cards ?? [];
     if (plannedCards.length > 0) {
-      setWarehousePlannedRead((prev) => {
-        const next = { ...prev };
-        plannedCards.forEach((card) => {
-          next[card.sampleId] = true;
+      if (role === 'warehouse_worker') {
+        setWarehousePlannedRead((prev) => {
+          const next = { ...prev };
+          plannedCards.forEach((card) => {
+            next[card.sampleId] = true;
+          });
+          return next;
         });
-        return next;
-      });
-    }
-    const returnedIds = Object.entries(warehouseReturnHighlights)
-      .filter(([, flagged]) => flagged)
-      .map(([sampleId]) => sampleId);
-    if (returnedIds.length > 0) {
-      setWarehouseReturnRead((prev) => {
-        const next = { ...prev };
-        returnedIds.forEach((sampleId) => {
-          next[sampleId] = true;
+      } else {
+        setLabPlannedRead((prev) => {
+          const next = { ...prev };
+          plannedCards.forEach((card) => {
+            next[card.sampleId] = true;
+          });
+          return next;
         });
-        return next;
-      });
+      }
     }
-  }, [columns, markAllReadToken, role, warehouseReturnHighlights]);
+    if (role === 'warehouse_worker') {
+      const returnedIds = Object.entries(warehouseReturnHighlights)
+        .filter(([, flagged]) => flagged)
+        .map(([sampleId]) => sampleId);
+      if (returnedIds.length > 0) {
+        setWarehouseReturnRead((prev) => {
+          const next = { ...prev };
+          returnedIds.forEach((sampleId) => {
+            next[sampleId] = true;
+          });
+          return next;
+        });
+      }
+    } else {
+      const returnedIds = Object.entries(labReturnHighlights)
+        .filter(([, flagged]) => flagged)
+        .map(([sampleId]) => sampleId);
+      if (returnedIds.length > 0) {
+        setLabReturnRead((prev) => {
+          const next = { ...prev };
+          returnedIds.forEach((sampleId) => {
+            next[sampleId] = true;
+          });
+          return next;
+        });
+      }
+    }
+  }, [columns, markAllReadToken, role, warehouseReturnHighlights, labReturnHighlights]);
 
   const statusBadgeMode =
     role === 'lab_operator'
@@ -2531,14 +2624,23 @@ export function KanbanBoard({
           <DialogHeader>
             <DialogTitle>Return for analysis</DialogTitle>
           </DialogHeader>
+          {(() => {
+            const card = adminReturnPrompt.card;
+            const latest = card ? getLatestReturnNote(card.sampleId) : '';
+            const isExisting = Boolean(latest) && adminReturnNote.trim() === latest;
+            return (
+              <>
           <p className="text-sm text-muted-foreground">What was done? This note will appear on the admin card.</p>
           <Textarea
             autoFocus
             placeholder="Explanation"
             value={adminReturnNote}
             onChange={(e) => setAdminReturnNote(e.target.value)}
-            className="min-h-[96px]"
+            className={isExisting ? 'min-h-[96px] text-muted-foreground' : 'min-h-[96px]'}
           />
+              </>
+            );
+          })()}
           <DialogFooter className="gap-2">
             <Button variant="ghost" onClick={() => setAdminReturnPrompt({ open: false, card: null })}>
               Cancel
@@ -2586,6 +2688,12 @@ export function KanbanBoard({
                 const methods = plannedAnalyses.filter((pa) => pa.sampleId === target.sampleId);
                 const hasDone = methods.some((m) => m.status === 'completed');
                 setLabReturnState(target.sampleId, hasDone ? 'progress' : 'new');
+                setLabReturnRead((prev) => {
+                  if (!prev[target.sampleId]) return prev;
+                  const next = { ...prev };
+                  delete next[target.sampleId];
+                  return next;
+                });
                 if (selectedCard?.sampleId === target.sampleId) {
                   setSelectedCard({ ...selectedCard, returnNote: note });
                 }
