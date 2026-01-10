@@ -1681,7 +1681,7 @@ export function KanbanBoard({
       }
       if (columnId === 'review') {
         setLabNeedsPrompt({ open: true, cardId });
-        setLabNeedsReason(labNeedsAttentionReasons[cardId] ?? '');
+        setLabNeedsReason('');
         return;
       }
       pushLabStateUndo(cardId);
@@ -2073,6 +2073,11 @@ export function KanbanBoard({
   const confirmIssueReason = () => {
     if (!issuePrompt.card || !issueReason.trim()) return;
     const targetId = issuePrompt.card.id;
+    const prevSnapshot = {
+      status: issuePrompt.card.status,
+      statusLabel: issuePrompt.card.statusLabel,
+      issueReason: issuePrompt.card.issueReason,
+    };
     setUndoStack((prev) => [
       ...prev.slice(-19),
       {
@@ -2111,6 +2116,26 @@ export function KanbanBoard({
     }
     setIssuePrompt({ open: false, card: null });
     setIssueReason('');
+    updateSampleStatus(issuePrompt.card.sampleId, 'done').catch((err) => {
+      toast({
+        title: 'Failed to update sample',
+        description: err instanceof Error ? err.message : 'Backend unreachable',
+        variant: 'destructive',
+      });
+      setCards((prev) =>
+        prev.map((c) =>
+          c.id === targetId
+            ? { ...c, status: prevSnapshot.status, statusLabel: prevSnapshot.statusLabel, issueReason: prevSnapshot.issueReason }
+            : c,
+        ),
+      );
+      setIssueReasons((prev) => {
+        const history = prev[issuePrompt.card!.sampleId] ?? [];
+        if (history.length === 0) return prev;
+        const nextHistory = history.slice(0, -1);
+        return { ...prev, [issuePrompt.card!.sampleId]: nextHistory };
+      });
+    });
   };
 
   const handleAddComment = (sampleId: string, author: string, text: string) => {
@@ -2764,7 +2789,15 @@ export function KanbanBoard({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <Dialog open={labNeedsPrompt.open} onOpenChange={(open) => setLabNeedsPrompt({ open, cardId: open ? labNeedsPrompt.cardId : null })}>
+      <Dialog
+        open={labNeedsPrompt.open}
+        onOpenChange={(open) => {
+          setLabNeedsPrompt({ open, cardId: open ? labNeedsPrompt.cardId : null });
+          if (open) {
+            setLabNeedsReason('');
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Send to Needs attention</DialogTitle>
@@ -2966,19 +2999,32 @@ export function KanbanBoard({
                 {
                   const hasLocation = Boolean(target.storageLocation && target.storageLocation.trim());
                   const warehouseStatus = hasLocation ? 'review' : 'progress';
-                  handleSampleFieldUpdate(target.sampleId, { status: warehouseStatus }, { skipUndo: true });
-                  setWarehouseReturnHighlights((prev) => ({ ...prev, [target.sampleId]: true }));
-                  setCards((prev) =>
-                    prev.map((card) =>
-                      card.sampleId === target.sampleId ? { ...card, returnedToWarehouse: true } : card,
-                    ),
+                  const isFromIssues = columns.some(
+                    (col) => col.title === 'Issues' && col.cards.some((card) => card.sampleId === target.sampleId),
                   );
-                  setWarehouseReturnRead((prev) => {
+                  handleSampleFieldUpdate(target.sampleId, { status: warehouseStatus }, { skipUndo: true });
+                  setWarehouseReturnHighlights((prev) => {
+                    if (isFromIssues) {
+                      return { ...prev, [target.sampleId]: true };
+                    }
                     if (!prev[target.sampleId]) return prev;
                     const next = { ...prev };
                     delete next[target.sampleId];
                     return next;
                   });
+                  setCards((prev) =>
+                    prev.map((card) =>
+                      card.sampleId === target.sampleId ? { ...card, returnedToWarehouse: true } : card,
+                    ),
+                  );
+                  if (isFromIssues) {
+                    setWarehouseReturnRead((prev) => {
+                      if (!prev[target.sampleId]) return prev;
+                      const next = { ...prev };
+                      delete next[target.sampleId];
+                      return next;
+                    });
+                  }
                   if (hasLocation) {
                     const methods = plannedAnalyses.filter((pa) => pa.sampleId === target.sampleId);
                     const hasDone = methods.some((m) => m.status === 'completed');
