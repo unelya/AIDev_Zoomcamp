@@ -3014,7 +3014,9 @@ export function KanbanBoard({
                   });
                   setCards((prev) =>
                     prev.map((card) =>
-                      card.sampleId === target.sampleId ? { ...card, returnedToWarehouse: true } : card,
+                      card.sampleId === target.sampleId
+                        ? { ...card, returnedToWarehouse: isFromIssues }
+                        : card,
                     ),
                   );
                   if (isFromIssues) {
