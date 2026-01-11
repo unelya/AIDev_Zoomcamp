@@ -43,17 +43,27 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
     if (!value) return [];
     if (Array.isArray(value)) return value.filter(Boolean);
     const trimmed = value.trim();
-    return trimmed ? [trimmed] : [];
+    if (!trimmed) return [];
+    return trimmed
+      .split(/[;,]+/)
+      .map((item) => item.trim())
+      .filter(Boolean);
   };
   const formatAssignees = (value?: string[] | string | null) => normalizeAssignees(value).join(' ');
   const canToggleMethod = (assignedTo?: string[] | string | null) => {
-    if (!onToggleMethod || readOnlyMethods) return false;
     if (role === 'admin') return true;
     const current = (currentUserName || '').trim();
     if (!current) return false;
     const list = normalizeAssignees(assignedTo);
-    return list.length > 0 && list.includes(current);
+    if (list.length > 0 && list.some((name) => name.trim().toLowerCase() === current.toLowerCase())) {
+      return true;
+    }
+    const flattened = formatAssignees(assignedTo).toLowerCase();
+    return flattened ? flattened.split(/\s+/).includes(current.toLowerCase()) : false;
   };
+  const canToggleForMethod = (assignedTo?: string[] | string | null) =>
+    canToggleMethod(assignedTo) || canToggleMethod(card.assignedTo);
+  const isInteractive = Boolean(onToggleMethod) && !readOnlyMethods;
   const METHOD_ORDER = ['SARA', 'IR', 'Mass Spectrometry', 'Viscosity'];
   const methodRank = (name: string) => {
     const idx = METHOD_ORDER.findIndex((m) => m.toLowerCase() === name.toLowerCase());
@@ -358,11 +368,11 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
                       <Checkbox
                         checked={m.status === 'completed'}
                         onCheckedChange={(val) => {
-                          if (!canToggleMethod(m.assignedTo)) return;
+                          if (!isInteractive) return;
                           onToggleMethod?.(m.id, Boolean(val));
                         }}
                         className="h-4 w-4 rounded border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary data-[state=checked]:text-white data-[state=checked]:disabled:bg-primary data-[state=checked]:disabled:border-primary data-[state=checked]:disabled:text-white disabled:opacity-100 disabled:cursor-not-allowed"
-                        disabled={!canToggleMethod(m.assignedTo)}
+                        disabled={!isInteractive}
                       />
                       <span className="flex-1">
                         {m.name}

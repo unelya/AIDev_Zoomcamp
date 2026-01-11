@@ -48,7 +48,11 @@ const normalizeAssignees = (value?: string[] | string | null) => {
   if (!value) return [];
   if (Array.isArray(value)) return value.filter(Boolean);
   const trimmed = value.trim();
-  return trimmed ? [trimmed] : [];
+  if (!trimmed) return [];
+  return trimmed
+    .split(/[;,]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
 };
 
 const formatAssignees = (value?: string[] | string | null) => normalizeAssignees(value).join(' ');
@@ -61,6 +65,26 @@ const appendAssignee = (current?: string[] | string | null, assignee?: string) =
     list.push(trimmed);
   }
   return list;
+};
+
+const isUserAssigned = (assignees?: string[] | string | null, userName?: string) => {
+  const current = (userName ?? '').trim().toLowerCase();
+  if (!current) return false;
+  if (normalizeAssignees(assignees).some((name) => name.trim().toLowerCase() === current)) {
+    return true;
+  }
+  const flattened = formatAssignees(assignees).toLowerCase();
+  if (!flattened) return false;
+  return flattened.split(/\s+/).includes(current);
+};
+
+const isUserAssignedToMethod = (
+  methodAssignees?: string[] | string | null,
+  cardAssignees?: string[] | string | null,
+  userName?: string,
+) => {
+  if (isUserAssigned(methodAssignees, userName)) return true;
+  return isUserAssigned(cardAssignees, userName);
 };
 
 export function KanbanBoard({
@@ -2292,12 +2316,13 @@ export function KanbanBoard({
           toast({ title: "Method already exists", description: "Select a lab operator to assign if needed.", variant: "default" });
           return;
         }
-        await updatePlannedAnalysis(existing.id, existing.status, isUnassigned ? [] : assignee);
+        const nextAssignees = isUnassigned ? [] : appendAssignee(existing.assignedTo, assignee) ?? [];
+        await updatePlannedAnalysis(existing.id, existing.status, nextAssignees);
         setPlannedAnalyses((prev) =>
           prev.map((pa) => {
             if (pa.id !== existing.id) return pa;
-            if (isUnassigned) return { ...pa, assignedTo: undefined };
-            return { ...pa, assignedTo: appendAssignee(pa.assignedTo, assignee) };
+            if (isUnassigned || nextAssignees.length === 0) return { ...pa, assignedTo: undefined };
+            return { ...pa, assignedTo: nextAssignees };
           }),
         );
         toast({
@@ -2354,8 +2379,15 @@ export function KanbanBoard({
     if (role === 'lab_operator' && user?.role !== 'admin') {
       const currentUser = (user?.fullName || user?.username || '').trim();
       const methodRecord = plannedAnalyses.find((pa) => pa.id === methodId);
-      const assignedTo = normalizeAssignees(methodRecord?.assignedTo);
-      if (!currentUser || assignedTo.length === 0 || !assignedTo.includes(currentUser)) {
+      const cardForMethod =
+        columns
+          .flatMap((col) => col.cards)
+          .find((card) => card.sampleId === methodRecord?.sampleId) ??
+        columns
+          .flatMap((col) => col.cards)
+          .find((card) => card.methods?.some((m) => String(m.id) === String(methodId)));
+      const methodOnCard = cardForMethod?.methods?.find((m) => String(m.id) === String(methodId));
+      if (!isUserAssignedToMethod(methodRecord?.assignedTo, methodOnCard?.assignedTo ?? cardForMethod?.assignedTo, currentUser)) {
         toast({
           title: 'Not assigned',
           description: 'Only the assigned operator can check off this method.',
@@ -2365,12 +2397,11 @@ export function KanbanBoard({
       }
     }
     if (role === 'lab_operator' && sampleIdFromMethod) {
-      const targetCard = cards.find((c) => c.id === sampleIdFromMethod);
-      if (targetCard?.status === 'review' && user?.role !== 'admin') {
+      const labCard = columns.flatMap((c) => c.cards).find((c) => c.id === sampleIdFromMethod);
+      if (labCard?.status === 'review' && user?.role !== 'admin') {
         return;
       }
       if (done) {
-        const labCard = columns.flatMap((c) => c.cards).find((c) => c.id === sampleIdFromMethod);
         const currentStatus = labStatusOverrides[sampleIdFromMethod] ?? labCard?.status;
         if (currentStatus === 'new') {
           setLabStatusOverrides((prev) => ({ ...prev, [sampleIdFromMethod]: 'progress' }));
@@ -2656,10 +2687,9 @@ export function KanbanBoard({
             onToggleMethod={role === 'lab_operator' || role === 'admin' ? toggleMethodStatus : undefined}
             canToggleMethod={
               role === 'lab_operator' && user?.role !== 'admin'
-                ? (method) => {
+                ? (method, card) => {
                     const currentUser = (user?.fullName || user?.username || '').trim();
-                    const assignedTo = normalizeAssignees(method.assignedTo);
-                    return Boolean(currentUser && assignedTo.length > 0 && assignedTo.includes(currentUser));
+                    return isUserAssignedToMethod(method.assignedTo, card.assignedTo, currentUser);
                   }
                 : undefined
             }
@@ -2733,14 +2763,15 @@ export function KanbanBoard({
               return;
             }
             const isUnassigned = operator === '__unassigned';
-            updatePlannedAnalysis(target.id, target.status, isUnassigned ? [] : operator).then(() => {
+            const nextAssignees = isUnassigned ? [] : appendAssignee(target.assignedTo, operator) ?? [];
+            updatePlannedAnalysis(target.id, target.status, nextAssignees).then(() => {
               setPlannedAnalyses((prev) =>
                 prev.map((pa) => {
                   if (pa.id !== target.id) return pa;
-                  if (isUnassigned) {
+                  if (isUnassigned || nextAssignees.length === 0) {
                     return { ...pa, assignedTo: undefined };
                   }
-                  return { ...pa, assignedTo: appendAssignee(pa.assignedTo, operator) };
+                  return { ...pa, assignedTo: nextAssignees };
                 }),
               );
               toast({

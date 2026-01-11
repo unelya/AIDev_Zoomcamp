@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+import re
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -198,7 +199,7 @@ def normalize_assignees(value: list[str] | str | None) -> list[str]:
   if value is None:
     return []
   if isinstance(value, str):
-    items = [value]
+    items = re.split(r"[;,]+", value)
   else:
     items = value
   cleaned: list[str] = []
@@ -220,7 +221,7 @@ def get_assignees(db: Session, analysis_id: int, fallback: str | None = None) ->
   if assignees:
     return assignees
   if fallback and fallback.strip():
-    return [fallback.strip()]
+    return normalize_assignees(fallback)
   return []
 
 

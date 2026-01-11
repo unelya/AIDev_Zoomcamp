@@ -208,7 +208,7 @@ export function KanbanCard({ card, onClick, onToggleMethod, canToggleMethod, rea
             {sortMethods(card.methods).map((m) => (
               (() => {
                 const isAllowed = canToggleMethod ? canToggleMethod(m, card) : true;
-                const isDisabled = !onToggleMethod || readOnlyMethods || !isAllowed;
+                const isDisabled = !onToggleMethod || readOnlyMethods;
                 return (
               <label
                 key={m.id}
@@ -218,7 +218,7 @@ export function KanbanCard({ card, onClick, onToggleMethod, canToggleMethod, rea
                 <Checkbox
                   checked={m.status === 'completed'}
                   onCheckedChange={(val) => {
-                    if (readOnlyMethods || !isAllowed) return;
+                    if (readOnlyMethods) return;
                     onToggleMethod?.(m.id, Boolean(val));
                   }}
                   disabled={isDisabled}
