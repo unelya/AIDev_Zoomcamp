@@ -4,7 +4,7 @@ from datetime import datetime
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from sqlalchemy import select, distinct
+from sqlalchemy import select, distinct, delete
 from sqlalchemy.orm import Session
 
 # Support running as a module or script
@@ -274,14 +274,17 @@ async def update_planned_analysis(analysis_id: int, payload: PlannedAnalysisUpda
     row.status = AnalysisStatus(payload.status)
   if payload.assigned_to is not None:
     assignees = normalize_assignees(payload.assigned_to)
+    db.execute(
+      delete(PlannedAnalysisAssigneeModel).where(
+        PlannedAnalysisAssigneeModel.analysis_id == row.id
+      )
+    )
     if assignees:
-      existing = get_assignees(db, row.id)
       for assignee in assignees:
-        if assignee in existing:
-          continue
         db.add(PlannedAnalysisAssigneeModel(analysis_id=row.id, assignee=assignee))
-      if not existing:
-        row.assigned_to = assignees[0]
+      row.assigned_to = assignees[0]
+    else:
+      row.assigned_to = None
   db.add(row)
   db.commit()
   db.refresh(row)

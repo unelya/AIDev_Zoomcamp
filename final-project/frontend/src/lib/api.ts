@@ -116,7 +116,7 @@ export async function createPlannedAnalysis(payload: { sampleId: string; analysi
   return (await res.json()) as { id: number; sample_id: string; analysis_type: string; status: string; assigned_to?: string[] | string };
 }
 
-export async function updatePlannedAnalysis(id: number, status: string | undefined, assignedTo?: string) {
+export async function updatePlannedAnalysis(id: number, status: string | undefined, assignedTo?: string[] | string) {
   const res = await fetch(`/api/planned-analyses/${id}`, {
     method: "PATCH",
     headers: authHeaders(),

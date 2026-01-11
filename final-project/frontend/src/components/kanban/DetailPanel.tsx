@@ -119,6 +119,7 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
   const [assignOperator, setAssignOperator] = useState('');
   const [resolution, setResolution] = useState('');
   const [planError, setPlanError] = useState('');
+  const [assignError, setAssignError] = useState('');
   const [commentText, setCommentText] = useState('');
   const [commentAuthor, setCommentAuthor] = useState(currentUserName ?? '');
   const [storageParts, setStorageParts] = useState(() => parseStorageLocation(card.storageLocation || ''));
@@ -129,6 +130,12 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
       setCommentAuthor(currentUserName);
     }
   }, [currentUserName]);
+  useEffect(() => {
+    setAssignMethod('');
+    setAssignOperator('');
+    setAssignError('');
+    setPlanError('');
+  }, [card.sampleId]);
   useEffect(() => {
     setStorageParts(parseStorageLocation(card.storageLocation || ''));
   }, [card.storageLocation]);
@@ -425,10 +432,10 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
                 <p className="text-sm font-semibold text-foreground">Assign operator to method</p>
                 <div className="grid grid-cols-2 gap-2">
                   <Select
-                    value={assignMethod || undefined}
+                    value={assignMethod}
                     onValueChange={(v) => {
                       setAssignMethod(v);
-                      setPlanError('');
+                      setAssignError('');
                     }}
                   >
                     <SelectTrigger className="h-9">
@@ -443,16 +450,17 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
                     </SelectContent>
                   </Select>
                   <Select
-                    value={assignOperator || undefined}
+                    value={assignOperator}
                     onValueChange={(v) => {
                       setAssignOperator(v);
-                      setPlanError('');
+                      setAssignError('');
                     }}
                   >
                     <SelectTrigger className="h-9">
                       <SelectValue placeholder="Assign to lab operator" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="__unassigned">Unassigned</SelectItem>
                       {operatorOptions.map((op) => (
                         <SelectItem key={op.id} value={op.name}>
                           {op.name}
@@ -461,21 +469,21 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
                     </SelectContent>
                   </Select>
                 </div>
-                {planError && <p className="text-sm text-destructive">{planError}</p>}
+                {assignError && <p className="text-sm text-destructive">{assignError}</p>}
                 <Button
                   size="sm"
                   onClick={() => {
                     if (!assignMethod) {
-                      setPlanError('Method is required');
+                      setAssignError('Method is required');
                       return;
                     }
                     if (!assignOperator) {
-                      setPlanError('Select an operator to assign');
+                      setAssignError('Select an operator to assign');
                       return;
                     }
                     onAssignOperator?.(assignMethod, assignOperator);
                     setAssignMethod('');
-                    setPlanError('');
+                    setAssignError('');
                   }}
                 >
                   Assign operator

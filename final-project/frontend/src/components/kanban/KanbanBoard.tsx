@@ -2286,22 +2286,32 @@ export function KanbanBoard({
         (pa) => pa.sampleId === sampleId && pa.analysisType.toLowerCase() === name.toLowerCase(),
       );
       if (existing) {
-        const assignee = data.assignedTo && data.assignedTo !== '__unassigned' ? data.assignedTo : undefined;
-        if (!assignee) {
+        const isUnassigned = data.assignedTo === '__unassigned';
+        const assignee = !isUnassigned && data.assignedTo ? data.assignedTo : undefined;
+        if (!assignee && !isUnassigned) {
           toast({ title: "Method already exists", description: "Select a lab operator to assign if needed.", variant: "default" });
           return;
         }
-        await updatePlannedAnalysis(existing.id, existing.status, assignee);
+        await updatePlannedAnalysis(existing.id, existing.status, isUnassigned ? [] : assignee);
         setPlannedAnalyses((prev) =>
-          prev.map((pa) =>
-            pa.id === existing.id ? { ...pa, assignedTo: appendAssignee(pa.assignedTo, assignee) } : pa,
-          ),
+          prev.map((pa) => {
+            if (pa.id !== existing.id) return pa;
+            if (isUnassigned) return { ...pa, assignedTo: undefined };
+            return { ...pa, assignedTo: appendAssignee(pa.assignedTo, assignee) };
+          }),
         );
-        toast({ title: "Operator assigned", description: `${name} assigned to ${assignee}` });
+        toast({
+          title: isUnassigned ? "Operator cleared" : "Operator assigned",
+          description: isUnassigned ? `${name} cleared` : `${name} assigned to ${assignee}`,
+        });
         return;
       }
 
-      const created = await createPlannedAnalysis({ sampleId, analysisType: data.analysisType, assignedTo: data.assignedTo });
+      const created = await createPlannedAnalysis({
+        sampleId,
+        analysisType: data.analysisType,
+        assignedTo: data.assignedTo === '__unassigned' ? undefined : data.assignedTo,
+      });
       setPlannedAnalyses((prev) => [...prev, mapApiAnalysis(created)]);
     } catch (err) {
       toast({
@@ -2722,13 +2732,21 @@ export function KanbanBoard({
               toast({ title: "Method not found", description: "This method is not available on the card.", variant: "destructive" });
               return;
             }
-            updatePlannedAnalysis(target.id, target.status, operator).then(() => {
+            const isUnassigned = operator === '__unassigned';
+            updatePlannedAnalysis(target.id, target.status, isUnassigned ? [] : operator).then(() => {
               setPlannedAnalyses((prev) =>
-                prev.map((pa) =>
-                  pa.id === target.id ? { ...pa, assignedTo: appendAssignee(pa.assignedTo, operator) } : pa,
-                ),
+                prev.map((pa) => {
+                  if (pa.id !== target.id) return pa;
+                  if (isUnassigned) {
+                    return { ...pa, assignedTo: undefined };
+                  }
+                  return { ...pa, assignedTo: appendAssignee(pa.assignedTo, operator) };
+                }),
               );
-              toast({ title: "Operator assigned", description: `${method} → ${operator}` });
+              toast({
+                title: isUnassigned ? "Operator cleared" : "Operator assigned",
+                description: isUnassigned ? `${method} cleared` : `${method} → ${operator}`,
+              });
             }).catch((err) => {
               toast({ title: "Failed to assign", description: err instanceof Error ? err.message : "Backend unreachable", variant: "destructive" });
             });
