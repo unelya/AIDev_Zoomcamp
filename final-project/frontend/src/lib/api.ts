@@ -113,26 +113,34 @@ export async function createPlannedAnalysis(payload: { sampleId: string; analysi
     }),
   });
   if (!res.ok) throw new Error(`Failed to create analysis (${res.status})`);
-  return (await res.json()) as { id: number; sample_id: string; analysis_type: string; status: string; assigned_to?: string };
+  return (await res.json()) as { id: number; sample_id: string; analysis_type: string; status: string; assigned_to?: string[] | string };
 }
 
-export async function updatePlannedAnalysis(id: number, status: string, assignedTo?: string) {
+export async function updatePlannedAnalysis(id: number, status: string | undefined, assignedTo?: string) {
   const res = await fetch(`/api/planned-analyses/${id}`, {
     method: "PATCH",
     headers: authHeaders(),
     body: JSON.stringify({ status, assigned_to: assignedTo }),
   });
   if (!res.ok) throw new Error(`Failed to update analysis (${res.status})`);
-  return (await res.json()) as { id: number; sample_id: string; analysis_type: string; status: string; assigned_to?: string };
+  return (await res.json()) as { id: number; sample_id: string; analysis_type: string; status: string; assigned_to?: string[] | string };
 }
 
-export function mapApiAnalysis(pa: { id: number; sample_id: string; analysis_type: string; status: string; assigned_to?: string }): PlannedAnalysisCard {
+export function mapApiAnalysis(pa: { id: number; sample_id: string; analysis_type: string; status: string; assigned_to?: string[] | string }): PlannedAnalysisCard {
+  const assignedTo =
+    typeof pa.assigned_to === "string"
+      ? pa.assigned_to.trim()
+        ? [pa.assigned_to.trim()]
+        : []
+      : Array.isArray(pa.assigned_to)
+      ? pa.assigned_to.filter(Boolean)
+      : [];
   return {
     id: pa.id,
     sampleId: pa.sample_id,
     analysisType: pa.analysis_type,
     status: pa.status as PlannedAnalysisCard["status"],
-    assignedTo: pa.assigned_to,
+    assignedTo: assignedTo.length > 0 ? assignedTo : undefined,
   };
 }
 

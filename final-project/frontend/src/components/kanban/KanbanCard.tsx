@@ -8,6 +8,7 @@ interface KanbanCardProps {
   card: CardType;
   onClick: () => void;
   onToggleMethod?: (methodId: number, done: boolean) => void;
+  canToggleMethod?: (method: NonNullable<CardType['methods']>[number], card: CardType) => boolean;
   readOnlyMethods?: boolean;
   showStatusActions?: boolean;
   statusBadgeMode?: 'sample' | 'analysis' | 'column';
@@ -26,7 +27,7 @@ interface KanbanCardProps {
   };
 }
 
-export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adminActions, showStatusActions = false, statusBadgeMode = 'sample', statusLineMode = 'analysis', analysisLabelMode = 'analysis', showConflictStatus = false, conflictStatusLabel = 'Conflict status' }: KanbanCardProps) {
+export function KanbanCard({ card, onClick, onToggleMethod, canToggleMethod, readOnlyMethods, adminActions, showStatusActions = false, statusBadgeMode = 'sample', statusLineMode = 'analysis', analysisLabelMode = 'analysis', showConflictStatus = false, conflictStatusLabel = 'Conflict status' }: KanbanCardProps) {
   const METHOD_ORDER = ['SARA', 'IR', 'Mass Spectrometry', 'Viscosity'];
   const methodRank = (name: string) => {
     const idx = METHOD_ORDER.findIndex((m) => m.toLowerCase() === name.toLowerCase());
@@ -205,6 +206,10 @@ export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adm
         {card.methods && card.methods.length > 0 && (
           <div className="space-y-1">
             {sortMethods(card.methods).map((m) => (
+              (() => {
+                const isAllowed = canToggleMethod ? canToggleMethod(m, card) : true;
+                const isDisabled = !onToggleMethod || readOnlyMethods || !isAllowed;
+                return (
               <label
                 key={m.id}
                 className="flex items-center gap-2 text-[11px] text-foreground"
@@ -213,15 +218,17 @@ export function KanbanCard({ card, onClick, onToggleMethod, readOnlyMethods, adm
                 <Checkbox
                   checked={m.status === 'completed'}
                   onCheckedChange={(val) => {
-                    if (readOnlyMethods) return;
+                    if (readOnlyMethods || !isAllowed) return;
                     onToggleMethod?.(m.id, Boolean(val));
                   }}
-                  disabled={!onToggleMethod || readOnlyMethods}
+                  disabled={isDisabled}
                   className="h-3.5 w-3.5 rounded border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary data-[state=checked]:text-white data-[state=checked]:disabled:bg-primary data-[state=checked]:disabled:border-primary data-[state=checked]:disabled:text-white disabled:opacity-100 disabled:cursor-not-allowed"
                 />
                 <span className="truncate flex-1">{m.name}</span>
                 {m.status === 'completed' && <span className="text-[10px] text-destructive font-semibold">Done</span>}
               </label>
+                );
+              })()
             ))}
           </div>
         )}

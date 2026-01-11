@@ -13,12 +13,12 @@ class Sample(BaseModel):
 class PlannedAnalysisCreate(BaseModel):
     sample_id: str = Field(min_length=2, max_length=64)
     analysis_type: str = Field(min_length=2, max_length=64)
-    assigned_to: str | None = Field(default=None, max_length=64)
+    assigned_to: list[str] | str | None = Field(default=None)
 
 
 class PlannedAnalysisUpdate(BaseModel):
     status: str | None = Field(default=None, pattern="^(planned|in_progress|review|completed|failed)$")
-    assigned_to: str | None = Field(default=None, max_length=64)
+    assigned_to: list[str] | str | None = Field(default=None)
 
 
 class PlannedAnalysisOut(BaseModel):
@@ -26,7 +26,7 @@ class PlannedAnalysisOut(BaseModel):
     sample_id: str
     analysis_type: str
     status: str
-    assigned_to: str | None = None
+    assigned_to: list[str] | None = None
 
 
 class ActionBatchCreate(BaseModel):

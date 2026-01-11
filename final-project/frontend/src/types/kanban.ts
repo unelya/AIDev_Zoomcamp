@@ -14,7 +14,7 @@ export interface PlannedAnalysis {
   sampleId: string;
   analysisType: string;
   status: 'planned' | 'in_progress' | 'review' | 'completed' | 'failed';
-  assignedTo?: string;
+  assignedTo?: string[];
 }
 
 export interface KanbanCard {
@@ -33,7 +33,7 @@ export interface KanbanCard {
   conflictOld?: string;
   conflictNew?: string;
   conflictResolutionNote?: string | null;
-  methods?: { id: number; name: string; status: PlannedAnalysis['status']; assignedTo?: string | null }[];
+  methods?: { id: number; name: string; status: PlannedAnalysis['status']; assignedTo?: string[] | null }[];
   allMethodsDone?: boolean;
   comments?: CommentThread[];
   deletedReason?: string;
@@ -60,7 +60,7 @@ export interface PlannedAnalysisCard {
   sampleId: string;
   analysisType: string;
   status: PlannedAnalysis['status'];
-  assignedTo?: string;
+  assignedTo?: string[];
 }
 
 export interface ActionBatchCard {

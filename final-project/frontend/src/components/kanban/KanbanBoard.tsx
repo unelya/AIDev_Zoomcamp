@@ -44,6 +44,25 @@ const roleCopy: Record<Role, string> = {
   admin: 'Admin view',
 };
 
+const normalizeAssignees = (value?: string[] | string | null) => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.filter(Boolean);
+  const trimmed = value.trim();
+  return trimmed ? [trimmed] : [];
+};
+
+const formatAssignees = (value?: string[] | string | null) => normalizeAssignees(value).join(' ');
+
+const appendAssignee = (current?: string[] | string | null, assignee?: string) => {
+  const list = normalizeAssignees(current);
+  const trimmed = (assignee ?? '').trim();
+  if (!trimmed) return list.length > 0 ? list : undefined;
+  if (!list.includes(trimmed)) {
+    list.push(trimmed);
+  }
+  return list;
+};
+
 export function KanbanBoard({
   role,
   searchTerm,
@@ -77,7 +96,7 @@ export function KanbanBoard({
   const [undoStack, setUndoStack] = useState<
     (
       | { kind: 'sample'; sampleId: string; prev: Partial<KanbanCard>; prevWarehouseReturnHighlight?: boolean }
-      | { kind: 'analysis'; analysisId: number; sampleId: string; prevStatus: PlannedAnalysisCard['status']; prevAssignedTo?: string | null; prevLabOverride?: KanbanCard['status']; prevLabReturnHighlight?: boolean }
+      | { kind: 'analysis'; analysisId: number; sampleId: string; prevStatus: PlannedAnalysisCard['status']; prevAssignedTo?: string[] | null; prevLabOverride?: KanbanCard['status']; prevLabReturnHighlight?: boolean }
       | { kind: 'adminStored'; sampleId: string; prev: boolean }
       | { kind: 'labState'; sampleId: string; prev: { labStatusOverride?: KanbanCard['status']; labReturnHighlight?: boolean; labNeedsReason?: string; issueHistory?: string[] } }
       | { kind: 'deleted'; sampleId: string; prevDeleted?: DeletedInfo; prevCard?: Partial<KanbanCard> }
@@ -526,9 +545,9 @@ export function KanbanBoard({
 
   const columns = useMemo(() => {
     const userName = user?.fullName?.trim().toLowerCase();
-    const matchesUser = (assignee?: string | null) => {
+    const matchesUser = (assignee?: string[] | string | null) => {
       if (!assignee || !userName) return false;
-      return assignee.trim().toLowerCase() === userName;
+      return normalizeAssignees(assignee).some((name) => name.trim().toLowerCase() === userName);
     };
     // Only Admin board can see deleted cards; all other boards hide them
     const visibleCards =
@@ -616,9 +635,9 @@ export function KanbanBoard({
           { id: pa.id, name: pa.analysisType, status: pa.status, assignedTo: pa.assignedTo },
         ]);
         card.methods = nextMethods;
-        const methodAssignee = nextMethods.find((m) => m.assignedTo)?.assignedTo;
+        const methodAssignee = nextMethods.find((m) => normalizeAssignees(m.assignedTo).length > 0)?.assignedTo;
         if (methodAssignee) {
-          card.assignedTo = methodAssignee;
+          card.assignedTo = formatAssignees(methodAssignee);
         }
         const { aggStatus, allDone } = aggregateStatus(nextMethods, card.status);
         card.status = aggStatus;
@@ -708,7 +727,7 @@ export function KanbanBoard({
               assignedTo: 'Mock',
               analysisStatus: 'completed',
               sampleStatus: 'received',
-              methods: [{ id: -1, name: 'SARA', status: 'completed', assignedTo: 'Mock' }],
+              methods: [{ id: -1, name: 'SARA', status: 'completed', assignedTo: ['Mock'] }],
               allMethodsDone: true,
             },
           ];
@@ -2274,7 +2293,9 @@ export function KanbanBoard({
         }
         await updatePlannedAnalysis(existing.id, existing.status, assignee);
         setPlannedAnalyses((prev) =>
-          prev.map((pa) => (pa.id === existing.id ? { ...pa, assignedTo: assignee } : pa)),
+          prev.map((pa) =>
+            pa.id === existing.id ? { ...pa, assignedTo: appendAssignee(pa.assignedTo, assignee) } : pa,
+          ),
         );
         toast({ title: "Operator assigned", description: `${name} assigned to ${assignee}` });
         return;
@@ -2320,6 +2341,19 @@ export function KanbanBoard({
 
   const toggleMethodStatus = async (methodId: number, done: boolean) => {
     const sampleIdFromMethod = plannedAnalyses.find((pa) => pa.id === methodId)?.sampleId;
+    if (role === 'lab_operator' && user?.role !== 'admin') {
+      const currentUser = (user?.fullName || user?.username || '').trim();
+      const methodRecord = plannedAnalyses.find((pa) => pa.id === methodId);
+      const assignedTo = normalizeAssignees(methodRecord?.assignedTo);
+      if (!currentUser || assignedTo.length === 0 || !assignedTo.includes(currentUser)) {
+        toast({
+          title: 'Not assigned',
+          description: 'Only the assigned operator can check off this method.',
+          variant: 'default',
+        });
+        return;
+      }
+    }
     if (role === 'lab_operator' && sampleIdFromMethod) {
       const targetCard = cards.find((c) => c.id === sampleIdFromMethod);
       if (targetCard?.status === 'review' && user?.role !== 'admin') {
@@ -2482,7 +2516,11 @@ export function KanbanBoard({
 
   const handleAnalysisFieldUpdate = async (analysisId: number, updates: { assigned_to?: string }) => {
     setPlannedAnalyses((prev) =>
-      prev.map((pa) => (pa.id === analysisId ? { ...pa, assignedTo: updates.assigned_to ?? pa.assignedTo } : pa)),
+      prev.map((pa) =>
+        pa.id === analysisId
+          ? { ...pa, assignedTo: appendAssignee(pa.assignedTo, updates.assigned_to) ?? pa.assignedTo }
+          : pa,
+      ),
     );
     if (selectedCard?.id === analysisId.toString()) {
       setSelectedCard((prev) => (prev ? { ...prev, assignedTo: updates.assigned_to ?? prev.assignedTo } : prev));
@@ -2606,6 +2644,15 @@ export function KanbanBoard({
             showAdd={role === 'warehouse_worker' && column.id === 'new'}
             onAdd={() => setNewDialogOpen(true)}
             onToggleMethod={role === 'lab_operator' || role === 'admin' ? toggleMethodStatus : undefined}
+            canToggleMethod={
+              role === 'lab_operator' && user?.role !== 'admin'
+                ? (method) => {
+                    const currentUser = (user?.fullName || user?.username || '').trim();
+                    const assignedTo = normalizeAssignees(method.assignedTo);
+                    return Boolean(currentUser && assignedTo.length > 0 && assignedTo.includes(currentUser));
+                  }
+                : undefined
+            }
             lockNeedsAttention={lockNeedsAttentionCards}
             showStatusActions={role === 'admin'}
             statusBadgeMode={statusBadgeMode}
@@ -2677,7 +2724,9 @@ export function KanbanBoard({
             }
             updatePlannedAnalysis(target.id, target.status, operator).then(() => {
               setPlannedAnalyses((prev) =>
-                prev.map((pa) => (pa.id === target.id ? { ...pa, assignedTo: operator } : pa)),
+                prev.map((pa) =>
+                  pa.id === target.id ? { ...pa, assignedTo: appendAssignee(pa.assignedTo, operator) } : pa,
+                ),
               );
               toast({ title: "Operator assigned", description: `${method} → ${operator}` });
             }).catch((err) => {
@@ -3145,7 +3194,7 @@ function aggregateStatus(
   return { aggStatus: fallback ?? 'new', allDone };
 }
 
-function mergeMethods(methods: { id: number; name: string; status: PlannedAnalysisCard['status']; assignedTo?: string | null }[]) {
+function mergeMethods(methods: { id: number; name: string; status: PlannedAnalysisCard['status']; assignedTo?: string[] | null }[]) {
   const priority: Record<PlannedAnalysisCard['status'], number> = {
     completed: 4,
     review: 3,
@@ -3155,14 +3204,19 @@ function mergeMethods(methods: { id: number; name: string; status: PlannedAnalys
   };
   const map = new Map<
     string,
-    { id: number; name: string; status: PlannedAnalysisCard['status']; assignedTo?: string | null }
+    { id: number; name: string; status: PlannedAnalysisCard['status']; assignedTo?: string[] | null }
   >();
   methods.forEach((m) => {
     const key = m.name.trim().toLowerCase();
     const existing = map.get(key);
+    const mergedAssignees = Array.from(
+      new Set([...normalizeAssignees(existing?.assignedTo ?? null), ...normalizeAssignees(m.assignedTo ?? null)]),
+    );
     if (!existing || priority[m.status] > priority[existing.status]) {
-      map.set(key, m);
+      map.set(key, { ...m, assignedTo: mergedAssignees.length > 0 ? mergedAssignees : undefined });
+      return;
     }
+    map.set(key, { ...existing, assignedTo: mergedAssignees.length > 0 ? mergedAssignees : existing.assignedTo });
   });
   return Array.from(map.values());
 }

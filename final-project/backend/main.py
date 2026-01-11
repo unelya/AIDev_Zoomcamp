@@ -10,12 +10,12 @@ from sqlalchemy.orm import Session
 # Support running as a module or script
 try:
     from .database import Base, engine, get_db
-    from .models import ActionBatchModel, ActionBatchStatus, AuditLogModel, ConflictModel, ConflictStatus, SampleModel, SampleStatus, PlannedAnalysisModel, AnalysisStatus, UserModel
+    from .models import ActionBatchModel, ActionBatchStatus, AuditLogModel, ConflictModel, ConflictStatus, SampleModel, SampleStatus, PlannedAnalysisModel, PlannedAnalysisAssigneeModel, AnalysisStatus, UserModel
     from .schemas import ActionBatchCreate, ActionBatchOut, ConflictCreate, ConflictOut, ConflictUpdate, PlannedAnalysisCreate, PlannedAnalysisOut, PlannedAnalysisUpdate, UserOut, UserUpdate
     from .seed import seed_users
 except ImportError:  # pragma: no cover - fallback for script execution
   from database import Base, engine, get_db  # type: ignore
-  from models import ActionBatchModel, ActionBatchStatus, AuditLogModel, ConflictModel, ConflictStatus, SampleModel, SampleStatus, PlannedAnalysisModel, AnalysisStatus, UserModel  # type: ignore
+  from models import ActionBatchModel, ActionBatchStatus, AuditLogModel, ConflictModel, ConflictStatus, SampleModel, SampleStatus, PlannedAnalysisModel, PlannedAnalysisAssigneeModel, AnalysisStatus, UserModel  # type: ignore
   from schemas import ActionBatchCreate, ActionBatchOut, ConflictCreate, ConflictOut, ConflictUpdate, PlannedAnalysisCreate, PlannedAnalysisOut, PlannedAnalysisUpdate, UserOut, UserUpdate  # type: ignore
   from seed import seed_users  # type: ignore
 
@@ -194,6 +194,35 @@ def to_sample_out(row: SampleModel):
     assigned_to=row.assigned_to,
   )
 
+def normalize_assignees(value: list[str] | str | None) -> list[str]:
+  if value is None:
+    return []
+  if isinstance(value, str):
+    items = [value]
+  else:
+    items = value
+  cleaned: list[str] = []
+  for item in items:
+    name = (item or "").strip()
+    if not name:
+      continue
+    if name not in cleaned:
+      cleaned.append(name)
+  return cleaned
+
+def get_assignees(db: Session, analysis_id: int, fallback: str | None = None) -> list[str]:
+  rows = db.execute(
+    select(PlannedAnalysisAssigneeModel.assignee).where(
+      PlannedAnalysisAssigneeModel.analysis_id == analysis_id
+    )
+  ).all()
+  assignees = [r[0] for r in rows if r and r[0]]
+  if assignees:
+    return assignees
+  if fallback and fallback.strip():
+    return [fallback.strip()]
+  return []
+
 
 @app.get("/planned-analyses")
 async def list_planned_analyses(status: str | None = None, db: Session = Depends(get_db)):
@@ -201,7 +230,7 @@ async def list_planned_analyses(status: str | None = None, db: Session = Depends
   if status:
     stmt = stmt.where(PlannedAnalysisModel.status == AnalysisStatus(status))
   rows = db.execute(stmt).scalars().all()
-  return [to_planned_out(r) for r in rows]
+  return [to_planned_out(r, db) for r in rows]
 
 
 @app.post("/planned-analyses", response_model=PlannedAnalysisOut, status_code=201)
@@ -218,13 +247,21 @@ async def create_planned_analysis(payload: PlannedAnalysisCreate, request: Reque
   row = PlannedAnalysisModel(
     sample_id=payload.sample_id,
     analysis_type=name,
-    assigned_to=payload.assigned_to,
+    assigned_to=None,
     status=AnalysisStatus.planned,
   )
   db.add(row)
   db.commit()
   db.refresh(row)
-  return to_planned_out(row)
+  assignees = normalize_assignees(payload.assigned_to)
+  for assignee in assignees:
+    db.add(PlannedAnalysisAssigneeModel(analysis_id=row.id, assignee=assignee))
+  if assignees:
+    row.assigned_to = assignees[0]
+    db.add(row)
+  db.commit()
+  db.refresh(row)
+  return to_planned_out(row, db)
 
 
 @app.patch("/planned-analyses/{analysis_id}", response_model=PlannedAnalysisOut)
@@ -236,23 +273,31 @@ async def update_planned_analysis(analysis_id: int, payload: PlannedAnalysisUpda
   if payload.status:
     row.status = AnalysisStatus(payload.status)
   if payload.assigned_to is not None:
-    row.assigned_to = payload.assigned_to
+    assignees = normalize_assignees(payload.assigned_to)
+    if assignees:
+      existing = get_assignees(db, row.id)
+      for assignee in assignees:
+        if assignee in existing:
+          continue
+        db.add(PlannedAnalysisAssigneeModel(analysis_id=row.id, assignee=assignee))
+      if not existing:
+        row.assigned_to = assignees[0]
   db.add(row)
   db.commit()
   db.refresh(row)
   if payload.status:
     actor = request.headers.get("x-user")
     log_audit(db, entity_type="planned_analysis", entity_id=str(analysis_id), action="status_change", performed_by=actor, details=f"{old_status}->{payload.status}")
-  return to_planned_out(row)
+  return to_planned_out(row, db)
 
 
-def to_planned_out(row: PlannedAnalysisModel):
+def to_planned_out(row: PlannedAnalysisModel, db: Session):
   return {
     "id": row.id,
     "sample_id": row.sample_id,
     "analysis_type": row.analysis_type,
     "status": row.status.value,
-    "assigned_to": row.assigned_to,
+    "assigned_to": get_assignees(db, row.id, row.assigned_to),
   }
 
 
