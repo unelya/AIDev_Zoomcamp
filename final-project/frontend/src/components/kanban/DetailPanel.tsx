@@ -210,9 +210,9 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
       >
         <div className="h-full flex flex-col">
           {/* Header */}
-          <div className="flex items-start justify-between p-4 border-b border-border">
+          <div className="flex items-center justify-between px-4 py-2 border-b border-border">
             <div>
-              <h2 className="text-lg font-semibold text-foreground">
+              <h2 className="text-lg font-semibold text-foreground leading-none">
                 {card.analysisType === 'Sample' ? card.sampleId : card.analysisType}
               </h2>
             </div>
