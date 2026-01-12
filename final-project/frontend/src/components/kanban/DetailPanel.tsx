@@ -477,7 +477,7 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
         
         {/* Footer Actions */}
         <div className="p-4 border-t border-border flex flex-col gap-3">
-            {onAssignOperator && (
+            {onAssignOperator && role !== 'action_supervision' && (
               <div className="space-y-2">
                 <p className="text-sm font-semibold text-foreground">Assign operator to method</p>
                 <div className="grid grid-cols-2 gap-2">
