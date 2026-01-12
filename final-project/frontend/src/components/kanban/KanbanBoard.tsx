@@ -711,23 +711,28 @@ export function KanbanBoard({
       // remove cards that have no methods (e.g., all filtered out)
       let cardsWithMethods = [...bySample.values()].filter((c) => c.methods && c.methods.length > 0);
       // apply filters:
-      if (assignedOnly && incompleteOnly) {
-        // intersection: assigned to me AND has an incomplete method
-        if (!userName) {
-          cardsWithMethods = [];
-        } else {
-          cardsWithMethods = cardsWithMethods.filter((c) => hasUserAssignment(c) && hasUserIncomplete(c));
-        }
-      } else {
-        if (incompleteOnly) {
-          cardsWithMethods = cardsWithMethods.filter((c) => hasIncomplete(c));
-        }
+      const hasFilteredIncomplete = (c: KanbanCard) =>
+        c.methods?.some((m) => methodFilter.includes(m.name) && m.status !== 'completed');
+      const hasUserFilteredIncomplete = (c: KanbanCard) =>
+        c.methods?.some((m) => methodFilter.includes(m.name) && matchesUser(m.assignedTo) && m.status !== 'completed');
+      const isIncomplete = methodFilter.length > 0 ? hasFilteredIncomplete : hasIncomplete;
+      const isUserIncomplete = methodFilter.length > 0 ? hasUserFilteredIncomplete : hasUserIncomplete;
+
+      if (incompleteOnly) {
         if (assignedOnly) {
           if (!userName) {
             cardsWithMethods = [];
           } else {
-            cardsWithMethods = cardsWithMethods.filter((c) => hasUserAssignment(c));
+            cardsWithMethods = cardsWithMethods.filter((c) => hasUserAssignment(c) && isUserIncomplete(c));
           }
+        } else {
+          cardsWithMethods = cardsWithMethods.filter((c) => isIncomplete(c));
+        }
+      } else if (assignedOnly) {
+        if (!userName) {
+          cardsWithMethods = [];
+        } else {
+          cardsWithMethods = cardsWithMethods.filter((c) => hasUserAssignment(c));
         }
       }
       // apply method filter if any
