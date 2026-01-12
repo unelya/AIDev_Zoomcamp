@@ -118,8 +118,8 @@ export function KanbanBoard({
   const [methodFilter, setMethodFilter] = useState<string[]>([]);
   const [assignedOnly, setAssignedOnly] = useState(false);
   const [incompleteOnly, setIncompleteOnly] = useState(false);
-  const [sortMode, setSortMode] = useState<'none' | 'sample:asc' | 'sample:desc' | 'date:asc' | 'date:desc'>('none');
-  const [sortDraft, setSortDraft] = useState<'none' | 'sample:asc' | 'sample:desc' | 'date:asc' | 'date:desc'>('none');
+  const [sortMode, setSortMode] = useState<'none' | 'sample:asc' | 'sample:desc' | 'date:asc' | 'date:desc' | 'methods:asc' | 'methods:desc'>('none');
+  const [sortDraft, setSortDraft] = useState<'none' | 'sample:asc' | 'sample:desc' | 'date:asc' | 'date:desc' | 'methods:asc' | 'methods:desc'>('none');
   const [sortOpen, setSortOpen] = useState(false);
   const analysisTypes = DEFAULT_ANALYSIS_TYPES;
   const [undoStack, setUndoStack] = useState<
@@ -504,7 +504,15 @@ export function KanbanBoard({
     const storageKey = `${CARD_SORT_KEY}:${role}:${userKey}`;
     try {
       const stored = localStorage.getItem(storageKey);
-      if (stored === 'none' || stored === 'sample:asc' || stored === 'sample:desc' || stored === 'date:asc' || stored === 'date:desc') {
+      if (
+        stored === 'none' ||
+        stored === 'sample:asc' ||
+        stored === 'sample:desc' ||
+        stored === 'date:asc' ||
+        stored === 'date:desc' ||
+        stored === 'methods:asc' ||
+        stored === 'methods:desc'
+      ) {
         setSortMode(stored);
       }
     } catch {
@@ -1078,10 +1086,16 @@ export function KanbanBoard({
 
   const displayColumns = useMemo(() => {
     if (sortMode === 'none') return columns;
-    const [field, direction] = sortMode.split(':') as ['sample' | 'date', 'asc' | 'desc'];
+    const [field, direction] = sortMode.split(':') as ['sample' | 'date' | 'methods', 'asc' | 'desc'];
     const dir = direction === 'desc' ? -1 : 1;
     const compare = (a: KanbanCard, b: KanbanCard) => {
       if (field === 'sample') {
+        return a.sampleId.toLowerCase().localeCompare(b.sampleId.toLowerCase()) * dir;
+      }
+      if (field === 'methods') {
+        const aDone = a.methods?.filter((m) => m.status === 'completed').length ?? 0;
+        const bDone = b.methods?.filter((m) => m.status === 'completed').length ?? 0;
+        if (aDone !== bDone) return (aDone - bDone) * dir;
         return a.sampleId.toLowerCase().localeCompare(b.sampleId.toLowerCase()) * dir;
       }
       const aTime = Date.parse(a.samplingDate ?? '');
@@ -2745,9 +2759,9 @@ export function KanbanBoard({
 
   const parseSort = (value: typeof sortMode) => {
     if (value === 'none') {
-      return { field: 'sample' as 'sample' | 'date', direction: 'asc' as 'asc' | 'desc', isNone: true };
+      return { field: 'sample' as 'sample' | 'date' | 'methods', direction: 'asc' as 'asc' | 'desc', isNone: true };
     }
-    const [field, direction] = value.split(':') as ['sample' | 'date', 'asc' | 'desc'];
+    const [field, direction] = value.split(':') as ['sample' | 'date' | 'methods', 'asc' | 'desc'];
     return { field, direction, isNone: false };
   };
   const sortMeta = parseSort(sortDraft);
@@ -2851,6 +2865,7 @@ export function KanbanBoard({
                       <SelectContent>
                         <SelectItem value="sample">Sample ID</SelectItem>
                         <SelectItem value="date">Sampling date</SelectItem>
+                        {role === 'lab_operator' && <SelectItem value="methods">Methods Done</SelectItem>}
                       </SelectContent>
                     </Select>
                     <div className="flex items-center gap-1 rounded-md border border-border p-1">
