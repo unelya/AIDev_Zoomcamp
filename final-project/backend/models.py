@@ -1,4 +1,4 @@
-from sqlalchemy import Enum, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, Enum, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 import enum
 
@@ -94,6 +94,13 @@ class UserModel(Base):
     full_name: Mapped[str] = mapped_column(String, nullable=False)
     role: Mapped[str] = mapped_column(String, nullable=False, default="lab_operator")
     roles: Mapped[str] = mapped_column(String, nullable=False, default="lab_operator")
+
+
+class FilterMethodModel(Base):
+    __tablename__ = "filter_methods"
+
+    method_name: Mapped[str] = mapped_column(String, primary_key=True)
+    visible: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
 
 class AuditLogModel(Base):

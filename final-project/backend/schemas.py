@@ -29,6 +29,14 @@ class PlannedAnalysisOut(BaseModel):
     assigned_to: list[str] | None = None
 
 
+class FilterMethodsUpdate(BaseModel):
+    methods: list[str] = []
+
+
+class FilterMethodsOut(BaseModel):
+    methods: list[str] = []
+
+
 class ActionBatchCreate(BaseModel):
     title: str = Field(min_length=2, max_length=128)
     date: str = Field(min_length=4, max_length=32)

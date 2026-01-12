@@ -11,13 +11,13 @@ from sqlalchemy.orm import Session
 # Support running as a module or script
 try:
     from .database import Base, engine, get_db
-    from .models import ActionBatchModel, ActionBatchStatus, AuditLogModel, ConflictModel, ConflictStatus, SampleModel, SampleStatus, PlannedAnalysisModel, PlannedAnalysisAssigneeModel, AnalysisStatus, UserModel
-    from .schemas import ActionBatchCreate, ActionBatchOut, ConflictCreate, ConflictOut, ConflictUpdate, PlannedAnalysisCreate, PlannedAnalysisOut, PlannedAnalysisUpdate, UserOut, UserUpdate
+    from .models import ActionBatchModel, ActionBatchStatus, AuditLogModel, ConflictModel, ConflictStatus, FilterMethodModel, SampleModel, SampleStatus, PlannedAnalysisModel, PlannedAnalysisAssigneeModel, AnalysisStatus, UserModel
+    from .schemas import ActionBatchCreate, ActionBatchOut, ConflictCreate, ConflictOut, ConflictUpdate, FilterMethodsOut, FilterMethodsUpdate, PlannedAnalysisCreate, PlannedAnalysisOut, PlannedAnalysisUpdate, UserOut, UserUpdate
     from .seed import seed_users
 except ImportError:  # pragma: no cover - fallback for script execution
   from database import Base, engine, get_db  # type: ignore
-  from models import ActionBatchModel, ActionBatchStatus, AuditLogModel, ConflictModel, ConflictStatus, SampleModel, SampleStatus, PlannedAnalysisModel, PlannedAnalysisAssigneeModel, AnalysisStatus, UserModel  # type: ignore
-  from schemas import ActionBatchCreate, ActionBatchOut, ConflictCreate, ConflictOut, ConflictUpdate, PlannedAnalysisCreate, PlannedAnalysisOut, PlannedAnalysisUpdate, UserOut, UserUpdate  # type: ignore
+  from models import ActionBatchModel, ActionBatchStatus, AuditLogModel, ConflictModel, ConflictStatus, FilterMethodModel, SampleModel, SampleStatus, PlannedAnalysisModel, PlannedAnalysisAssigneeModel, AnalysisStatus, UserModel  # type: ignore
+  from schemas import ActionBatchCreate, ActionBatchOut, ConflictCreate, ConflictOut, ConflictUpdate, FilterMethodsOut, FilterMethodsUpdate, PlannedAnalysisCreate, PlannedAnalysisOut, PlannedAnalysisUpdate, UserOut, UserUpdate  # type: ignore
   from seed import seed_users  # type: ignore
 
 app = FastAPI(title="LabSync backend", version="0.1.0")
@@ -211,6 +211,21 @@ def normalize_assignees(value: list[str] | str | None) -> list[str]:
       cleaned.append(name)
   return cleaned
 
+def normalize_methods(value: list[str] | None) -> list[str]:
+  cleaned: list[str] = []
+  for item in value or []:
+    name = (item or "").strip()
+    if not name:
+      continue
+    if name not in cleaned:
+      cleaned.append(name)
+  return cleaned
+
+def is_admin_from_headers(request: Request) -> bool:
+  roles_header = (request.headers.get("x-roles") or "").lower()
+  role_header = (request.headers.get("x-role") or "").lower()
+  return "admin" in roles_header.split(",") or role_header == "admin"
+
 def get_assignees(db: Session, analysis_id: int, fallback: str | None = None) -> list[str]:
   rows = db.execute(
     select(PlannedAnalysisAssigneeModel.assignee).where(
@@ -237,9 +252,7 @@ async def list_planned_analyses(status: str | None = None, db: Session = Depends
 @app.post("/planned-analyses", response_model=PlannedAnalysisOut, status_code=201)
 async def create_planned_analysis(payload: PlannedAnalysisCreate, request: Request, db: Session = Depends(get_db)):
   default_allowed = {"SARA", "IR", "Mass Spectrometry", "Viscosity"}
-  roles_header = (request.headers.get("x-roles") or "").lower()
-  role_header = (request.headers.get("x-role") or "").lower()
-  is_admin = "admin" in roles_header.split(",") or role_header == "admin"
+  is_admin = is_admin_from_headers(request)
   name = payload.analysis_type.strip()
   if not name:
     raise HTTPException(status_code=400, detail="Analysis type required")
@@ -293,6 +306,25 @@ async def update_planned_analysis(analysis_id: int, payload: PlannedAnalysisUpda
     actor = request.headers.get("x-user")
     log_audit(db, entity_type="planned_analysis", entity_id=str(analysis_id), action="status_change", performed_by=actor, details=f"{old_status}->{payload.status}")
   return to_planned_out(row, db)
+
+
+@app.get("/filter-methods", response_model=FilterMethodsOut)
+async def list_filter_methods(db: Session = Depends(get_db)):
+  rows = db.execute(select(FilterMethodModel.method_name).where(FilterMethodModel.visible == True)).all()
+  methods = [r[0] for r in rows if r and r[0]]
+  return {"methods": methods}
+
+
+@app.put("/filter-methods", response_model=FilterMethodsOut)
+async def update_filter_methods(payload: FilterMethodsUpdate, request: Request, db: Session = Depends(get_db)):
+  if not is_admin_from_headers(request):
+    raise HTTPException(status_code=403, detail="Admin only")
+  methods = normalize_methods(payload.methods)
+  db.execute(delete(FilterMethodModel))
+  for name in methods:
+    db.add(FilterMethodModel(method_name=name, visible=True))
+  db.commit()
+  return {"methods": methods}
 
 
 def to_planned_out(row: PlannedAnalysisModel, db: Session):

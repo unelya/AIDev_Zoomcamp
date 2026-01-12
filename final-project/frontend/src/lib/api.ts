@@ -126,6 +126,23 @@ export async function updatePlannedAnalysis(id: number, status: string | undefin
   return (await res.json()) as { id: number; sample_id: string; analysis_type: string; status: string; assigned_to?: string[] | string };
 }
 
+export async function fetchFilterMethods(): Promise<string[]> {
+  const res = await fetch("/api/filter-methods");
+  if (!res.ok) throw new Error(`Failed to load filter methods (${res.status})`);
+  const data = (await res.json()) as { methods: string[] };
+  return data.methods ?? [];
+}
+
+export async function updateFilterMethods(methods: string[]) {
+  const res = await fetch("/api/filter-methods", {
+    method: "PUT",
+    headers: authHeaders(),
+    body: JSON.stringify({ methods }),
+  });
+  if (!res.ok) throw new Error(`Failed to update filter methods (${res.status})`);
+  return (await res.json()) as { methods: string[] };
+}
+
 export function mapApiAnalysis(pa: { id: number; sample_id: string; analysis_type: string; status: string; assigned_to?: string[] | string }): PlannedAnalysisCard {
   const assignedTo =
     typeof pa.assigned_to === "string"

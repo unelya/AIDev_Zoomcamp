@@ -6,7 +6,7 @@ import { getColumnData, getMockCards, columnConfigByRole } from '@/data/mockData
 import { KanbanCard, CommentThread, DeletedInfo, NewCardPayload, PlannedAnalysisCard, Role } from '@/types/kanban';
 import { Button } from '@/components/ui/button';
 import { NewCardDialog } from './NewCardDialog';
-import { createActionBatch, createConflict, createPlannedAnalysis, createSample, fetchActionBatches, fetchConflicts, fetchPlannedAnalyses, fetchSamples, fetchUsers, mapApiAnalysis, resolveConflict, updatePlannedAnalysis, updateSampleFields, updateSampleStatus } from '@/lib/api';
+import { createActionBatch, createConflict, createPlannedAnalysis, createSample, fetchActionBatches, fetchConflicts, fetchFilterMethods, fetchPlannedAnalyses, fetchSamples, fetchUsers, mapApiAnalysis, resolveConflict, updateFilterMethods, updatePlannedAnalysis, updateSampleFields, updateSampleStatus } from '@/lib/api';
 import { useToast } from '@/components/ui/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandGroup, CommandItem } from '@/components/ui/command';
@@ -121,6 +121,18 @@ export function KanbanBoard({
   const [sortMode, setSortMode] = useState<'none' | 'sample:asc' | 'sample:desc' | 'date:asc' | 'date:desc' | 'methods:asc' | 'methods:desc'>('none');
   const [sortDraft, setSortDraft] = useState<'none' | 'sample:asc' | 'sample:desc' | 'date:asc' | 'date:desc' | 'methods:asc' | 'methods:desc'>('none');
   const [sortOpen, setSortOpen] = useState(false);
+  const [filterMethodWhitelist, setFilterMethodWhitelist] = useState<string[]>([]);
+  const allowedFilterMethodList = useMemo(
+    () =>
+      [
+        ...new Set([
+          ...DEFAULT_ANALYSIS_TYPES,
+          ...filterMethodWhitelist.filter((m) => !DEFAULT_ANALYSIS_TYPES.includes(m)),
+        ]),
+      ],
+    [filterMethodWhitelist],
+  );
+  const allowedFilterMethods = useMemo(() => new Set(allowedFilterMethodList), [allowedFilterMethodList]);
   const analysisTypes = DEFAULT_ANALYSIS_TYPES;
   const [undoStack, setUndoStack] = useState<
     (
@@ -382,17 +394,26 @@ export function KanbanBoard({
     return () => window.removeEventListener('keydown', handler);
   }, [undoStack]);
 
+  useEffect(() => {
+    if (methodFilter.length === 0) return;
+    setMethodFilter((prev) => {
+      const next = prev.filter((m) => allowedFilterMethods.has(m));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [allowedFilterMethods, methodFilter.length]);
+
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       try {
-        const [remoteSamples, remoteAnalyses, batches, conflictList, users] = await Promise.all([
+        const [remoteSamples, remoteAnalyses, batches, conflictList, users, filterMethods] = await Promise.all([
           fetchSamples(),
           fetchPlannedAnalyses(),
           fetchActionBatches(),
           fetchConflicts(),
           fetchUsers().catch(() => []),
+          fetchFilterMethods().catch(() => []),
         ]);
         setCards(remoteSamples);
         const initialAnalyses = remoteAnalyses
@@ -410,6 +431,7 @@ export function KanbanBoard({
             .filter((u: any) => (u.roles || []).includes('lab_operator') || u.role === 'lab_operator')
             .map((u: any) => ({ id: u.id, name: u.full_name || u.username })),
         );
+        setFilterMethodWhitelist(filterMethods);
       } catch (err) {
         toast({
           title: "Failed to load data",
@@ -1082,7 +1104,7 @@ export function KanbanBoard({
       return getColumnData(filterCards(decorated), role);
     }
     return getColumnData(filterCards(withComments(visibleCards)), role);
-  }, [cards, plannedAnalyses, actionBatches, conflicts, role, filterCards, methodFilter, assignedOnly, incompleteOnly, commentsByCard, user?.fullName, deletedByCard, adminStoredByCard, labStatusOverrides, labNeedsAttentionReasons, labReturnHighlights, warehouseReturnHighlights, adminReturnNotes, issueReasons]);
+  }, [cards, plannedAnalyses, actionBatches, conflicts, role, filterCards, methodFilter, assignedOnly, incompleteOnly, commentsByCard, user?.fullName, deletedByCard, adminStoredByCard, labStatusOverrides, labNeedsAttentionReasons, labReturnHighlights, warehouseReturnHighlights, adminReturnNotes, issueReasons, filterMethodWhitelist]);
 
   const displayColumns = useMemo(() => {
     if (sortMode === 'none') return columns;
@@ -2791,8 +2813,9 @@ export function KanbanBoard({
               <PopoverContent className="p-0 w-56" align="end">
                 <Command>
                   <CommandGroup>
-                    {[...new Set([...DEFAULT_ANALYSIS_TYPES, ...plannedAnalyses.map((pa) => pa.analysisType)])]
+                    {[...new Set([...allowedFilterMethodList, ...plannedAnalyses.map((pa) => pa.analysisType)])]
                       .filter((m) => !METHOD_BLACKLIST.includes(m))
+                      .filter((m) => allowedFilterMethods.has(m))
                       .map((m) => (
                         <CommandItem
                           key={m}
@@ -2804,6 +2827,61 @@ export function KanbanBoard({
                         >
                           <Checkbox
                             checked={methodFilter.includes(m)}
+                            className="mr-2 pointer-events-none"
+                          />
+                          <span>{m}</span>
+                        </CommandItem>
+                      ))}
+                  </CommandGroup>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          )}
+          {role === 'admin' && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Filter className="w-4 h-4" />
+                  Filter visibility
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="p-0 w-56" align="end">
+                <Command>
+                  <CommandGroup>
+                    {DEFAULT_ANALYSIS_TYPES.map((m) => (
+                      <CommandItem key={m} onSelect={() => {}}>
+                        <Checkbox checked className="mr-2 pointer-events-none" />
+                        <span className="text-muted-foreground">{m}</span>
+                      </CommandItem>
+                    ))}
+                    {[...new Set([...plannedAnalyses.map((pa) => pa.analysisType), ...filterMethodWhitelist])]
+                      .filter((m) => !METHOD_BLACKLIST.includes(m))
+                      .filter((m) => !DEFAULT_ANALYSIS_TYPES.includes(m))
+                      .map((m) => (
+                        <CommandItem
+                          key={m}
+                          onSelect={async () => {
+                            const next = filterMethodWhitelist.includes(m)
+                              ? filterMethodWhitelist.filter((x) => x !== m)
+                              : [...filterMethodWhitelist, m];
+                            setFilterMethodWhitelist(next);
+                            try {
+                              await updateFilterMethods(next);
+                              toast({
+                                title: "Changes saved",
+                                description: "Filter visibility updated.",
+                              });
+                            } catch (err) {
+                              toast({
+                                title: "Failed to update filters",
+                                description: err instanceof Error ? err.message : "Backend unreachable",
+                                variant: "destructive",
+                              });
+                            }
+                          }}
+                        >
+                          <Checkbox
+                            checked={filterMethodWhitelist.includes(m)}
                             className="mr-2 pointer-events-none"
                           />
                           <span>{m}</span>
