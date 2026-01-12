@@ -212,8 +212,9 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
           {/* Header */}
           <div className="flex items-start justify-between p-4 border-b border-border">
             <div>
-              <p className="text-xs font-mono text-primary mb-1">{card.sampleId}</p>
-              <h2 className="text-lg font-semibold text-foreground">{card.analysisType}</h2>
+              <h2 className="text-lg font-semibold text-foreground">
+                {card.analysisType === 'Sample' ? card.sampleId : card.analysisType}
+              </h2>
             </div>
             <button
               onClick={onClose}
