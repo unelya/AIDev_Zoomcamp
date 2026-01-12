@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Filter, SlidersHorizontal, Undo2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, Filter, SlidersHorizontal, Undo2 } from 'lucide-react';
 import { KanbanColumn } from './KanbanColumn';
 import { DetailPanel } from './DetailPanel';
 import { getColumnData, getMockCards, columnConfigByRole } from '@/data/mockData';
@@ -11,6 +11,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandGroup, CommandItem } from '@/components/ui/command';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/use-auth';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -35,6 +36,7 @@ const ACTION_UPLOADED_READ_KEY = 'labsync-action-uploaded-read';
 const ACTION_CONFLICT_READ_KEY = 'labsync-action-conflict-read';
 const ADMIN_ISSUES_READ_KEY = 'labsync-admin-issues-read';
 const ADMIN_NEEDS_READ_KEY = 'labsync-admin-needs-read';
+const CARD_SORT_KEY = 'labsync-card-sort';
 const SHOW_LAB_COMPLETED_MOCK = true;
 
 const roleCopy: Record<Role, string> = {
@@ -116,6 +118,9 @@ export function KanbanBoard({
   const [methodFilter, setMethodFilter] = useState<string[]>([]);
   const [assignedOnly, setAssignedOnly] = useState(false);
   const [incompleteOnly, setIncompleteOnly] = useState(false);
+  const [sortMode, setSortMode] = useState<'none' | 'sample:asc' | 'sample:desc' | 'date:asc' | 'date:desc'>('none');
+  const [sortDraft, setSortDraft] = useState<'none' | 'sample:asc' | 'sample:desc' | 'date:asc' | 'date:desc'>('none');
+  const [sortOpen, setSortOpen] = useState(false);
   const analysisTypes = DEFAULT_ANALYSIS_TYPES;
   const [undoStack, setUndoStack] = useState<
     (
@@ -493,6 +498,29 @@ export function KanbanBoard({
     if (typeof window === 'undefined') return;
     localStorage.setItem(ADMIN_NEEDS_READ_KEY, JSON.stringify(adminNeedsRead));
   }, [adminNeedsRead]);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const userKey = (user?.fullName || user?.username || 'anon').trim();
+    const storageKey = `${CARD_SORT_KEY}:${role}:${userKey}`;
+    try {
+      const stored = localStorage.getItem(storageKey);
+      if (stored === 'none' || stored === 'sample:asc' || stored === 'sample:desc' || stored === 'date:asc' || stored === 'date:desc') {
+        setSortMode(stored);
+      }
+    } catch {
+      // ignore
+    }
+  }, [role, user?.fullName, user?.username]);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const userKey = (user?.fullName || user?.username || 'anon').trim();
+    const storageKey = `${CARD_SORT_KEY}:${role}:${userKey}`;
+    try {
+      localStorage.setItem(storageKey, sortMode);
+    } catch {
+      // ignore
+    }
+  }, [sortMode, role, user?.fullName, user?.username]);
   useEffect(() => {
     if (role !== 'lab_operator') {
       prevAdminReturnNotesRef.current = adminReturnNotes;
@@ -1047,6 +1075,27 @@ export function KanbanBoard({
     }
     return getColumnData(filterCards(withComments(visibleCards)), role);
   }, [cards, plannedAnalyses, actionBatches, conflicts, role, filterCards, methodFilter, assignedOnly, incompleteOnly, commentsByCard, user?.fullName, deletedByCard, adminStoredByCard, labStatusOverrides, labNeedsAttentionReasons, labReturnHighlights, warehouseReturnHighlights, adminReturnNotes, issueReasons]);
+
+  const displayColumns = useMemo(() => {
+    if (sortMode === 'none') return columns;
+    const [field, direction] = sortMode.split(':') as ['sample' | 'date', 'asc' | 'desc'];
+    const dir = direction === 'desc' ? -1 : 1;
+    const compare = (a: KanbanCard, b: KanbanCard) => {
+      if (field === 'sample') {
+        return a.sampleId.toLowerCase().localeCompare(b.sampleId.toLowerCase()) * dir;
+      }
+      const aTime = Date.parse(a.samplingDate ?? '');
+      const bTime = Date.parse(b.samplingDate ?? '');
+      const aValue = Number.isNaN(aTime) ? Number.POSITIVE_INFINITY : aTime;
+      const bValue = Number.isNaN(bTime) ? Number.POSITIVE_INFINITY : bTime;
+      if (aValue !== bValue) return (aValue - bValue) * dir;
+      return a.sampleId.toLowerCase().localeCompare(b.sampleId.toLowerCase()) * dir;
+    };
+    return columns.map((col) => ({
+      ...col,
+      cards: [...col.cards].sort(compare),
+    }));
+  }, [columns, sortMode]);
 
   useEffect(() => {
     if (role !== 'lab_operator') {
@@ -2525,7 +2574,7 @@ export function KanbanBoard({
           target.isContentEditable;
         if (isTextEntry) return;
       }
-      const cardIdsByColumn = columns.map((col) => col.cards.map((card) => card.id));
+      const cardIdsByColumn = displayColumns.map((col) => col.cards.map((card) => card.id));
       if (cardIdsByColumn.every((list) => list.length === 0)) return;
       const active = document.activeElement as HTMLElement | null;
       const currentId = active?.getAttribute('data-card-id') ?? selectedCard?.id ?? null;
@@ -2548,7 +2597,7 @@ export function KanbanBoard({
         const firstId = cardIdsByColumn[firstCol][0];
         event.preventDefault();
         document.querySelector<HTMLElement>(`[data-card-id="${firstId}"]`)?.focus();
-        const firstCard = columns[firstCol].cards[0];
+        const firstCard = displayColumns[firstCol].cards[0];
         if (firstCard) setSelectedCard(firstCard);
         return;
       }
@@ -2578,14 +2627,14 @@ export function KanbanBoard({
       if (!nextId) return;
       event.preventDefault();
       document.querySelector<HTMLElement>(`[data-card-id="${nextId}"]`)?.focus();
-      const nextCard = columns.flatMap((col) => col.cards).find((card) => card.id === nextId) ?? null;
+      const nextCard = displayColumns.flatMap((col) => col.cards).find((card) => card.id === nextId) ?? null;
       if (nextCard) setSelectedCard(nextCard);
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [columns, isPanelOpen, selectedCard?.id]);
+  }, [displayColumns, isPanelOpen, selectedCard?.id]);
 
-  const totalSamples = columns.reduce((sum, col) => sum + col.cards.length, 0);
+  const totalSamples = displayColumns.reduce((sum, col) => sum + col.cards.length, 0);
   const lockNeedsAttentionCards = role === 'lab_operator' && user?.role !== 'admin';
 
   const handleSampleFieldUpdate = async (sampleId: string, updates: Record<string, string>, options?: { skipUndo?: boolean }) => {
@@ -2693,6 +2742,15 @@ export function KanbanBoard({
       });
     }
   };
+
+  const parseSort = (value: typeof sortMode) => {
+    if (value === 'none') {
+      return { field: 'sample' as 'sample' | 'date', direction: 'asc' as 'asc' | 'desc', isNone: true };
+    }
+    const [field, direction] = value.split(':') as ['sample' | 'date', 'asc' | 'desc'];
+    return { field, direction, isNone: false };
+  };
+  const sortMeta = parseSort(sortDraft);
   
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -2742,6 +2800,112 @@ export function KanbanBoard({
               </PopoverContent>
             </Popover>
           )}
+          <Popover
+            open={sortOpen}
+            onOpenChange={(open) => {
+              setSortOpen(open);
+              if (open) {
+                setSortDraft(sortMode);
+              }
+            }}
+          >
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                {sortMode === 'none' ? (
+                  <ArrowUpDown className="w-4 h-4" />
+                ) : sortMode.endsWith(':desc') ? (
+                  <ArrowDown className="w-4 h-4" />
+                ) : (
+                  <ArrowUp className="w-4 h-4" />
+                )}
+                Sort {sortMode !== 'none' ? '(1)' : ''}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="p-3 w-80" align="end">
+              <div className="space-y-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-foreground">Sort order</p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSortDraft('none')}
+                  >
+                    Reset
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">Sort by</p>
+                  <div className="flex items-center gap-2">
+                    <Select
+                      value={sortMeta.isNone ? '' : sortMeta.field}
+                      onValueChange={(value) => {
+                        if (!value) return;
+                        const direction = sortMeta.direction;
+                        setSortDraft(`${value}:${direction}` as typeof sortDraft);
+                      }}
+                    >
+                      <SelectTrigger className="h-9 flex-1">
+                        <SelectValue placeholder="Choose field" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="sample">Sample ID</SelectItem>
+                        <SelectItem value="date">Sampling date</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <div className="flex items-center gap-1 rounded-md border border-border p-1">
+                      <Button
+                        type="button"
+                        variant={sortMeta.direction === 'asc' && !sortMeta.isNone ? 'default' : 'ghost'}
+                        size="sm"
+                        className="h-8 w-10"
+                        onClick={() => {
+                          const field = sortMeta.field;
+                          setSortDraft(`${field}:asc` as typeof sortDraft);
+                        }}
+                        aria-label="Ascending"
+                      >
+                        <ArrowUp className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={sortMeta.direction === 'desc' && !sortMeta.isNone ? 'default' : 'ghost'}
+                        size="sm"
+                        className="h-8 w-10"
+                        onClick={() => {
+                          const field = sortMeta.field;
+                          setSortDraft(`${field}:desc` as typeof sortDraft);
+                        }}
+                        aria-label="Descending"
+                      >
+                        <ArrowDown className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSortOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => {
+                      setSortMode(sortDraft === 'none' ? 'none' : sortDraft);
+                      setSortOpen(false);
+                    }}
+                  >
+                    Apply
+                  </Button>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
           {role === 'lab_operator' && (
             <label className="flex items-center gap-2 text-sm text-foreground">
               <Checkbox
@@ -2794,7 +2958,7 @@ export function KanbanBoard({
           <div className="flex h-full items-center justify-center text-muted-foreground">Loading board...</div>
         ) : (
           <div className="flex gap-4 h-full min-w-max">
-            {columns.map((column) => (
+            {displayColumns.map((column) => (
               <div key={`${column.id}-${column.title}`} className="w-72 flex-shrink-0 h-full">
           <KanbanColumn
             column={column}
