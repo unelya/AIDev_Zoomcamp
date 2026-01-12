@@ -149,6 +149,16 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
   useEffect(() => {
     setStorageParts(parseStorageLocation(card.storageLocation || ''));
   }, [card.storageLocation]);
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
   
   return (
     <>
