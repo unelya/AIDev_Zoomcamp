@@ -121,8 +121,9 @@ export function KanbanCard({ card, onClick, onToggleMethod, canToggleMethod, rea
     >
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex flex-col gap-1">
-          <span className="text-[11px] font-mono text-primary">{card.sampleId}</span>
-          <p className="text-sm font-semibold text-foreground leading-tight">{card.analysisType}</p>
+          <p className="text-sm font-semibold text-foreground leading-tight">
+            {card.analysisType === 'Sample' ? card.sampleId : card.analysisType}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           {card.comments && card.comments.length > 0 && (
