@@ -2723,7 +2723,7 @@ export function KanbanBoard({
             <Undo2 className="w-4 h-4" />
             Undo
           </Button>
-          {(role === 'action_supervision' || role === 'admin') && (
+          {role === 'action_supervision' && (
             <Button variant="default" size="sm" className="gap-2" onClick={handleQuickConflict}>
               Add conflict
             </Button>
