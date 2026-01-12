@@ -46,7 +46,7 @@ export function KanbanColumn({ column, onCardClick, onDropCard, showAdd = false,
 
   return (
     <div
-      className={cn('kanban-column flex flex-col border-t-2', columnColorClass ?? columnColors[column.id])}
+      className={cn('kanban-column flex flex-col border-t-2 h-full', columnColorClass ?? columnColors[column.id])}
       onDragOver={(e) => e.preventDefault()}
       onDrop={handleDrop}
     >
@@ -64,7 +64,11 @@ export function KanbanColumn({ column, onCardClick, onDropCard, showAdd = false,
         )}
       </div>
       
-      <div className="flex-1 p-2 space-y-2 overflow-y-auto scrollbar-thin">
+      <div
+        className="flex-1 min-h-[80px] p-2 space-y-2 overflow-y-auto scrollbar-thin"
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={handleDrop}
+      >
         {column.cards.map((card) => (
           <KanbanCard
             key={card.id}

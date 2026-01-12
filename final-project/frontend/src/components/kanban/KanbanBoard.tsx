@@ -2749,7 +2749,7 @@ export function KanbanBoard({
         ) : (
           <div className="flex gap-4 h-full min-w-max">
             {columns.map((column) => (
-              <div key={`${column.id}-${column.title}`} className="w-72 flex-shrink-0">
+              <div key={`${column.id}-${column.title}`} className="w-72 flex-shrink-0 h-full">
           <KanbanColumn
             column={column}
             onCardClick={handleCardClick}
