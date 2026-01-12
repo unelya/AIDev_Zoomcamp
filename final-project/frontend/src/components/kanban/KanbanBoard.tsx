@@ -541,6 +541,42 @@ export function KanbanBoard({
     const notes = adminReturnNotes[sampleId] ?? [];
     return notes.length > 0 ? notes[notes.length - 1] : '';
   };
+  const handleLabAutoMoveCompleted = () => {
+    const progressCards = columns.find((col) => col.id === 'progress')?.cards ?? [];
+    const completedCards = progressCards.filter(
+      (card) =>
+        card.allMethodsDone ||
+        (card.methods && card.methods.length > 0 && card.methods.every((m) => m.status === 'completed')),
+    );
+    if (completedCards.length === 0) {
+      toast({ title: 'No completed cards', description: 'No in-progress cards with all methods done.' });
+      return;
+    }
+    completedCards.forEach((card) => pushLabStateUndo(card.sampleId));
+    const moves = completedCards.map((card) => ({
+      sampleId: card.sampleId,
+      nextStatus: Math.random() < 0.5 ? 'review' : 'done',
+    }));
+    setLabStatusOverrides((prev) => {
+      const next = { ...prev };
+      moves.forEach((move) => {
+        next[move.sampleId] = move.nextStatus;
+      });
+      return next;
+    });
+    setLabReturnHighlights((prev) => {
+      const next = { ...prev };
+      completedCards.forEach((card) => {
+        delete next[card.sampleId];
+      });
+      return next;
+    });
+    const toNeeds = moves.filter((move) => move.nextStatus === 'review').length;
+    toast({
+      title: 'Temporary move applied',
+      description: `${completedCards.length} card(s) moved: ${toNeeds} to Needs attention, ${completedCards.length - toNeeds} to Completed.`,
+    });
+  };
 
   const filterCards = useCallback(
     (list: KanbanCard[]) => {
@@ -2740,6 +2776,11 @@ export function KanbanBoard({
               open={newDialogOpen}
               onOpenChange={setNewDialogOpen}
             />
+          )}
+          {role === 'lab_operator' && user?.role === 'admin' && (
+            <Button size="sm" className="gap-2" onClick={handleLabAutoMoveCompleted}>
+              Temp: Auto-move completed
+            </Button>
           )}
           <Button size="sm" className="gap-2" onClick={handleSave} disabled={loading}>
             {loading ? "Syncing..." : "Refresh"}
