@@ -377,6 +377,7 @@ export function KanbanBoard({
     return () => window.removeEventListener('keydown', handler);
   }, [undoStack]);
 
+
   useEffect(() => {
     const load = async () => {
       setLoading(true);
@@ -2467,6 +2468,81 @@ export function KanbanBoard({
       setPlannedAnalyses((prev) => prev.map((pa) => (pa.id === methodId ? { ...pa, status: done ? 'planned' : 'completed' } : pa)));
     }
   };
+
+  useEffect(() => {
+    if (isPanelOpen) return;
+    const handler = (event: KeyboardEvent) => {
+      if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName.toLowerCase();
+        const isTextEntry =
+          tag === 'textarea' ||
+          tag === 'select' ||
+          (tag === 'input' && !['checkbox', 'radio', 'button', 'submit'].includes((target as HTMLInputElement).type)) ||
+          target.isContentEditable;
+        if (isTextEntry) return;
+      }
+      const cardIdsByColumn = columns.map((col) => col.cards.map((card) => card.id));
+      if (cardIdsByColumn.every((list) => list.length === 0)) return;
+      const active = document.activeElement as HTMLElement | null;
+      const currentId = active?.getAttribute('data-card-id') ?? selectedCard?.id ?? null;
+      let currentCol = -1;
+      let currentRow = -1;
+      if (currentId) {
+        cardIdsByColumn.some((list, colIdx) => {
+          const rowIdx = list.indexOf(currentId);
+          if (rowIdx >= 0) {
+            currentCol = colIdx;
+            currentRow = rowIdx;
+            return true;
+          }
+          return false;
+        });
+      }
+      if (currentCol === -1) {
+        const firstCol = cardIdsByColumn.findIndex((list) => list.length > 0);
+        if (firstCol === -1) return;
+        const firstId = cardIdsByColumn[firstCol][0];
+        event.preventDefault();
+        document.querySelector<HTMLElement>(`[data-card-id="${firstId}"]`)?.focus();
+        const firstCard = columns[firstCol].cards[0];
+        if (firstCard) setSelectedCard(firstCard);
+        return;
+      }
+      const moveVertical = (delta: number) => {
+        const list = cardIdsByColumn[currentCol];
+        const nextRow = Math.min(Math.max(currentRow + delta, 0), list.length - 1);
+        return list[nextRow] ?? null;
+      };
+      const moveHorizontal = (delta: number) => {
+        let nextCol = currentCol + delta;
+        while (nextCol >= 0 && nextCol < cardIdsByColumn.length && cardIdsByColumn[nextCol].length === 0) {
+          nextCol += delta;
+        }
+        if (nextCol < 0 || nextCol >= cardIdsByColumn.length) return null;
+        const list = cardIdsByColumn[nextCol];
+        const nextRow = Math.min(currentRow, list.length - 1);
+        return list[nextRow] ?? null;
+      };
+      const nextId =
+        event.key === 'ArrowUp'
+          ? moveVertical(-1)
+          : event.key === 'ArrowDown'
+          ? moveVertical(1)
+          : event.key === 'ArrowLeft'
+          ? moveHorizontal(-1)
+          : moveHorizontal(1);
+      if (!nextId) return;
+      event.preventDefault();
+      document.querySelector<HTMLElement>(`[data-card-id="${nextId}"]`)?.focus();
+      const nextCard = columns.flatMap((col) => col.cards).find((card) => card.id === nextId) ?? null;
+      if (nextCard) setSelectedCard(nextCard);
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [columns, isPanelOpen, selectedCard?.id]);
 
   const totalSamples = columns.reduce((sum, col) => sum + col.cards.length, 0);
   const lockNeedsAttentionCards = role === 'lab_operator' && user?.role !== 'admin';

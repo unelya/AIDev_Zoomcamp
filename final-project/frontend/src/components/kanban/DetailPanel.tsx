@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarCmp } from '@/components/ui/calendar';
@@ -39,6 +39,7 @@ interface DetailPanelProps {
 
 export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPlanAnalysis, onAssignOperator, onResolveConflict, onUpdateSample, onUpdateAnalysis, onToggleMethod, readOnlyMethods, adminActions, availableMethods = ['SARA', 'IR', 'Mass Spectrometry', 'Viscosity'], operatorOptions = [], comments = [], onAddComment, currentUserName }: DetailPanelProps) {
   if (!card) return null;
+  const panelRef = useRef<HTMLDivElement | null>(null);
   const normalizeAssignees = (value?: string[] | string | null) => {
     if (!value) return [];
     if (Array.isArray(value)) return value.filter(Boolean);
@@ -159,6 +160,34 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+      const target = event.target as HTMLElement | null;
+      if (!panelRef.current || !target || !panelRef.current.contains(target)) return;
+      const tag = target.tagName.toLowerCase();
+      const isTextEntry =
+        tag === 'textarea' ||
+        tag === 'select' ||
+        (tag === 'input' && !['checkbox', 'radio', 'button', 'submit'].includes((target as HTMLInputElement).type)) ||
+        target.isContentEditable;
+      if (isTextEntry) return;
+      const focusables = Array.from(
+        panelRef.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((el) => !el.hasAttribute('disabled') && !el.getAttribute('aria-disabled'));
+      if (focusables.length === 0) return;
+      const currentIndex = focusables.indexOf(target);
+      const delta = event.key === 'ArrowUp' || event.key === 'ArrowLeft' ? -1 : 1;
+      const nextIndex = currentIndex === -1 ? 0 : (currentIndex + delta + focusables.length) % focusables.length;
+      event.preventDefault();
+      focusables[nextIndex].focus();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen]);
   
   return (
     <>
@@ -173,6 +202,7 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
       
       {/* Panel */}
       <div
+        ref={panelRef}
         className={cn(
           'detail-panel',
           isOpen ? 'detail-panel-visible' : 'detail-panel-hidden'

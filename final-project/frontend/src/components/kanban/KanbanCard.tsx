@@ -107,6 +107,8 @@ export function KanbanCard({ card, onClick, onToggleMethod, canToggleMethod, rea
       onClick={onClick}
       draggable
       onDragStart={handleDragStart}
+      tabIndex={0}
+      data-card-id={card.id}
       className={cn(
         'kanban-card',
         'border-border/60',
@@ -116,7 +118,8 @@ export function KanbanCard({ card, onClick, onToggleMethod, canToggleMethod, rea
           ? 'bg-sky-900/50 border-sky-400 shadow-[0_0_0_1px_rgba(56,189,248,0.35)]'
           : card.returnedToWarehouse
           ? 'bg-amber-900/50 border-amber-400 shadow-[0_0_0_1px_rgba(251,191,36,0.35)]'
-          : ''
+          : '',
+        'focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-0'
       )}
     >
       <div className="flex items-start justify-between gap-2 mb-2">
