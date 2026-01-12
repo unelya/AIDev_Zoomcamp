@@ -2643,10 +2643,6 @@ export function KanbanBoard({
               <span>Show only incomplete</span>
             </label>
           )}
-          <Button variant="outline" size="sm" className="gap-2">
-            <SlidersHorizontal className="w-4 h-4" />
-            View
-          </Button>
           <Button variant="outline" size="sm" className="gap-2" onClick={undoLast} disabled={undoStack.length === 0}>
             <Undo2 className="w-4 h-4" />
             Undo
