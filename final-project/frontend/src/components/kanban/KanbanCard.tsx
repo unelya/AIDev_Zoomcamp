@@ -28,6 +28,12 @@ interface KanbanCardProps {
 }
 
 export function KanbanCard({ card, onClick, onToggleMethod, canToggleMethod, readOnlyMethods, adminActions, showStatusActions = false, statusBadgeMode = 'sample', statusLineMode = 'analysis', analysisLabelMode = 'analysis', showConflictStatus = false, conflictStatusLabel = 'Conflict status' }: KanbanCardProps) {
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      onClick?.();
+    }
+  };
   const METHOD_ORDER = ['SARA', 'IR', 'Mass Spectrometry', 'Viscosity'];
   const methodRank = (name: string) => {
     const idx = METHOD_ORDER.findIndex((m) => m.toLowerCase() === name.toLowerCase());
@@ -105,6 +111,7 @@ export function KanbanCard({ card, onClick, onToggleMethod, canToggleMethod, rea
   return (
     <div
       onClick={onClick}
+      onKeyDown={handleKeyDown}
       draggable
       onDragStart={handleDragStart}
       tabIndex={0}
