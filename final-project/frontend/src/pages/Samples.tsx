@@ -224,8 +224,8 @@ const Samples = () => {
                   <TableHead>Sampling date</TableHead>
                   <TableHead>Arrival date</TableHead>
                   <TableHead>Storage location</TableHead>
-                  <TableHead>Sample status</TableHead>
-                  <TableHead>Analysis status</TableHead>
+                  <TableHead>Warehouse status</TableHead>
+                  <TableHead>Lab status</TableHead>
                   <TableHead>Admin status</TableHead>
                   <TableHead>Analyses</TableHead>
                 </TableRow>
