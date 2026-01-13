@@ -3,7 +3,6 @@ import { TopBar } from "@/components/layout/TopBar";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { ArrowDown, ArrowUp, ArrowUpDown, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -108,7 +107,14 @@ const Samples = () => {
   const [arrivalDateFilter, setArrivalDateFilter] = useState("");
   const [operatorFilter, setOperatorFilter] = useState("");
   const [methodFilterOpen, setMethodFilterOpen] = useState(false);
-  const [methodFilters, setMethodFilters] = useState<Record<string, "any" | "done" | "not_done">>({});
+  const [methodFilterValue, setMethodFilterValue] = useState<{ method: string; status: "any" | "done" | "not_done" }>({
+    method: "",
+    status: "any",
+  });
+  const [methodFilterDraft, setMethodFilterDraft] = useState<{ method: string; status: "any" | "done" | "not_done" }>({
+    method: "",
+    status: "any",
+  });
 
   useEffect(() => {
     const load = async () => {
@@ -250,10 +256,7 @@ const Samples = () => {
     );
   }, [filterMethodWhitelist]);
 
-  const activeMethodFilters = useMemo(
-    () => Object.entries(methodFilters).filter(([, status]) => status !== undefined),
-    [methodFilters],
-  );
+  const hasActiveMethodFilter = Boolean(methodFilterValue.method);
 
   const filteredRows = useMemo(() => {
     const sampleQuery = sampleIdFilter.trim().toLowerCase();
@@ -272,13 +275,11 @@ const Samples = () => {
         );
         if (!matchesOperator) return false;
       }
-      if (activeMethodFilters.length > 0) {
-        for (const [methodName, status] of activeMethodFilters) {
-          const method = row.methods.find((m) => m.name.toLowerCase() === methodName.toLowerCase());
-          if (!method) return false;
-          if (status === "done" && !method.done) return false;
-          if (status === "not_done" && method.done) return false;
-        }
+      if (methodFilterValue.method) {
+        const method = row.methods.find((m) => m.name.toLowerCase() === methodFilterValue.method.toLowerCase());
+        if (!method) return false;
+        if (methodFilterValue.status === "done" && !method.done) return false;
+        if (methodFilterValue.status === "not_done" && method.done) return false;
       }
       return true;
     });
@@ -289,7 +290,7 @@ const Samples = () => {
     samplingDateFilter,
     arrivalDateFilter,
     operatorFilter,
-    activeMethodFilters,
+    methodFilterValue,
   ]);
 
   const sortedRows = useMemo(() => {
@@ -384,11 +385,19 @@ const Samples = () => {
                   placeholder="Filter operator"
                   className="h-8 w-40"
                 />
-                <Popover open={methodFilterOpen} onOpenChange={setMethodFilterOpen}>
+                <Popover
+                  open={methodFilterOpen}
+                  onOpenChange={(open) => {
+                    setMethodFilterOpen(open);
+                    if (open) {
+                      setMethodFilterDraft(methodFilters);
+                    }
+                  }}
+                >
                   <PopoverTrigger asChild>
                     <Button variant="outline" size="sm" className="gap-2">
                       <Filter className="w-4 h-4" />
-                      Methods {activeMethodFilters.length > 0 ? `(${activeMethodFilters.length})` : ""}
+                      Methods {hasActiveMethodFilter ? "(1)" : ""}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="p-3 w-80" align="end">
@@ -399,50 +408,71 @@ const Samples = () => {
                           type="button"
                           variant="ghost"
                           size="sm"
-                          onClick={() => setMethodFilters({})}
+                          onClick={() => setMethodFilterDraft({ method: "", status: "any" })}
                         >
                           Reset
                         </Button>
                       </div>
                       <div className="space-y-2">
-                        {methodOptions.map((method) => {
-                          const selected = methodFilters[method] !== undefined;
-                          const status = methodFilters[method] ?? "any";
-                          return (
-                            <div key={method} className="flex items-center gap-2">
-                              <Checkbox
-                                checked={selected}
-                                onCheckedChange={(checked) => {
-                                  setMethodFilters((prev) => {
-                                    if (!checked) {
-                                      const next = { ...prev };
-                                      delete next[method];
-                                      return next;
-                                    }
-                                    return { ...prev, [method]: "any" };
-                                  });
-                                }}
-                              />
-                              <span className="flex-1 text-sm">{method}</span>
-                              <Select
-                                value={status}
-                                onValueChange={(value: "any" | "done" | "not_done") => {
-                                  setMethodFilters((prev) => ({ ...prev, [method]: value }));
-                                }}
-                                disabled={!selected}
-                              >
-                                <SelectTrigger className="h-8 w-28">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="any">Any</SelectItem>
-                                  <SelectItem value="done">Done</SelectItem>
-                                  <SelectItem value="not_done">Not done</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          );
-                        })}
+                        <Select
+                          value={methodFilterDraft.method}
+                          onValueChange={(value) => {
+                            setMethodFilterDraft((prev) => ({ ...prev, method: value }));
+                          }}
+                        >
+                          <SelectTrigger className="h-9">
+                            <SelectValue placeholder="Choose method" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {methodOptions.map((method) => (
+                              <SelectItem key={method} value={method}>
+                                {method}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select
+                          value={methodFilterDraft.status}
+                          onValueChange={(value: "any" | "done" | "not_done") => {
+                            setMethodFilterDraft((prev) => ({ ...prev, status: value }));
+                          }}
+                        >
+                          <SelectTrigger className="h-9">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="any">Any</SelectItem>
+                            <SelectItem value="done">Done</SelectItem>
+                            <SelectItem value="not_done">Not done</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setMethodFilterDraft(methodFilterValue);
+                            setMethodFilterOpen(false);
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => {
+                            setMethodFilterValue(methodFilterDraft);
+                            setMethodFilterOpen(false);
+                          }}
+                          disabled={
+                            methodFilterDraft.method === methodFilterValue.method &&
+                            methodFilterDraft.status === methodFilterValue.status
+                          }
+                        >
+                          Apply
+                        </Button>
                       </div>
                     </div>
                   </PopoverContent>
