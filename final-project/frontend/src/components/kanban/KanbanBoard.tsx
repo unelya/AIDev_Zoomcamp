@@ -6,7 +6,7 @@ import { getColumnData, getMockCards, columnConfigByRole } from '@/data/mockData
 import { KanbanCard, CommentThread, DeletedInfo, NewCardPayload, PlannedAnalysisCard, Role } from '@/types/kanban';
 import { Button } from '@/components/ui/button';
 import { NewCardDialog } from './NewCardDialog';
-import { createActionBatch, createConflict, createPlannedAnalysis, createSample, fetchActionBatches, fetchConflicts, fetchFilterMethods, fetchPlannedAnalyses, fetchSamples, fetchUsers, mapApiAnalysis, resolveConflict, updateFilterMethods, updatePlannedAnalysis, updateSampleFields, updateSampleStatus } from '@/lib/api';
+import { createActionBatch, createConflict, createPlannedAnalysis, createSample, deleteSample, fetchActionBatches, fetchConflicts, fetchFilterMethods, fetchPlannedAnalyses, fetchSamples, fetchUsers, mapApiAnalysis, resolveConflict, updateFilterMethods, updatePlannedAnalysis, updateSampleFields, updateSampleStatus } from '@/lib/api';
 import { useToast } from '@/components/ui/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandGroup, CommandItem } from '@/components/ui/command';
@@ -137,6 +137,7 @@ export function KanbanBoard({
   const [undoStack, setUndoStack] = useState<
     (
       | { kind: 'sample'; sampleId: string; prev: Partial<KanbanCard>; prevWarehouseReturnHighlight?: boolean }
+      | { kind: 'create'; sampleId: string }
       | { kind: 'analysis'; analysisId: number; sampleId: string; prevStatus: PlannedAnalysisCard['status']; prevAssignedTo?: string[] | null; prevLabOverride?: KanbanCard['status']; prevLabReturnHighlight?: boolean }
       | { kind: 'adminStored'; sampleId: string; prev: boolean }
       | { kind: 'labState'; sampleId: string; prev: { labStatusOverride?: KanbanCard['status']; labReturnHighlight?: boolean; labNeedsReason?: string; issueHistory?: string[] } }
@@ -1990,6 +1991,29 @@ export function KanbanBoard({
           variant: 'destructive',
         });
       }
+    } else if (lastAction.kind === 'create') {
+      setCards((prev) => prev.filter((card) => card.sampleId !== lastAction.sampleId));
+      setPlannedAnalyses((prev) => prev.filter((pa) => pa.sampleId !== lastAction.sampleId));
+      setCreatedSampleIds((prev) => {
+        if (!(lastAction.sampleId in prev)) return prev;
+        const next = { ...prev };
+        delete next[lastAction.sampleId];
+        return next;
+      });
+      if (selectedCard?.sampleId === lastAction.sampleId) {
+        setSelectedCard(null);
+        setIsPanelOpen(false);
+      }
+      try {
+        await deleteSample(lastAction.sampleId);
+        toast({ title: 'Undo', description: 'Sample creation reverted' });
+      } catch (err) {
+        toast({
+          title: 'Undo failed',
+          description: err instanceof Error ? err.message : 'Could not delete sample',
+          variant: 'destructive',
+        });
+      }
     } else if (lastAction.kind === 'analysis') {
       try {
         await updatePlannedAnalysis(lastAction.analysisId, lastAction.prevStatus, lastAction.prevAssignedTo ?? undefined);
@@ -2332,10 +2356,17 @@ export function KanbanBoard({
 
   const handleCreateCard = (payload: NewCardPayload) => {
     const newLabel = columnConfigByRole[role]?.find((c) => c.id === 'new')?.title ?? 'Planned';
+    const registerCreatedSample = (card: KanbanCard) => {
+      setCreatedSampleIds((prev) => ({ ...prev, [payload.sampleId]: true }));
+      setCards((prev) => [...prev, { ...card, statusLabel: newLabel }]);
+      setUndoStack((prev) => [
+        ...prev.slice(-19),
+        { kind: 'create', sampleId: payload.sampleId },
+      ]);
+    };
     createSample(payload)
       .then((card) => {
-        setCreatedSampleIds((prev) => ({ ...prev, [payload.sampleId]: true }));
-        setCards((prev) => [...prev, { ...card, statusLabel: newLabel }]);
+        registerCreatedSample(card);
       })
       .catch((err) => {
         toast({
@@ -2361,7 +2392,7 @@ export function KanbanBoard({
           storageLocation: payload.storageLocation ?? 'Unassigned',
           sampleStatus: 'new',
         };
-        setCards((prev) => [...prev, fallback]);
+        registerCreatedSample(fallback);
       });
   };
 

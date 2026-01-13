@@ -120,6 +120,16 @@ async def get_sample(sample_id: str, db: Session = Depends(get_db)):
   return to_sample_out(row)
 
 
+@app.delete("/samples/{sample_id}")
+async def delete_sample(sample_id: str, db: Session = Depends(get_db)):
+  row = db.get(SampleModel, sample_id)
+  if not row:
+    raise HTTPException(status_code=404, detail="Sample not found")
+  db.delete(row)
+  db.commit()
+  return {"deleted": True}
+
+
 @app.post("/samples", status_code=201)
 async def create_sample(sample: Sample, db: Session = Depends(get_db)):
   existing = db.get(SampleModel, sample.sample_id)

@@ -50,6 +50,14 @@ export async function createSample(payload: NewCardPayload): Promise<KanbanCard>
   return mapSampleToCard(data);
 }
 
+export async function deleteSample(sampleId: string) {
+  const res = await fetch(`/api/samples/${encodeURIComponent(sampleId)}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error(`Failed to delete sample (${res.status})`);
+  return (await res.json()) as { deleted: boolean };
+}
+
 export async function updateSampleStatus(sampleId: string, status: string, storageLocation?: string): Promise<KanbanCard> {
   const res = await fetch(`/api/samples/${sampleId}`, {
     method: "PATCH",
