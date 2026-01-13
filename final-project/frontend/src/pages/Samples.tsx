@@ -9,6 +9,7 @@ import { KanbanCard, PlannedAnalysisCard, Role, Status } from "@/types/kanban";
 const DEFAULT_ANALYSIS_TYPES = ["SARA", "IR", "Mass Spectrometry", "Viscosity"];
 const ADMIN_STORED_KEY = "labsync-admin-stored";
 const DELETED_KEY = "labsync-deleted";
+const LAB_OVERRIDES_KEY = "labsync-lab-overrides";
 
 const MOCK_NGDUS = ["NGDU-01", "NGDU-07", "NGDU-12", "NGDU-19"];
 const MOCK_WELLS = ["W-112", "W-204", "W-318", "W-421", "W-510"];
@@ -100,12 +101,18 @@ const Samples = () => {
   const rows = useMemo(() => {
     const adminStoredRaw = typeof window !== "undefined" ? localStorage.getItem(ADMIN_STORED_KEY) : null;
     const deletedRaw = typeof window !== "undefined" ? localStorage.getItem(DELETED_KEY) : null;
+    const labOverridesRaw = typeof window !== "undefined" ? localStorage.getItem(LAB_OVERRIDES_KEY) : null;
     const adminStored = (adminStoredRaw ? JSON.parse(adminStoredRaw) : {}) as Record<string, boolean>;
     const deleted = (deletedRaw ? JSON.parse(deletedRaw) : {}) as Record<string, { reason: string }>;
+    const labOverrides = (labOverridesRaw ? JSON.parse(labOverridesRaw) : {}) as Record<string, Status>;
     const sampleMap = new Map<string, KanbanCard>();
+    const sampleIdsFromCards = new Set<string>();
     cards
       .filter((card) => card.sampleId && card.sampleId.trim())
-      .forEach((card) => sampleMap.set(card.sampleId, card));
+      .forEach((card) => {
+        sampleMap.set(card.sampleId, card);
+        sampleIdsFromCards.add(card.sampleId);
+      });
     analyses.forEach((analysis) => {
       if (!analysis.sampleId || !analysis.sampleId.trim()) return;
       if (!sampleMap.has(analysis.sampleId)) {
@@ -161,11 +168,24 @@ const Samples = () => {
 
       const labStatus = aggregateStatus(methods, card.status);
       const analysisBadge = columnConfigByRole.lab_operator.find((col) => col.id === labStatus)?.title ?? "Planned";
+      const hasSampleCard = sampleIdsFromCards.has(card.sampleId);
+      const warehouseVisible = hasSampleCard && !deleted[card.sampleId] && !adminStored[card.sampleId];
+      const labVisible = warehouseVisible && (card.status === "review" || labOverrides[card.sampleId] !== undefined);
+      const adminVisible =
+        hasSampleCard &&
+        (Boolean(deleted[card.sampleId]) ||
+          Boolean(adminStored[card.sampleId]) ||
+          card.status === "review" ||
+          card.status === "done");
 
       return {
         card,
         adminStored: Boolean(adminStored[card.sampleId]),
         deleted: Boolean(deleted[card.sampleId]),
+        hasSampleCard,
+        warehouseVisible,
+        labVisible,
+        adminVisible,
         ngdu: MOCK_NGDUS[seed % MOCK_NGDUS.length],
         wellNumber: MOCK_WELLS[seed % MOCK_WELLS.length],
         shop: MOCK_SHOPS[seed % MOCK_SHOPS.length],
@@ -185,7 +205,6 @@ const Samples = () => {
         <Sidebar />
         <div className="flex-1 flex flex-col overflow-hidden">
           <div className="px-6 py-4 border-b border-border">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Samples</p>
             <h2 className="text-xl font-semibold text-foreground">Sample registry</h2>
             <p className="text-sm text-muted-foreground">All unique samples and analysis statuses.</p>
           </div>
@@ -241,9 +260,21 @@ const Samples = () => {
                       <TableCell>{row.card.samplingDate}</TableCell>
                       <TableCell>{row.arrivalDate}</TableCell>
                       <TableCell>{row.card.storageLocation}</TableCell>
-                      <TableCell>{sampleLabelForRole("warehouse_worker", row.card.status)}</TableCell>
-                      <TableCell>{sampleLabelForRole("lab_operator", aggregateStatus(row.methods, row.card.status))}</TableCell>
-                      <TableCell>{sampleLabelForRole("admin", row.card.status, row.adminStored, row.deleted)}</TableCell>
+                      <TableCell>
+                        {row.warehouseVisible
+                          ? sampleLabelForRole("warehouse_worker", row.card.status)
+                          : "N/A"}
+                      </TableCell>
+                      <TableCell>
+                        {row.labVisible
+                          ? sampleLabelForRole("lab_operator", aggregateStatus(row.methods, row.card.status))
+                          : "N/A"}
+                      </TableCell>
+                      <TableCell>
+                        {row.adminVisible
+                          ? sampleLabelForRole("admin", row.card.status, row.adminStored, row.deleted)
+                          : "N/A"}
+                      </TableCell>
                       <TableCell className="min-w-[520px]">
                         <div className="grid grid-cols-[minmax(140px,1.2fr)_60px_minmax(140px,1fr)] gap-2 text-[11px] text-muted-foreground pb-2 border-b border-border">
                           <span>Method</span>
