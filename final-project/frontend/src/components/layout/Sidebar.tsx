@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { NavLink } from '@/components/NavLink';
 import { fetchPlannedAnalyses, fetchSamples } from '@/lib/api';
 import { mockActions } from '@/data/actions';
+import { useAuth } from '@/hooks/use-auth';
 
 interface NavItemProps {
   to: string;
@@ -31,6 +32,10 @@ function NavItem({ icon, label, to, count }: NavItemProps) {
 }
 
 export function Sidebar() {
+  const { user } = useAuth();
+  const roles = user?.roles ?? (user?.role ? [user.role] : []);
+  const canSeeActions = roles.includes('action_supervision') || roles.includes('admin');
+  const canSeeAdmin = roles.includes('admin');
   const [sampleCount, setSampleCount] = useState<number | undefined>(undefined);
   const [actionCount] = useState<number>(mockActions.length);
 
@@ -73,22 +78,28 @@ export function Sidebar() {
           label="Samples" 
           count={sampleCount}
         />
-        <NavItem 
-          to="/actions"
-          icon={<ClipboardList className="h-4 w-4" />} 
-          label="Actions" 
-          count={actionCount}
-        />
-        <NavItem 
-          to="/admin"
-          icon={<BarChart3 className="h-4 w-4" />} 
-          label="Admin" 
-        />
-        <NavItem 
-          to="/settings"
-          icon={<Settings className="h-4 w-4" />} 
-          label="Settings" 
-        />
+        {canSeeActions && (
+          <NavItem 
+            to="/actions"
+            icon={<ClipboardList className="h-4 w-4" />} 
+            label="Actions" 
+            count={actionCount}
+          />
+        )}
+        {canSeeAdmin && (
+          <NavItem 
+            to="/admin"
+            icon={<BarChart3 className="h-4 w-4" />} 
+            label="Admin" 
+          />
+        )}
+        {canSeeAdmin && (
+          <NavItem 
+            to="/settings"
+            icon={<Settings className="h-4 w-4" />} 
+            label="Settings" 
+          />
+        )}
       </nav>
       
       <div className="p-3 border-t border-sidebar-border">
