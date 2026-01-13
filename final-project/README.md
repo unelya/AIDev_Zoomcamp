@@ -179,12 +179,18 @@ sudo systemctl restart nginx
 Your app should be reachable at `http://YOUR_DROPLET_IP`.
 
 ## AI-assisted development
-This project was built with AI assistance for scaffolding and refactoring (backend endpoints, UI structure, and API client utilities). Example workflow:
-- Describe the desired workflow and roles
-- Generate initial endpoint and UI scaffolding
-- Refine with manual edits and testing
+This project used AI assistants to accelerate scaffolding and refactoring, while keeping changes reviewable and testable.
 
-MCP usage: not used in this repository yet. If you use MCP later (e.g., with a project MCP server or external tools), document the server, tools, and workflow here.
+Tools used:
+- ChatGPT: architecture planning, endpoint outline, and documentation drafts
+- Codex: incremental code edits, small refactors, and test scaffolding
+
+Workflow:
+- Describe the desired workflow and roles
+- Generate initial endpoint/UI structure
+- Refine with manual edits and run tests
+
+MCP usage: not used in this repository.
 
 ## License
 MIT
