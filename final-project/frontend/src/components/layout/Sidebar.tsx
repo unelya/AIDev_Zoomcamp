@@ -1,6 +1,8 @@
+import { useEffect, useState } from 'react';
 import { LayoutGrid, FlaskConical, BarChart3, Settings, ChevronDown, ClipboardList } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { NavLink } from '@/components/NavLink';
+import { fetchPlannedAnalyses, fetchSamples } from '@/lib/api';
 
 interface NavItemProps {
   to: string;
@@ -28,6 +30,33 @@ function NavItem({ icon, label, to, count }: NavItemProps) {
 }
 
 export function Sidebar() {
+  const [sampleCount, setSampleCount] = useState<number | undefined>(undefined);
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      try {
+        const [samples, analyses] = await Promise.all([fetchSamples(), fetchPlannedAnalyses()]);
+        const ids = new Set<string>();
+        samples.forEach((sample) => {
+          const id = sample.sampleId?.trim();
+          if (id) ids.add(id);
+        });
+        analyses.forEach((analysis) => {
+          const id = analysis.sampleId?.trim();
+          if (id) ids.add(id);
+        });
+        if (active) setSampleCount(ids.size);
+      } catch {
+        if (active) setSampleCount(undefined);
+      }
+    };
+    load();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <aside className="w-56 bg-sidebar border-r border-sidebar-border flex flex-col">
       <nav className="flex-1 p-3 space-y-1">
@@ -40,7 +69,7 @@ export function Sidebar() {
           to="/samples"
           icon={<FlaskConical className="h-4 w-4" />} 
           label="Samples" 
-          count={142}
+          count={sampleCount}
         />
         <NavItem 
           to="/actions"
