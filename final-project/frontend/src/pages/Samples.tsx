@@ -3,7 +3,7 @@ import { TopBar } from "@/components/layout/TopBar";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { columnConfigByRole } from "@/data/mockData";
-import { fetchPlannedAnalyses, fetchSamples } from "@/lib/api";
+import { fetchPlannedAnalyses, fetchSamples, mapApiAnalysis } from "@/lib/api";
 import { KanbanCard, PlannedAnalysisCard, Role, Status } from "@/types/kanban";
 
 const DEFAULT_ANALYSIS_TYPES = ["SARA", "IR", "Mass Spectrometry", "Viscosity"];
@@ -88,7 +88,8 @@ const Samples = () => {
       try {
         const [samples, planned] = await Promise.all([fetchSamples(), fetchPlannedAnalyses()]);
         setCards(samples);
-        setAnalyses(planned);
+        const normalized = planned.map((item) => mapApiAnalysis(item as any));
+        setAnalyses(normalized);
       } finally {
         setLoading(false);
       }
@@ -204,9 +205,9 @@ const Samples = () => {
                   <TableHead>Sampling date</TableHead>
                   <TableHead>Arrival date</TableHead>
                   <TableHead>Storage location</TableHead>
-                  <TableHead>Warehouse badge</TableHead>
-                  <TableHead>Lab badge</TableHead>
-                  <TableHead>Admin badge</TableHead>
+                  <TableHead>Sample status</TableHead>
+                  <TableHead>Analysis status</TableHead>
+                  <TableHead>Admin status</TableHead>
                   <TableHead>Analyses</TableHead>
                 </TableRow>
               </TableHeader>
@@ -244,28 +245,22 @@ const Samples = () => {
                       <TableCell>{sampleLabelForRole("lab_operator", aggregateStatus(row.methods, row.card.status))}</TableCell>
                       <TableCell>{sampleLabelForRole("admin", row.card.status, row.adminStored, row.deleted)}</TableCell>
                       <TableCell className="min-w-[520px]">
-                        <div className="grid grid-cols-[minmax(140px,1.2fr)_60px_minmax(140px,1fr)_minmax(120px,1fr)_minmax(120px,1fr)_minmax(120px,1fr)] gap-2 text-[11px] text-muted-foreground pb-2 border-b border-border">
+                        <div className="grid grid-cols-[minmax(140px,1.2fr)_60px_minmax(140px,1fr)] gap-2 text-[11px] text-muted-foreground pb-2 border-b border-border">
                           <span>Method</span>
                           <span>Done</span>
                           <span>Operators</span>
-                          <span>Warehouse</span>
-                          <span>Lab</span>
-                          <span>Admin</span>
                         </div>
                         <div className="space-y-2 pt-2">
                           {row.methods.map((method) => (
                             <div
                               key={method.name}
-                              className="grid grid-cols-[minmax(140px,1.2fr)_60px_minmax(140px,1fr)_minmax(120px,1fr)_minmax(120px,1fr)_minmax(120px,1fr)] gap-2 text-xs"
+                              className="grid grid-cols-[minmax(140px,1.2fr)_60px_minmax(140px,1fr)] gap-2 text-xs"
                             >
                               <span className="font-medium text-foreground">{method.name}</span>
                               <span>{method.done ? "Yes" : "No"}</span>
                               <span className="text-muted-foreground">
                                 {method.assignees.length > 0 ? method.assignees.join(", ") : "Unassigned"}
                               </span>
-                              <span>{row.analysisBadge}</span>
-                              <span>{row.analysisBadge}</span>
-                              <span>{row.analysisBadge}</span>
                             </div>
                           ))}
                         </div>
