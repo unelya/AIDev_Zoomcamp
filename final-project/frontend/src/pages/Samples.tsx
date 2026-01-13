@@ -349,203 +349,203 @@ const Samples = () => {
         <div className="flex-1 flex flex-col overflow-hidden">
           <div className="px-6 py-4 border-b border-border space-y-3">
             <div className="flex items-start justify-between gap-4">
-            <div>
-              <h2 className="text-xl font-semibold text-foreground">Sample registry</h2>
-              <p className="text-sm text-muted-foreground">All unique samples and analysis statuses.</p>
-            </div>
-            <Popover
-              open={sortOpen}
-              onOpenChange={(open) => {
-                setSortOpen(open);
-                if (open) {
-                  setSortDraft(sortMode);
-                }
-              }}
-            >
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                  {sortMode === "none" ? (
-                    <ArrowUpDown className="w-4 h-4" />
-                  ) : sortMode.endsWith(":desc") ? (
-                    <ArrowDown className="w-4 h-4" />
-                  ) : (
-                    <ArrowUp className="w-4 h-4" />
-                  )}
-                  Sort {sortMode !== "none" ? "(1)" : ""}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="p-3 w-80" align="end">
-                <div className="space-y-3 text-sm">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold text-foreground">Sort order</p>
-                    <Button type="button" variant="ghost" size="sm" onClick={() => setSortDraft("none")}>
-                      Reset
+              <div>
+                <h2 className="text-xl font-semibold text-foreground">Sample registry</h2>
+                <p className="text-sm text-muted-foreground">All unique samples and analysis statuses.</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 justify-end">
+                <Input
+                  value={sampleIdFilter}
+                  onChange={(event) => setSampleIdFilter(event.target.value)}
+                  placeholder="Filter Sample ID"
+                  className="h-8 w-40"
+                />
+                <Input
+                  value={wellIdFilter}
+                  onChange={(event) => setWellIdFilter(event.target.value)}
+                  placeholder="Filter Well ID"
+                  className="h-8 w-40"
+                />
+                <Input
+                  value={samplingDateFilter}
+                  onChange={(event) => setSamplingDateFilter(event.target.value)}
+                  placeholder="Filter sampling date"
+                  className="h-8 w-44"
+                />
+                <Input
+                  value={arrivalDateFilter}
+                  onChange={(event) => setArrivalDateFilter(event.target.value)}
+                  placeholder="Filter arrival date"
+                  className="h-8 w-44"
+                />
+                <Input
+                  value={operatorFilter}
+                  onChange={(event) => setOperatorFilter(event.target.value)}
+                  placeholder="Filter operator"
+                  className="h-8 w-40"
+                />
+                <Popover open={methodFilterOpen} onOpenChange={setMethodFilterOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2">
+                      <Filter className="w-4 h-4" />
+                      Methods {activeMethodFilters.length > 0 ? `(${activeMethodFilters.length})` : ""}
                     </Button>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-xs text-muted-foreground">Sort by</p>
-                    <div className="flex items-center gap-2">
-                      <Select
-                        value={sortMeta.isNone ? "" : sortMeta.field}
-                        onValueChange={(value) => {
-                          if (!value) return;
-                          const direction = sortMeta.direction;
-                          setSortDraft(`${value}:${direction}` as typeof sortDraft);
-                        }}
-                      >
-                        <SelectTrigger className="h-9 flex-1">
-                          <SelectValue placeholder="Choose field" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="sample">Sample ID</SelectItem>
-                          <SelectItem value="well">Well ID</SelectItem>
-                          <SelectItem value="sampling">Sampling date</SelectItem>
-                          <SelectItem value="arrival">Arrival date</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <div className="flex items-center gap-1 rounded-md border border-border p-1">
+                  </PopoverTrigger>
+                  <PopoverContent className="p-3 w-80" align="end">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-semibold text-foreground">Methods filter</p>
                         <Button
                           type="button"
-                          variant={sortMeta.direction === "asc" && !sortMeta.isNone ? "default" : "ghost"}
+                          variant="ghost"
                           size="sm"
-                          className="h-8 w-10"
-                          onClick={() => {
-                            const field = sortMeta.field;
-                            setSortDraft(`${field}:asc` as typeof sortDraft);
-                          }}
-                          aria-label="Ascending"
+                          onClick={() => setMethodFilters({})}
                         >
-                          <ArrowUp className="h-4 w-4" />
+                          Reset
+                        </Button>
+                      </div>
+                      <div className="space-y-2">
+                        {methodOptions.map((method) => {
+                          const selected = methodFilters[method] !== undefined;
+                          const status = methodFilters[method] ?? "any";
+                          return (
+                            <div key={method} className="flex items-center gap-2">
+                              <Checkbox
+                                checked={selected}
+                                onCheckedChange={(checked) => {
+                                  setMethodFilters((prev) => {
+                                    if (!checked) {
+                                      const next = { ...prev };
+                                      delete next[method];
+                                      return next;
+                                    }
+                                    return { ...prev, [method]: "any" };
+                                  });
+                                }}
+                              />
+                              <span className="flex-1 text-sm">{method}</span>
+                              <Select
+                                value={status}
+                                onValueChange={(value: "any" | "done" | "not_done") => {
+                                  setMethodFilters((prev) => ({ ...prev, [method]: value }));
+                                }}
+                                disabled={!selected}
+                              >
+                                <SelectTrigger className="h-8 w-28">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="any">Any</SelectItem>
+                                  <SelectItem value="done">Done</SelectItem>
+                                  <SelectItem value="not_done">Not done</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                <Popover
+                  open={sortOpen}
+                  onOpenChange={(open) => {
+                    setSortOpen(open);
+                    if (open) {
+                      setSortDraft(sortMode);
+                    }
+                  }}
+                >
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2">
+                      {sortMode === "none" ? (
+                        <ArrowUpDown className="w-4 h-4" />
+                      ) : sortMode.endsWith(":desc") ? (
+                        <ArrowDown className="w-4 h-4" />
+                      ) : (
+                        <ArrowUp className="w-4 h-4" />
+                      )}
+                      Sort {sortMode !== "none" ? "(1)" : ""}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="p-3 w-80" align="end">
+                    <div className="space-y-3 text-sm">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-semibold text-foreground">Sort order</p>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setSortDraft("none")}>
+                          Reset
+                        </Button>
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-xs text-muted-foreground">Sort by</p>
+                        <div className="flex items-center gap-2">
+                          <Select
+                            value={sortMeta.isNone ? "" : sortMeta.field}
+                            onValueChange={(value) => {
+                              if (!value) return;
+                              const direction = sortMeta.direction;
+                              setSortDraft(`${value}:${direction}` as typeof sortDraft);
+                            }}
+                          >
+                            <SelectTrigger className="h-9 flex-1">
+                              <SelectValue placeholder="Choose field" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="sample">Sample ID</SelectItem>
+                              <SelectItem value="well">Well ID</SelectItem>
+                              <SelectItem value="sampling">Sampling date</SelectItem>
+                              <SelectItem value="arrival">Arrival date</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <div className="flex items-center gap-1 rounded-md border border-border p-1">
+                            <Button
+                              type="button"
+                              variant={sortMeta.direction === "asc" && !sortMeta.isNone ? "default" : "ghost"}
+                              size="sm"
+                              className="h-8 w-10"
+                              onClick={() => {
+                                const field = sortMeta.field;
+                                setSortDraft(`${field}:asc` as typeof sortDraft);
+                              }}
+                              aria-label="Ascending"
+                            >
+                              <ArrowUp className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant={sortMeta.direction === "desc" && !sortMeta.isNone ? "default" : "ghost"}
+                              size="sm"
+                              className="h-8 w-10"
+                              onClick={() => {
+                                const field = sortMeta.field;
+                                setSortDraft(`${field}:desc` as typeof sortDraft);
+                              }}
+                              aria-label="Descending"
+                            >
+                              <ArrowDown className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setSortOpen(false)}>
+                          Cancel
                         </Button>
                         <Button
                           type="button"
-                          variant={sortMeta.direction === "desc" && !sortMeta.isNone ? "default" : "ghost"}
                           size="sm"
-                          className="h-8 w-10"
                           onClick={() => {
-                            const field = sortMeta.field;
-                            setSortDraft(`${field}:desc` as typeof sortDraft);
+                            setSortMode(sortDraft);
+                            setSortOpen(false);
                           }}
-                          aria-label="Descending"
                         >
-                          <ArrowDown className="h-4 w-4" />
+                          Apply
                         </Button>
                       </div>
                     </div>
-                  </div>
-                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
-                    <Button type="button" variant="ghost" size="sm" onClick={() => setSortOpen(false)}>
-                      Cancel
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() => {
-                        setSortMode(sortDraft);
-                        setSortOpen(false);
-                      }}
-                    >
-                      Apply
-                    </Button>
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
-          </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Input
-                value={sampleIdFilter}
-                onChange={(event) => setSampleIdFilter(event.target.value)}
-                placeholder="Filter Sample ID"
-                className="h-8 w-40"
-              />
-              <Input
-                value={wellIdFilter}
-                onChange={(event) => setWellIdFilter(event.target.value)}
-                placeholder="Filter Well ID"
-                className="h-8 w-40"
-              />
-              <Input
-                value={samplingDateFilter}
-                onChange={(event) => setSamplingDateFilter(event.target.value)}
-                placeholder="Filter sampling date"
-                className="h-8 w-44"
-              />
-              <Input
-                value={arrivalDateFilter}
-                onChange={(event) => setArrivalDateFilter(event.target.value)}
-                placeholder="Filter arrival date"
-                className="h-8 w-44"
-              />
-              <Input
-                value={operatorFilter}
-                onChange={(event) => setOperatorFilter(event.target.value)}
-                placeholder="Filter operator"
-                className="h-8 w-40"
-              />
-              <Popover open={methodFilterOpen} onOpenChange={setMethodFilterOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-2">
-                    <Filter className="w-4 h-4" />
-                    Methods {activeMethodFilters.length > 0 ? `(${activeMethodFilters.length})` : ""}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="p-3 w-80" align="end">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-semibold text-foreground">Methods filter</p>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setMethodFilters({})}
-                      >
-                        Reset
-                      </Button>
-                    </div>
-                    <div className="space-y-2">
-                      {methodOptions.map((method) => {
-                        const selected = methodFilters[method] !== undefined;
-                        const status = methodFilters[method] ?? "any";
-                        return (
-                          <div key={method} className="flex items-center gap-2">
-                            <Checkbox
-                              checked={selected}
-                              onCheckedChange={(checked) => {
-                                setMethodFilters((prev) => {
-                                  if (!checked) {
-                                    const next = { ...prev };
-                                    delete next[method];
-                                    return next;
-                                  }
-                                  return { ...prev, [method]: "any" };
-                                });
-                              }}
-                            />
-                            <span className="flex-1 text-sm">{method}</span>
-                            <Select
-                              value={status}
-                              onValueChange={(value: "any" | "done" | "not_done") => {
-                                setMethodFilters((prev) => ({ ...prev, [method]: value }));
-                              }}
-                              disabled={!selected}
-                            >
-                              <SelectTrigger className="h-8 w-28">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="any">Any</SelectItem>
-                                <SelectItem value="done">Done</SelectItem>
-                                <SelectItem value="not_done">Not done</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </PopoverContent>
-              </Popover>
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
           </div>
           <div className="flex-1 overflow-auto p-6">
