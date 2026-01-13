@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 import re
 
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -394,7 +394,7 @@ async def update_conflict(conflict_id: int, payload: ConflictUpdate, request: Re
     row.status = ConflictStatus(payload.status)
   if payload.resolution_note is not None:
     row.resolution_note = payload.resolution_note
-  row.updated_at = datetime.utcnow().isoformat()
+  row.updated_at = datetime.now(timezone.utc).isoformat()
   if authorization and authorization.lower().startswith("bearer "):
     row.updated_by = authorization.split(" ", 1)[1]
   db.add(row)
@@ -444,7 +444,7 @@ def log_audit(db: Session, *, entity_type: str, entity_id: str, action: str, per
     entity_id=entity_id,
     action=action,
     performed_by=performed_by,
-    performed_at=datetime.utcnow().isoformat(),
+    performed_at=datetime.now(timezone.utc).isoformat(),
     details=details,
   )
   db.add(log_row)

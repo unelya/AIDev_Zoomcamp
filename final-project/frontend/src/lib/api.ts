@@ -80,7 +80,7 @@ export async function updateSampleFields(sampleId: string, payload: Record<strin
   return mapSampleToCard(data);
 }
 
-function mapSampleToCard(sample: any): KanbanCard {
+export function mapSampleToCard(sample: any): KanbanCard {
   const statusLabelMap: Record<string, string> = {
     new: "Planned",
     progress: "Awaiting arrival",
