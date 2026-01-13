@@ -3,6 +3,7 @@ import { LayoutGrid, FlaskConical, BarChart3, Settings, ChevronDown, ClipboardLi
 import { cn } from '@/lib/utils';
 import { NavLink } from '@/components/NavLink';
 import { fetchPlannedAnalyses, fetchSamples } from '@/lib/api';
+import { mockActions } from '@/data/actions';
 
 interface NavItemProps {
   to: string;
@@ -31,6 +32,7 @@ function NavItem({ icon, label, to, count }: NavItemProps) {
 
 export function Sidebar() {
   const [sampleCount, setSampleCount] = useState<number | undefined>(undefined);
+  const [actionCount] = useState<number>(mockActions.length);
 
   useEffect(() => {
     let active = true;
@@ -75,6 +77,7 @@ export function Sidebar() {
           to="/actions"
           icon={<ClipboardList className="h-4 w-4" />} 
           label="Actions" 
+          count={actionCount}
         />
         <NavItem 
           to="/admin"
