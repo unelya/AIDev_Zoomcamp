@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { TopBar } from "@/components/layout/TopBar";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { columnConfigByRole } from "@/data/mockData";
 import { fetchPlannedAnalyses, fetchSamples, mapApiAnalysis } from "@/lib/api";
@@ -82,6 +86,19 @@ const Samples = () => {
   const [cards, setCards] = useState<KanbanCard[]>([]);
   const [analyses, setAnalyses] = useState<PlannedAnalysisCard[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sortMode, setSortMode] = useState<
+    | "none"
+    | "sample:asc"
+    | "sample:desc"
+    | "well:asc"
+    | "well:desc"
+    | "sampling:asc"
+    | "sampling:desc"
+    | "arrival:asc"
+    | "arrival:desc"
+  >("none");
+  const [sortDraft, setSortDraft] = useState<typeof sortMode>("none");
+  const [sortOpen, setSortOpen] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -165,6 +182,16 @@ const Samples = () => {
           assignees,
         };
       });
+      const methodSortKey =
+        methods
+          .map((m) => m.name)
+          .filter(Boolean)
+          .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }))[0] ?? "";
+      const operatorSortKey =
+        methods
+          .flatMap((m) => m.assignees)
+          .filter(Boolean)
+          .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }))[0] ?? "";
 
       const labStatus = aggregateStatus(methods, card.status);
       const analysisBadge = columnConfigByRole.lab_operator.find((col) => col.id === labStatus)?.title ?? "Planned";
@@ -198,15 +225,164 @@ const Samples = () => {
     });
   }, [cards, analyses]);
 
+  const sortedRows = useMemo(() => {
+    if (sortMode === "none") return rows;
+    const [field, direction] = sortMode.split(":") as [
+      "sample" | "well" | "sampling" | "arrival",
+      "asc" | "desc",
+    ];
+    const multiplier = direction === "asc" ? 1 : -1;
+    const toDate = (value: string) => {
+      const parsed = Date.parse(value);
+      return Number.isNaN(parsed) ? null : parsed;
+    };
+    const compare = (a: string, b: string) =>
+      a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+    const rowsWithIndex = rows.map((row, index) => ({ row, index }));
+    rowsWithIndex.sort((a, b) => {
+      let result = 0;
+      if (field === "sample") {
+        result = compare(a.row.card.sampleId ?? "", b.row.card.sampleId ?? "");
+      } else if (field === "well") {
+        result = compare(a.row.card.wellId ?? "", b.row.card.wellId ?? "");
+      } else if (field === "sampling") {
+        const aDate = toDate(a.row.card.samplingDate ?? "") ?? 0;
+        const bDate = toDate(b.row.card.samplingDate ?? "") ?? 0;
+        result = aDate - bDate;
+      } else if (field === "arrival") {
+        const aDate = toDate(a.row.arrivalDate ?? "") ?? 0;
+        const bDate = toDate(b.row.arrivalDate ?? "") ?? 0;
+        result = aDate - bDate;
+      }
+      if (result === 0) {
+        return a.index - b.index;
+      }
+      return result * multiplier;
+    });
+    return rowsWithIndex.map(({ row }) => row);
+  }, [rows, sortMode]);
+
+  const parseSort = (value: typeof sortMode) => {
+    if (value === "none") {
+      return { field: "sample" as const, direction: "asc" as const, isNone: true };
+    }
+    const [field, direction] = value.split(":") as [
+      "sample" | "well" | "sampling" | "arrival",
+      "asc" | "desc",
+    ];
+    return { field, direction, isNone: false };
+  };
+  const sortMeta = parseSort(sortDraft);
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <TopBar />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
         <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="px-6 py-4 border-b border-border">
-            <h2 className="text-xl font-semibold text-foreground">Sample registry</h2>
-            <p className="text-sm text-muted-foreground">All unique samples and analysis statuses.</p>
+          <div className="px-6 py-4 border-b border-border flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-semibold text-foreground">Sample registry</h2>
+              <p className="text-sm text-muted-foreground">All unique samples and analysis statuses.</p>
+            </div>
+            <Popover
+              open={sortOpen}
+              onOpenChange={(open) => {
+                setSortOpen(open);
+                if (open) {
+                  setSortDraft(sortMode);
+                }
+              }}
+            >
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  {sortMode === "none" ? (
+                    <ArrowUpDown className="w-4 h-4" />
+                  ) : sortMode.endsWith(":desc") ? (
+                    <ArrowDown className="w-4 h-4" />
+                  ) : (
+                    <ArrowUp className="w-4 h-4" />
+                  )}
+                  Sort {sortMode !== "none" ? "(1)" : ""}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="p-3 w-80" align="end">
+                <div className="space-y-3 text-sm">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-foreground">Sort order</p>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setSortDraft("none")}>
+                      Reset
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground">Sort by</p>
+                    <div className="flex items-center gap-2">
+                      <Select
+                        value={sortMeta.isNone ? "" : sortMeta.field}
+                        onValueChange={(value) => {
+                          if (!value) return;
+                          const direction = sortMeta.direction;
+                          setSortDraft(`${value}:${direction}` as typeof sortDraft);
+                        }}
+                      >
+                        <SelectTrigger className="h-9 flex-1">
+                          <SelectValue placeholder="Choose field" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="sample">Sample ID</SelectItem>
+                          <SelectItem value="well">Well ID</SelectItem>
+                          <SelectItem value="sampling">Sampling date</SelectItem>
+                          <SelectItem value="arrival">Arrival date</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <div className="flex items-center gap-1 rounded-md border border-border p-1">
+                        <Button
+                          type="button"
+                          variant={sortMeta.direction === "asc" && !sortMeta.isNone ? "default" : "ghost"}
+                          size="sm"
+                          className="h-8 w-10"
+                          onClick={() => {
+                            const field = sortMeta.field;
+                            setSortDraft(`${field}:asc` as typeof sortDraft);
+                          }}
+                          aria-label="Ascending"
+                        >
+                          <ArrowUp className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={sortMeta.direction === "desc" && !sortMeta.isNone ? "default" : "ghost"}
+                          size="sm"
+                          className="h-8 w-10"
+                          onClick={() => {
+                            const field = sortMeta.field;
+                            setSortDraft(`${field}:desc` as typeof sortDraft);
+                          }}
+                          aria-label="Descending"
+                        >
+                          <ArrowDown className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setSortOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => {
+                        setSortMode(sortDraft);
+                        setSortOpen(false);
+                      }}
+                    >
+                      Apply
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
           <div className="flex-1 overflow-auto p-6">
             <Table>
@@ -246,7 +422,7 @@ const Samples = () => {
                   </TableRow>
                 )}
                 {!loading &&
-                  rows.map((row, index) => (
+                  sortedRows.map((row, index) => (
                     <TableRow key={row.card.sampleId}>
                       <TableCell className="text-right text-muted-foreground">{index + 1}</TableCell>
                       <TableCell className="font-medium text-foreground">{row.card.sampleId}</TableCell>
