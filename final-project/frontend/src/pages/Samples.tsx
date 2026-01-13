@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { TopBar } from "@/components/layout/TopBar";
 import { Sidebar } from "@/components/layout/Sidebar";
-import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { columnConfigByRole } from "@/data/mockData";
-import { fetchPlannedAnalyses, fetchSamples, mapApiAnalysis } from "@/lib/api";
+import { fetchFilterMethods, fetchPlannedAnalyses, fetchSamples, mapApiAnalysis } from "@/lib/api";
 import { KanbanCard, PlannedAnalysisCard, Role, Status } from "@/types/kanban";
 
 const DEFAULT_ANALYSIS_TYPES = ["SARA", "IR", "Mass Spectrometry", "Viscosity"];
@@ -86,6 +88,7 @@ const Samples = () => {
   const [cards, setCards] = useState<KanbanCard[]>([]);
   const [analyses, setAnalyses] = useState<PlannedAnalysisCard[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filterMethodWhitelist, setFilterMethodWhitelist] = useState<string[]>([]);
   const [sortMode, setSortMode] = useState<
     | "none"
     | "sample:asc"
@@ -99,15 +102,27 @@ const Samples = () => {
   >("none");
   const [sortDraft, setSortDraft] = useState<typeof sortMode>("none");
   const [sortOpen, setSortOpen] = useState(false);
+  const [sampleIdFilter, setSampleIdFilter] = useState("");
+  const [wellIdFilter, setWellIdFilter] = useState("");
+  const [samplingDateFilter, setSamplingDateFilter] = useState("");
+  const [arrivalDateFilter, setArrivalDateFilter] = useState("");
+  const [operatorFilter, setOperatorFilter] = useState("");
+  const [methodFilterOpen, setMethodFilterOpen] = useState(false);
+  const [methodFilters, setMethodFilters] = useState<Record<string, "any" | "done" | "not_done">>({});
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       try {
-        const [samples, planned] = await Promise.all([fetchSamples(), fetchPlannedAnalyses()]);
+        const [samples, planned, filterMethods] = await Promise.all([
+          fetchSamples(),
+          fetchPlannedAnalyses(),
+          fetchFilterMethods().catch(() => []),
+        ]);
         setCards(samples);
         const normalized = planned.map((item) => mapApiAnalysis(item as any));
         setAnalyses(normalized);
+        setFilterMethodWhitelist(filterMethods);
       } finally {
         setLoading(false);
       }
@@ -225,8 +240,60 @@ const Samples = () => {
     });
   }, [cards, analyses]);
 
+  const methodOptions = useMemo(() => {
+    const allowList = new Set<string>([
+      ...DEFAULT_ANALYSIS_TYPES,
+      ...filterMethodWhitelist.filter((method) => !DEFAULT_ANALYSIS_TYPES.includes(method)),
+    ]);
+    return Array.from(allowList).sort((a, b) =>
+      a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }),
+    );
+  }, [filterMethodWhitelist]);
+
+  const activeMethodFilters = useMemo(
+    () => Object.entries(methodFilters).filter(([, status]) => status !== undefined),
+    [methodFilters],
+  );
+
+  const filteredRows = useMemo(() => {
+    const sampleQuery = sampleIdFilter.trim().toLowerCase();
+    const wellQuery = wellIdFilter.trim().toLowerCase();
+    const samplingQuery = samplingDateFilter.trim().toLowerCase();
+    const arrivalQuery = arrivalDateFilter.trim().toLowerCase();
+    const operatorQuery = operatorFilter.trim().toLowerCase();
+    return rows.filter((row) => {
+      if (sampleQuery && !row.card.sampleId.toLowerCase().includes(sampleQuery)) return false;
+      if (wellQuery && !row.card.wellId.toLowerCase().includes(wellQuery)) return false;
+      if (samplingQuery && !row.card.samplingDate.toLowerCase().includes(samplingQuery)) return false;
+      if (arrivalQuery && !row.arrivalDate.toLowerCase().includes(arrivalQuery)) return false;
+      if (operatorQuery) {
+        const matchesOperator = row.methods.some((method) =>
+          method.assignees.some((assignee) => assignee.toLowerCase().includes(operatorQuery)),
+        );
+        if (!matchesOperator) return false;
+      }
+      if (activeMethodFilters.length > 0) {
+        for (const [methodName, status] of activeMethodFilters) {
+          const method = row.methods.find((m) => m.name.toLowerCase() === methodName.toLowerCase());
+          if (!method) return false;
+          if (status === "done" && !method.done) return false;
+          if (status === "not_done" && method.done) return false;
+        }
+      }
+      return true;
+    });
+  }, [
+    rows,
+    sampleIdFilter,
+    wellIdFilter,
+    samplingDateFilter,
+    arrivalDateFilter,
+    operatorFilter,
+    activeMethodFilters,
+  ]);
+
   const sortedRows = useMemo(() => {
-    if (sortMode === "none") return rows;
+    if (sortMode === "none") return filteredRows;
     const [field, direction] = sortMode.split(":") as [
       "sample" | "well" | "sampling" | "arrival",
       "asc" | "desc",
@@ -238,7 +305,7 @@ const Samples = () => {
     };
     const compare = (a: string, b: string) =>
       a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
-    const rowsWithIndex = rows.map((row, index) => ({ row, index }));
+    const rowsWithIndex = filteredRows.map((row, index) => ({ row, index }));
     rowsWithIndex.sort((a, b) => {
       let result = 0;
       if (field === "sample") {
@@ -260,7 +327,7 @@ const Samples = () => {
       return result * multiplier;
     });
     return rowsWithIndex.map(({ row }) => row);
-  }, [rows, sortMode]);
+  }, [filteredRows, sortMode]);
 
   const parseSort = (value: typeof sortMode) => {
     if (value === "none") {
@@ -280,7 +347,8 @@ const Samples = () => {
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
         <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="px-6 py-4 border-b border-border flex items-start justify-between gap-4">
+          <div className="px-6 py-4 border-b border-border space-y-3">
+            <div className="flex items-start justify-between gap-4">
             <div>
               <h2 className="text-xl font-semibold text-foreground">Sample registry</h2>
               <p className="text-sm text-muted-foreground">All unique samples and analysis statuses.</p>
@@ -383,6 +451,102 @@ const Samples = () => {
                 </div>
               </PopoverContent>
             </Popover>
+          </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                value={sampleIdFilter}
+                onChange={(event) => setSampleIdFilter(event.target.value)}
+                placeholder="Filter Sample ID"
+                className="h-8 w-40"
+              />
+              <Input
+                value={wellIdFilter}
+                onChange={(event) => setWellIdFilter(event.target.value)}
+                placeholder="Filter Well ID"
+                className="h-8 w-40"
+              />
+              <Input
+                value={samplingDateFilter}
+                onChange={(event) => setSamplingDateFilter(event.target.value)}
+                placeholder="Filter sampling date"
+                className="h-8 w-44"
+              />
+              <Input
+                value={arrivalDateFilter}
+                onChange={(event) => setArrivalDateFilter(event.target.value)}
+                placeholder="Filter arrival date"
+                className="h-8 w-44"
+              />
+              <Input
+                value={operatorFilter}
+                onChange={(event) => setOperatorFilter(event.target.value)}
+                placeholder="Filter operator"
+                className="h-8 w-40"
+              />
+              <Popover open={methodFilterOpen} onOpenChange={setMethodFilterOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Filter className="w-4 h-4" />
+                    Methods {activeMethodFilters.length > 0 ? `(${activeMethodFilters.length})` : ""}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="p-3 w-80" align="end">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold text-foreground">Methods filter</p>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setMethodFilters({})}
+                      >
+                        Reset
+                      </Button>
+                    </div>
+                    <div className="space-y-2">
+                      {methodOptions.map((method) => {
+                        const selected = methodFilters[method] !== undefined;
+                        const status = methodFilters[method] ?? "any";
+                        return (
+                          <div key={method} className="flex items-center gap-2">
+                            <Checkbox
+                              checked={selected}
+                              onCheckedChange={(checked) => {
+                                setMethodFilters((prev) => {
+                                  if (!checked) {
+                                    const next = { ...prev };
+                                    delete next[method];
+                                    return next;
+                                  }
+                                  return { ...prev, [method]: "any" };
+                                });
+                              }}
+                            />
+                            <span className="flex-1 text-sm">{method}</span>
+                            <Select
+                              value={status}
+                              onValueChange={(value: "any" | "done" | "not_done") => {
+                                setMethodFilters((prev) => ({ ...prev, [method]: value }));
+                              }}
+                              disabled={!selected}
+                            >
+                              <SelectTrigger className="h-8 w-28">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="any">Any</SelectItem>
+                                <SelectItem value="done">Done</SelectItem>
+                                <SelectItem value="not_done">Not done</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
           <div className="flex-1 overflow-auto p-6">
             <Table>
